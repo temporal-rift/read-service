@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: read-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/temporal_rift
+    username: temporal_rift
+    password: temporal_rift
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+  kafka:
+    bootstrap-servers: localhost:9092
+    properties:
+      security.protocol: PLAINTEXT
+
+logging:
+  level:
+    io.github.temporalrift: DEBUG
