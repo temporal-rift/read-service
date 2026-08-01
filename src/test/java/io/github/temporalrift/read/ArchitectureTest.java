@@ -22,8 +22,6 @@ public class ArchitectureTest {
             .resideInAnyPackage("org.springframework..", "jakarta.persistence..", "lombok..")
             .as("Domain layer must be plain Java — no Spring, JPA, or Lombok");
 
-    // allowEmptyShould: no `application` package exists yet in this MVP1 slice (no use cases — only a driven
-    // port + its infrastructure adapter). Starts being enforced the moment application-layer classes appear.
     @ArchTest
     static final ArchRule application_must_not_depend_on_infrastructure = noClasses()
             .that()
@@ -31,8 +29,7 @@ public class ArchitectureTest {
             .should()
             .dependOnClassesThat()
             .resideInAPackage("..infrastructure..")
-            .as("Application layer must not depend on infrastructure")
-            .allowEmptyShould(true);
+            .as("Application layer must not depend on infrastructure");
 
     @ArchTest
     static final ArchRule driven_ports_must_only_be_implemented_in_infrastructure = noClasses()

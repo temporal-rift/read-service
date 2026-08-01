@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+  <!--
+      One row per (game_id, player_id) — the only genuinely private, per-viewer state (design.md Decision 1).
+      Its existence for a (game_id, player_id) pair is itself the "is this player a participant" signal.
+  -->
+  <changeSet id="004-create-player-game-state" author="read-service">
+    <createTable tableName="player_game_state">
+      <column name="id" type="UUID">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="game_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="player_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="my_faction" type="VARCHAR(30)"/>
+    </createTable>
+
+    <addUniqueConstraint
+        tableName="player_game_state"
+        columnNames="game_id, player_id"
+        constraintName="uq_player_game_state_game_id_player_id"/>
+
+    <createTable tableName="player_game_state_hand_card">
+      <column name="player_game_state_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="card_position" type="INT">
+        <constraints nullable="false"/>
+      </column>
+      <column name="card_instance_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="card_type" type="VARCHAR(30)">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
+
+    <addForeignKeyConstraint
+        baseTableName="player_game_state_hand_card"
+        baseColumnNames="player_game_state_id"
+        referencedTableName="player_game_state"
+        referencedColumnNames="id"
+        constraintName="fk_player_game_state_hand_card_player_game_state"
+        onDelete="CASCADE"/>
+  </changeSet>
+
+</databaseChangeLog>

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+  <!-- One row per (game_id, player_id) — public participant state, shared across every viewer's response. -->
+  <changeSet id="002-create-game-player" author="read-service">
+    <createTable tableName="game_player">
+      <column name="id" type="UUID">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="game_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="player_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="score" type="INT">
+        <constraints nullable="false"/>
+      </column>
+      <column name="is_connected" type="BOOLEAN">
+        <constraints nullable="false"/>
+      </column>
+      <column name="faction" type="VARCHAR(30)"/>
+    </createTable>
+
+    <addUniqueConstraint
+        tableName="game_player"
+        columnNames="game_id, player_id"
+        constraintName="uq_game_player_game_id_player_id"/>
+  </changeSet>
+
+</databaseChangeLog>

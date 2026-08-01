@@ -8,4 +8,10 @@
     <!-- Infrastructure: consumer idempotency -->
     <include file="db/changelog/infrastructure/001-create-processed-events.xml"/>
 
+    <!-- Projection: player game state read models -->
+    <include file="db/changelog/projection/001-create-game-projection.xml"/>
+    <include file="db/changelog/projection/002-create-game-player.xml"/>
+    <include file="db/changelog/projection/003-create-game-active-event.xml"/>
+    <include file="db/changelog/projection/004-create-player-game-state.xml"/>
+
 </databaseChangeLog>

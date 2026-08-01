@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+  <!-- One row per (game_id, event_id) still awaiting resolution — removed on OutcomeApplied (design.md Decision 6). -->
+  <changeSet id="003-create-game-active-event" author="read-service">
+    <createTable tableName="game_active_event">
+      <column name="id" type="UUID">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="game_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="event_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="title" type="VARCHAR(255)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="is_cascaded" type="BOOLEAN">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
+
+    <addUniqueConstraint
+        tableName="game_active_event"
+        columnNames="game_id, event_id"
+        constraintName="uq_game_active_event_game_id_event_id"/>
+
+    <createTable tableName="game_active_event_outcome">
+      <column name="game_active_event_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="outcome_position" type="INT">
+        <constraints nullable="false"/>
+      </column>
+      <column name="outcome_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="description" type="VARCHAR(255)">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
+
+    <addForeignKeyConstraint
+        baseTableName="game_active_event_outcome"
+        baseColumnNames="game_active_event_id"
+        referencedTableName="game_active_event"
+        referencedColumnNames="id"
+        constraintName="fk_game_active_event_outcome_game_active_event"
+        onDelete="CASCADE"/>
+  </changeSet>
+
+</databaseChangeLog>
