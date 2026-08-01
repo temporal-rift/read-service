@@ -9,6 +9,13 @@ spring:
     hibernate:
       ddl-auto: validate
     show-sql: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Never actually fetched — TestSecurityConfig overrides the JwtDecoder bean so this URI's
+          # discovery document is never requested; this value only needs to satisfy property resolution.
+          issuer-uri: https://test-issuer.invalid
   kafka:
     bootstrap-servers: localhost:9092
     properties:
