@@ -16,8 +16,12 @@ final class KafkaTestMessages {
     private KafkaTestMessages() {}
 
     static Message<Object> withEventId(UUID eventId) {
+        return withRawEventId(eventId == null ? null : eventId.toString());
+    }
+
+    static Message<Object> withRawEventId(String rawEventId) {
         return MessageBuilder.withPayload((Object) new byte[0])
-                .setHeader("eventId", eventId == null ? null : eventId.toString())
+                .setHeader("eventId", rawEventId)
                 .build();
     }
 }

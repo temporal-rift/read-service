@@ -33,6 +33,16 @@ class InboundEventClaimTest {
     }
 
     @Test
+    void accept_nonUuidEventId_discardedWithoutClaiming() {
+        var message = KafkaTestMessages.withRawEventId("not-a-uuid");
+
+        var result = InboundEventClaim.accept(message, "test-consumer", processedEvents);
+
+        assertThat(result).isEmpty();
+        verify(processedEvents, never()).claim(any(), anyString());
+    }
+
+    @Test
     void accept_newEvent_claimsAndReturnsEventId() {
         var eventId = UUID.randomUUID();
         var message = KafkaTestMessages.withEventId(eventId);

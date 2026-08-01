@@ -28,7 +28,7 @@ final class InboundEventClaim {
     static Optional<UUID> accept(Message<?> message, String consumer, ProcessedEventPort processedEvents) {
         var eventId = eventIdOf(message);
         if (eventId == null) {
-            log.warn("Malformed envelope (missing eventId) for consumer {} — discarding", consumer);
+            log.warn("Malformed envelope (missing or invalid eventId) for consumer {} — discarding", consumer);
             return Optional.empty();
         }
         if (!processedEvents.claim(eventId, consumer)) {
@@ -40,6 +40,13 @@ final class InboundEventClaim {
 
     private static UUID eventIdOf(Message<?> message) {
         var raw = message.getHeaders().get("eventId", String.class);
-        return raw == null ? null : UUID.fromString(raw);
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return UUID.fromString(raw);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 }
