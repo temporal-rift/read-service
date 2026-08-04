@@ -12,13 +12,14 @@ import io.github.temporalrift.read.projection.domain.port.out.ProcessedEventPort
 
 /**
  * Consumes {@code game.events} (session/action/scoring facts from game-service), dispatching by the
- * {@code spring.cloud.stream.sendto.destination} binding-name header — design.md Decision 2. Binding names not
- * listed here belong to events this slice doesn't project yet and are silently ignored.
+ * stable {@code eventType} header. The old Spring Cloud Stream binding-name header is accepted only for retained
+ * records produced before the producer migration.
  */
 @Component
 class GameEventsKafkaConsumer {
 
-    private static final String BINDING_NAME_HEADER = "spring.cloud.stream.sendto.destination";
+    private static final String EVENT_TYPE_HEADER = "eventType";
+    private static final String LEGACY_BINDING_NAME_HEADER = "spring.cloud.stream.sendto.destination";
     private static final String CONSUMER = "projection.game-events";
 
     private final ProcessedEventPort processedEvents;
@@ -39,36 +40,55 @@ class GameEventsKafkaConsumer {
     }
 
     private void dispatch(Message<Object> message) {
-        var bindingName = message.getHeaders().get(BINDING_NAME_HEADER, String.class);
-        if (bindingName == null) {
+        var eventType = eventType(message);
+        if (eventType == null) {
             return;
         }
-        switch (bindingName) {
-            case "Sessionpublish-game-started-out" -> applier.applyGameStarted(read(message, GameStartedPayload.class));
-            case "Sessionpublish-faction-assigned-out" ->
-                applier.applyFactionAssigned(read(message, FactionAssignedPayload.class));
-            case "Sessionpublish-era-started-out" -> applier.applyEraStarted(read(message, EraStartedPayload.class));
-            case "Sessionpublish-events-drawn-out" -> applier.applyEventsDrawn(read(message, EventsDrawnPayload.class));
-            case "Sessionpublish-hand-dealt-out" -> applier.applyHandDealt(read(message, HandDealtPayload.class));
-            case "Sessionpublish-player-disconnected-out" ->
+        switch (eventType) {
+            case "GameStarted" -> applier.applyGameStarted(read(message, GameStartedPayload.class));
+            case "FactionAssigned" -> applier.applyFactionAssigned(read(message, FactionAssignedPayload.class));
+            case "EraStarted" -> applier.applyEraStarted(read(message, EraStartedPayload.class));
+            case "EventsDrawn" -> applier.applyEventsDrawn(read(message, EventsDrawnPayload.class));
+            case "HandDealt" -> applier.applyHandDealt(read(message, HandDealtPayload.class));
+            case "PlayerDisconnected" ->
                 applier.applyPlayerDisconnected(read(message, PlayerDisconnectedPayload.class));
-            case "Sessionpublish-player-abandoned-out" ->
-                applier.applyPlayerAbandoned(read(message, PlayerAbandonedPayload.class));
-            case "Sessionpublish-era-ended-out" -> applier.applyEraEnded(read(message, EraEndedPayload.class));
-            case "Sessionpublish-game-ended-out" -> applier.applyGameEnded(read(message, GameEndedPayload.class));
-            case "Sessionpublish-faction-revealed-out" ->
-                applier.applyFactionRevealed(read(message, FactionRevealedPayload.class));
-            case "Sessionpublish-resolution-started-out" ->
-                applier.applyResolutionStarted(read(message, ResolutionStartedPayload.class));
-            case "Actionpublish-action-round-started-out" ->
+            case "PlayerAbandoned" -> applier.applyPlayerAbandoned(read(message, PlayerAbandonedPayload.class));
+            case "EraEnded" -> applier.applyEraEnded(read(message, EraEndedPayload.class));
+            case "GameEnded" -> applier.applyGameEnded(read(message, GameEndedPayload.class));
+            case "FactionRevealed" -> applier.applyFactionRevealed(read(message, FactionRevealedPayload.class));
+            case "ResolutionStarted" -> applier.applyResolutionStarted(read(message, ResolutionStartedPayload.class));
+            case "ActionRoundStarted" ->
                 applier.applyActionRoundStarted(read(message, ActionRoundStartedPayload.class));
-            case "Actionpublish-card-played-out" -> applier.applyCardPlayed(read(message, CardPlayedPayload.class));
-            case "Scoringpublish-scores-updated-out" ->
-                applier.applyScoresUpdated(read(message, ScoresUpdatedPayload.class));
+            case "CardPlayed" -> applier.applyCardPlayed(read(message, CardPlayedPayload.class));
+            case "ScoresUpdated" -> applier.applyScoresUpdated(read(message, ScoresUpdatedPayload.class));
             default -> {
                 // Not consumed by this slice.
             }
         }
+    }
+
+    private static String eventType(Message<Object> message) {
+        var eventType = message.getHeaders().get(EVENT_TYPE_HEADER, String.class);
+        if (eventType != null) {
+            return eventType;
+        }
+        return switch (message.getHeaders().get(LEGACY_BINDING_NAME_HEADER, String.class)) {
+            case "Sessionpublish-game-started-out" -> "GameStarted";
+            case "Sessionpublish-faction-assigned-out" -> "FactionAssigned";
+            case "Sessionpublish-era-started-out" -> "EraStarted";
+            case "Sessionpublish-events-drawn-out" -> "EventsDrawn";
+            case "Sessionpublish-hand-dealt-out" -> "HandDealt";
+            case "Sessionpublish-player-disconnected-out" -> "PlayerDisconnected";
+            case "Sessionpublish-player-abandoned-out" -> "PlayerAbandoned";
+            case "Sessionpublish-era-ended-out" -> "EraEnded";
+            case "Sessionpublish-game-ended-out" -> "GameEnded";
+            case "Sessionpublish-faction-revealed-out" -> "FactionRevealed";
+            case "Sessionpublish-resolution-started-out" -> "ResolutionStarted";
+            case "Actionpublish-action-round-started-out" -> "ActionRoundStarted";
+            case "Actionpublish-card-played-out" -> "CardPlayed";
+            case "Scoringpublish-scores-updated-out" -> "ScoresUpdated";
+            case null, default -> null;
+        };
     }
 
     private <T> T read(Message<Object> message, Class<T> type) {
