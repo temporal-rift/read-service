@@ -19,15 +19,19 @@ public class PlayerAuthenticationConverter implements Converter<Jwt, AbstractAut
             throw new InvalidBearerTokenException("Missing sub claim");
         }
         try {
-            return new PlayerAuthenticationToken(new PlayerPrincipal(UUID.fromString(sub)));
-        } catch (IllegalArgumentException _) {
-            var issuer = source.getIssuer();
-            if (issuer == null) {
-                throw new InvalidBearerTokenException("Missing iss claim for opaque sub claim");
+            var parsed = UUID.fromString(sub);
+            if (parsed.toString().equalsIgnoreCase(sub)) {
+                return new PlayerAuthenticationToken(new PlayerPrincipal(parsed));
             }
-            var identity = issuer + "\0" + sub;
-            var playerId = UUID.nameUUIDFromBytes(identity.getBytes(StandardCharsets.UTF_8));
-            return new PlayerAuthenticationToken(new PlayerPrincipal(playerId));
+        } catch (IllegalArgumentException _) {
+            // fall through to issuer-scoped derivation below
         }
+        var issuer = source.getIssuer();
+        if (issuer == null) {
+            throw new InvalidBearerTokenException("Missing iss claim for opaque sub claim");
+        }
+        var identity = issuer + "\0" + sub;
+        var playerId = UUID.nameUUIDFromBytes(identity.getBytes(StandardCharsets.UTF_8));
+        return new PlayerAuthenticationToken(new PlayerPrincipal(playerId));
     }
 }

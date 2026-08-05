@@ -1,9 +1,11 @@
 package io.github.temporalrift.read.projection.infrastructure.adapter.in.kafka;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -46,5 +48,28 @@ class GameEventsKafkaConsumerTest {
                 .handle(KafkaTestMessages.withEventId(eventId));
 
         verifyNoInteractions(applier);
+    }
+
+    @Test
+    void handle_eventTypeHeaderAsString_dispatchesToApplier() {
+        var eventId = UUID.randomUUID();
+        given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
+
+        new GameEventsKafkaConsumer(processedEvents, applier, objectMapper)
+                .handle(KafkaTestMessages.withEventIdAndEventType(eventId, "GameStarted"));
+
+        then(applier).should().applyGameStarted(any());
+    }
+
+    @Test
+    void handle_eventTypeHeaderAsRawBytes_dispatchesToApplier() {
+        var eventId = UUID.randomUUID();
+        given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
+
+        new GameEventsKafkaConsumer(processedEvents, applier, objectMapper)
+                .handle(KafkaTestMessages.withEventIdAndEventType(
+                        eventId, "GameStarted".getBytes(StandardCharsets.UTF_8)));
+
+        then(applier).should().applyGameStarted(any());
     }
 }

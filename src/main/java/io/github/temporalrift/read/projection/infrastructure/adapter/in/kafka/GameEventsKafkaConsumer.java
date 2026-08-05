@@ -2,6 +2,8 @@ package io.github.temporalrift.read.projection.infrastructure.adapter.in.kafka;
 
 import static org.springframework.transaction.annotation.Propagation.REQUIRES_NEW;
 
+import java.nio.charset.StandardCharsets;
+
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Component;
@@ -68,11 +70,11 @@ class GameEventsKafkaConsumer {
     }
 
     private static String eventType(Message<Object> message) {
-        var eventType = message.getHeaders().get(EVENT_TYPE_HEADER, String.class);
+        var eventType = headerAsString(message, EVENT_TYPE_HEADER);
         if (eventType != null) {
             return eventType;
         }
-        return switch (message.getHeaders().get(LEGACY_BINDING_NAME_HEADER, String.class)) {
+        return switch (headerAsString(message, LEGACY_BINDING_NAME_HEADER)) {
             case "Sessionpublish-game-started-out" -> "GameStarted";
             case "Sessionpublish-faction-assigned-out" -> "FactionAssigned";
             case "Sessionpublish-era-started-out" -> "EraStarted";
@@ -87,6 +89,14 @@ class GameEventsKafkaConsumer {
             case "Actionpublish-action-round-started-out" -> "ActionRoundStarted";
             case "Actionpublish-card-played-out" -> "CardPlayed";
             case "Scoringpublish-scores-updated-out" -> "ScoresUpdated";
+            case null, default -> null;
+        };
+    }
+
+    private static String headerAsString(Message<Object> message, String name) {
+        return switch (message.getHeaders().get(name)) {
+            case String value -> value;
+            case byte[] value -> new String(value, StandardCharsets.UTF_8);
             case null, default -> null;
         };
     }
