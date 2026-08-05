@@ -94,4 +94,24 @@ class PlayerAuthenticationConverterTest {
         assertThat(result.getPrincipal()).isInstanceOf(PlayerPrincipal.class);
         assertThat(((PlayerPrincipal) result.getPrincipal()).playerId()).isEqualTo(playerId);
     }
+
+    @Test
+    @DisplayName("Given a noncanonical but parseable UUID sub claim, when converting, then derives a stable player ID"
+            + " instead of the parsed UUID")
+    void givenNoncanonicalUuidSubClaim_whenConverting_thenDerivesStablePlayerId() throws Exception {
+        // given
+        var issuer = "https://kronen.eu.auth0.com/";
+        var subject = "1-1-1-1-1";
+        var parsedUuid = UUID.fromString(subject);
+        var expectedPlayerId = UUID.nameUUIDFromBytes((issuer + "\0" + subject).getBytes(StandardCharsets.UTF_8));
+        given(jwt.getSubject()).willReturn(subject);
+        given(jwt.getIssuer()).willReturn(URI.create(issuer).toURL());
+
+        // when
+        var result = converter.convert(jwt);
+
+        // then
+        var playerId = ((PlayerPrincipal) result.getPrincipal()).playerId();
+        assertThat(playerId).isEqualTo(expectedPlayerId).isNotEqualTo(parsedUuid);
+    }
 }
