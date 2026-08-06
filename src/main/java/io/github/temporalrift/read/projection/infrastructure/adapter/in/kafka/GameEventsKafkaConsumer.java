@@ -2,8 +2,6 @@ package io.github.temporalrift.read.projection.infrastructure.adapter.in.kafka;
 
 import static org.springframework.transaction.annotation.Propagation.REQUIRES_NEW;
 
-import java.nio.charset.StandardCharsets;
-
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Component;
@@ -40,7 +38,7 @@ class GameEventsKafkaConsumer {
     }
 
     private void dispatch(Message<Object> message) {
-        var eventType = headerAsString(message, EVENT_TYPE_HEADER);
+        var eventType = MessageHeaders.asString(message, EVENT_TYPE_HEADER);
         if (eventType == null) {
             return;
         }
@@ -65,14 +63,6 @@ class GameEventsKafkaConsumer {
                 // Not consumed by this slice.
             }
         }
-    }
-
-    private static String headerAsString(Message<Object> message, String name) {
-        return switch (message.getHeaders().get(name)) {
-            case String value -> value;
-            case byte[] value -> new String(value, StandardCharsets.UTF_8);
-            case null, default -> null;
-        };
     }
 
     private <T> T read(Message<Object> message, Class<T> type) {
