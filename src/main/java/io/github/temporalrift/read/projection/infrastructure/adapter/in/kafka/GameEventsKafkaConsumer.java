@@ -14,14 +14,12 @@ import io.github.temporalrift.read.projection.domain.port.out.ProcessedEventPort
 
 /**
  * Consumes {@code game.events} (session/action/scoring facts from game-service), dispatching by the
- * stable {@code eventType} header. The old Spring Cloud Stream binding-name header is accepted only for retained
- * records produced before the producer migration.
+ * stable {@code eventType} header.
  */
 @Component
 class GameEventsKafkaConsumer {
 
     private static final String EVENT_TYPE_HEADER = "eventType";
-    private static final String LEGACY_BINDING_NAME_HEADER = "spring.cloud.stream.sendto.destination";
     private static final String CONSUMER = "projection.game-events";
 
     private final ProcessedEventPort processedEvents;
@@ -42,7 +40,7 @@ class GameEventsKafkaConsumer {
     }
 
     private void dispatch(Message<Object> message) {
-        var eventType = eventType(message);
+        var eventType = headerAsString(message, EVENT_TYPE_HEADER);
         if (eventType == null) {
             return;
         }
@@ -67,30 +65,6 @@ class GameEventsKafkaConsumer {
                 // Not consumed by this slice.
             }
         }
-    }
-
-    private static String eventType(Message<Object> message) {
-        var eventType = headerAsString(message, EVENT_TYPE_HEADER);
-        if (eventType != null) {
-            return eventType;
-        }
-        return switch (headerAsString(message, LEGACY_BINDING_NAME_HEADER)) {
-            case "Sessionpublish-game-started-out" -> "GameStarted";
-            case "Sessionpublish-faction-assigned-out" -> "FactionAssigned";
-            case "Sessionpublish-era-started-out" -> "EraStarted";
-            case "Sessionpublish-events-drawn-out" -> "EventsDrawn";
-            case "Sessionpublish-hand-dealt-out" -> "HandDealt";
-            case "Sessionpublish-player-disconnected-out" -> "PlayerDisconnected";
-            case "Sessionpublish-player-abandoned-out" -> "PlayerAbandoned";
-            case "Sessionpublish-era-ended-out" -> "EraEnded";
-            case "Sessionpublish-game-ended-out" -> "GameEnded";
-            case "Sessionpublish-faction-revealed-out" -> "FactionRevealed";
-            case "Sessionpublish-resolution-started-out" -> "ResolutionStarted";
-            case "Actionpublish-action-round-started-out" -> "ActionRoundStarted";
-            case "Actionpublish-card-played-out" -> "CardPlayed";
-            case "Scoringpublish-scores-updated-out" -> "ScoresUpdated";
-            case null, default -> null;
-        };
     }
 
     private static String headerAsString(Message<Object> message, String name) {
