@@ -53,9 +53,17 @@
         </sonar.coverage.jacoco.xmlReportPaths>
 
         <archunit-junit5.version>1.4.2</archunit-junit5.version>
+        <projection-api.version>2.0.0</projection-api.version>
     </properties>
 
     <dependencies>
+        <!-- Spec-only: bundles projection-api's OpenAPI specification. Codegen for it is driven by the
+             openapi-generator-maven-plugin execution below. -->
+        <dependency>
+            <groupId>io.github.temporal-rift</groupId>
+            <artifactId>projection-api</artifactId>
+            <version>${projection-api.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
@@ -208,13 +216,15 @@
                             <goal>generate</goal>
                         </goals>
                         <configuration>
-                            <inputSpec>${project.basedir}/src/main/resources/openapi/projection.yml</inputSpec>
+                            <inputSpec>
+                                ${project.build.directory}/dependency-specs/projection-api-${projection-api.version}-jar/openapi/v1/projection.yml
+                            </inputSpec>
                             <output>${project.build.directory}/generated-sources/openapi/projection</output>
                             <apiPackage>
-                                io.github.temporalrift.read.projection.infrastructure.adapter.in.rest
+                                io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1
                             </apiPackage>
                             <modelPackage>
-                                io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.model
+                                io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model
                             </modelPackage>
                         </configuration>
                     </execution>

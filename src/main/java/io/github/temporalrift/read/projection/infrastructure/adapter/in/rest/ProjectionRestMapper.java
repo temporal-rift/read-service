@@ -1,12 +1,12 @@
 package io.github.temporalrift.read.projection.infrastructure.adapter.in.rest;
 
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
-import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.model.ActiveEvent;
-import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.model.EventOutcome;
-import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.model.HandCard;
-import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.model.Phase;
-import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.model.PlayerGameStateResponse;
-import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.model.PlayerInGame;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActiveEvent;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.EventOutcome;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.HandCard;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.Phase;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerGameStateResponse;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerInGame;
 
 /**
  * Maps the query result to the generated response DTO. Only this slice's "core fields" are populated —
