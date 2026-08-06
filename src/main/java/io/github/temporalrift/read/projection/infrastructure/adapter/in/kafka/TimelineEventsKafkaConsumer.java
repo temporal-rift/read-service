@@ -14,7 +14,7 @@ import io.github.temporalrift.read.projection.domain.port.out.ProcessedEventPort
 @Component
 class TimelineEventsKafkaConsumer {
 
-    private static final String BINDING_NAME_HEADER = "spring.cloud.stream.sendto.destination";
+    private static final String EVENT_TYPE_HEADER = "eventType";
     private static final String CONSUMER = "projection.timeline-events";
 
     private final ProcessedEventPort processedEvents;
@@ -35,8 +35,8 @@ class TimelineEventsKafkaConsumer {
     }
 
     private void dispatch(Message<Object> message) {
-        var bindingName = message.getHeaders().get(BINDING_NAME_HEADER, String.class);
-        if ("Timelinepublish-outcome-applied-out".equals(bindingName)) {
+        var eventType = message.getHeaders().get(EVENT_TYPE_HEADER, String.class);
+        if ("OutcomeApplied".equals(eventType)) {
             applier.applyOutcomeApplied(
                     GameEventPayloads.read(objectMapper, message.getPayload(), OutcomeAppliedPayload.class));
         }

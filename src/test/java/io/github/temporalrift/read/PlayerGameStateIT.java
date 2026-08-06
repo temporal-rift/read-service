@@ -66,7 +66,7 @@ class PlayerGameStateIT {
 
         publish(
                 GAME_EVENTS_TOPIC,
-                "Sessionpublish-game-started-out",
+                "GameStarted",
                 gameId,
                 Map.of(
                         "gameId",
@@ -83,7 +83,7 @@ class PlayerGameStateIT {
 
         publish(
                 GAME_EVENTS_TOPIC,
-                "Sessionpublish-faction-assigned-out",
+                "FactionAssigned",
                 gameId,
                 Map.of("gameId", gameId, "playerId", player1, "faction", "ERASERS"));
         awaitMyFaction(gameId, player1, "ERASERS");
@@ -99,7 +99,7 @@ class PlayerGameStateIT {
 
         publish(
                 GAME_EVENTS_TOPIC,
-                "Sessionpublish-era-started-out",
+                "EraStarted",
                 gameId,
                 Map.of(
                         "gameId",
@@ -113,7 +113,7 @@ class PlayerGameStateIT {
 
         publish(
                 GAME_EVENTS_TOPIC,
-                "Sessionpublish-events-drawn-out",
+                "EventsDrawn",
                 gameId,
                 Map.of(
                         "gameId",
@@ -134,7 +134,7 @@ class PlayerGameStateIT {
 
         publish(
                 GAME_EVENTS_TOPIC,
-                "Sessionpublish-hand-dealt-out",
+                "HandDealt",
                 gameId,
                 Map.of(
                         "gameId",
@@ -149,7 +149,7 @@ class PlayerGameStateIT {
 
         publish(
                 GAME_EVENTS_TOPIC,
-                "Actionpublish-action-round-started-out",
+                "ActionRoundStarted",
                 gameId,
                 Map.of(
                         "gameId",
@@ -166,21 +166,17 @@ class PlayerGameStateIT {
 
         publish(
                 GAME_EVENTS_TOPIC,
-                "Actionpublish-card-played-out",
+                "CardPlayed",
                 gameId,
                 cardPlayedPayload(gameId, player1, cardInstanceId, eventId, outcomeId));
         awaitMyHandSize(gameId, player1, 0);
 
-        publish(
-                GAME_EVENTS_TOPIC,
-                "Sessionpublish-resolution-started-out",
-                gameId,
-                Map.of("gameId", gameId, "eraNumber", 1));
+        publish(GAME_EVENTS_TOPIC, "ResolutionStarted", gameId, Map.of("gameId", gameId, "eraNumber", 1));
         awaitPhase(gameId, "RESOLUTION");
 
         publish(
                 TIMELINE_EVENTS_TOPIC,
-                "Timelinepublish-outcome-applied-out",
+                "OutcomeApplied",
                 gameId,
                 Map.of(
                         "gameId",
@@ -197,7 +193,7 @@ class PlayerGameStateIT {
 
         publish(
                 GAME_EVENTS_TOPIC,
-                "Scoringpublish-scores-updated-out",
+                "ScoresUpdated",
                 gameId,
                 Map.of(
                         "gameId",
@@ -220,14 +216,14 @@ class PlayerGameStateIT {
 
         publish(
                 GAME_EVENTS_TOPIC,
-                "Sessionpublish-era-ended-out",
+                "EraEnded",
                 gameId,
                 Map.of("gameId", gameId, "eraNumber", 1, "cascadedParadoxCount", 0, "nextEraNumber", 2));
         awaitPhase(gameId, "ERA_END");
 
         publish(
                 GAME_EVENTS_TOPIC,
-                "Sessionpublish-faction-revealed-out",
+                "FactionRevealed",
                 gameId,
                 Map.of(
                         "gameId",
@@ -239,7 +235,7 @@ class PlayerGameStateIT {
 
         publish(
                 GAME_EVENTS_TOPIC,
-                "Sessionpublish-game-ended-out",
+                "GameEnded",
                 gameId,
                 Map.of(
                         "gameId",
@@ -273,7 +269,7 @@ class PlayerGameStateIT {
 
         publish(
                 GAME_EVENTS_TOPIC,
-                "Sessionpublish-game-started-out",
+                "GameStarted",
                 gameId,
                 Map.of(
                         "gameId",
@@ -308,13 +304,13 @@ class PlayerGameStateIT {
         return payload;
     }
 
-    private void publish(String topic, String bindingName, UUID gameId, Object payload) {
+    private void publish(String topic, String eventType, UUID gameId, Object payload) {
         // Producer value-serializer is ByteArraySerializer (pairs with the consumer-side
         // ByteArrayDeserializer), so the payload must already be JSON bytes, not a raw Map.
         Message<Object> message = MessageBuilder.withPayload((Object) objectMapper.writeValueAsBytes(payload))
                 .setHeader(KafkaHeaders.TOPIC, topic)
                 .setHeader("eventId", UUID.randomUUID().toString())
-                .setHeader("spring.cloud.stream.sendto.destination", bindingName)
+                .setHeader("eventType", eventType)
                 .build();
         kafkaTemplate.send(message);
     }

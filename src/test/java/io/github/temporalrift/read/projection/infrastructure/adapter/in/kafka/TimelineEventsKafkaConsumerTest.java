@@ -38,7 +38,7 @@ class TimelineEventsKafkaConsumerTest {
     }
 
     @Test
-    void handle_noBindingNameHeader_doesNotDispatch() {
+    void handle_noEventTypeHeader_doesNotDispatch() {
         var eventId = UUID.randomUUID();
         given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(true);
 
