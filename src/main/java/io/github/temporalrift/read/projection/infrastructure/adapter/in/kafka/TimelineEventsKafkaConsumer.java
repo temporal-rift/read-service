@@ -35,7 +35,7 @@ class TimelineEventsKafkaConsumer {
     }
 
     private void dispatch(Message<Object> message) {
-        var eventType = message.getHeaders().get(EVENT_TYPE_HEADER, String.class);
+        var eventType = MessageHeaders.asString(message, EVENT_TYPE_HEADER);
         if ("OutcomeApplied".equals(eventType)) {
             applier.applyOutcomeApplied(
                     GameEventPayloads.read(objectMapper, message.getPayload(), OutcomeAppliedPayload.class));
