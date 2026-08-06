@@ -298,9 +298,9 @@ class PlayerGameStateIT {
         var sendResult = publish(GAME_EVENTS_TOPIC, "GameStarted", gameId, Map.of("gameId", gameId))
                 .join();
 
-        // Matches production: game-service's messageKeyExpression: headers['gameId'] and
-        // timeline-service's OutboxRelay both key by gameId so all of one game's events land on the same
-        // partition. Without it, this would be null (no key set), not just a different value.
+        // Matches production, where game-service's binder config and timeline-service's OutboxRelay both
+        // key by gameId so all of one game's events land on the same partition. Without it, this would be
+        // null (no key set), not just a different value.
         org.assertj.core.api.Assertions.assertThat(
                         sendResult.getProducerRecord().key())
                 .isEqualTo(gameId.toString());
@@ -325,8 +325,8 @@ class PlayerGameStateIT {
             String topic, String eventType, UUID gameId, Object payload) {
         // Producer value-serializer is ByteArraySerializer (pairs with the consumer-side
         // ByteArrayDeserializer), so the payload must already be JSON bytes, not a raw Map.
-        // Keyed by gameId to match production (game-service's messageKeyExpression: headers['gameId'];
-        // timeline-service's OutboxRelay) -- without a key, Kafka's default partitioner spreads a single
+        // Keyed by gameId to match production, where game-service's binder config and timeline-service's
+        // OutboxRelay both do the same -- without a key, Kafka's default partitioner spreads a single
         // game's events across partitions with no ordering guarantee between them.
         Message<Object> message = MessageBuilder.withPayload((Object) objectMapper.writeValueAsBytes(payload))
                 .setHeader(KafkaHeaders.TOPIC, topic)
