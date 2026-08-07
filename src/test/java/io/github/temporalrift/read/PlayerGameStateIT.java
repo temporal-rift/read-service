@@ -92,7 +92,7 @@ class PlayerGameStateIT {
 
         // Before FactionRevealed: player2's own view shows their faction unset; player1's is never visible to
         // player2 in the shared `players[]` list.
-        mockMvc.perform(get("/games/{gameId}/state", gameId)
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
                         .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(player2)))))
                 .andExpect(status().isOk())
                 // faction is omitted (default-property-inclusion: non_null), not present-with-null, when unset.
@@ -250,7 +250,7 @@ class PlayerGameStateIT {
                                 Map.of("playerId", player2, "faction", "WEAVERS", "score", 0))));
         awaitPhase(gameId, "GAME_ENDED");
 
-        mockMvc.perform(get("/games/{gameId}/state", gameId)
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
                         .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(player1)))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.eraNumber").value(1))
@@ -286,7 +286,7 @@ class PlayerGameStateIT {
                         30));
         awaitPlayerGameStateRowExists(gameId, participant);
 
-        mockMvc.perform(get("/games/{gameId}/state", gameId)
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
                         .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(stranger)))))
                 .andExpect(status().isNotFound());
     }
