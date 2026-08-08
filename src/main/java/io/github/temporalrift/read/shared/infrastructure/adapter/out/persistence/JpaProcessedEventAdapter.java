@@ -1,4 +1,4 @@
-package io.github.temporalrift.read.projection.infrastructure.adapter.out.persistence;
+package io.github.temporalrift.read.shared.infrastructure.adapter.out.persistence;
 
 import java.util.UUID;
 
@@ -7,7 +7,7 @@ import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
-import io.github.temporalrift.read.projection.domain.port.out.ProcessedEventPort;
+import io.github.temporalrift.read.shared.domain.port.out.ProcessedEventPort;
 
 @Repository
 class JpaProcessedEventAdapter implements ProcessedEventPort {
@@ -15,10 +15,6 @@ class JpaProcessedEventAdapter implements ProcessedEventPort {
     @PersistenceContext
     private EntityManager entityManager;
 
-    /**
-     * Insert-first claim: {@code ON CONFLICT DO NOTHING} makes the claim atomic under concurrent duplicate delivery, so
-     * an {@code exists}-then-{@code save} race cannot let two deliveries both proceed.
-     */
     @Override
     @Transactional
     public boolean claim(UUID eventId, String consumer) {

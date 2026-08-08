@@ -14,7 +14,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import io.github.temporalrift.read.projection.domain.port.out.ProcessedEventPort;
+import io.github.temporalrift.read.shared.domain.port.out.ProcessedEventPort;
+import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.InboundEventClaim;
 
 @ExtendWith(MockitoExtension.class)
 class InboundEventClaimTest {
