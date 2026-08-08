@@ -108,7 +108,7 @@ class PlayerGameStateIT {
                         gameId,
                         "eraNumber",
                         1,
-                        "cascadedEventIds",
+                        "carryOverEventIds",
                         List.of(),
                         "playerIds",
                         List.of(player1, player2)));
@@ -128,8 +128,8 @@ class PlayerGameStateIT {
                                 eventId,
                                 "title",
                                 "Test Event",
-                                "isCascaded",
-                                false,
+                                "carryOverState",
+                                "FRESH",
                                 "outcomes",
                                 List.of(Map.of(
                                         "outcomeId", outcomeId, "description", "d", "initialProbability", 100))))));
