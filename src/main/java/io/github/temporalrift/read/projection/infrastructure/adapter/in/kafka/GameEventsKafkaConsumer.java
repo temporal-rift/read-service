@@ -8,7 +8,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
-import io.github.temporalrift.read.projection.domain.port.out.ProcessedEventPort;
+import io.github.temporalrift.read.shared.domain.port.out.ProcessedEventPort;
+import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.InboundEventClaim;
 
 /**
  * Consumes {@code game.events} (session/action/scoring facts from game-service), dispatching by the

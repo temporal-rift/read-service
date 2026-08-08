@@ -24,6 +24,9 @@ class ReadServiceApplicationIT {
         assertThat(modules.getModuleByName("projection"))
                 .as("projection module must be detected by Spring Modulith")
                 .isPresent();
+        assertThat(modules.getModuleByName("notification"))
+                .as("notification module must be detected by Spring Modulith")
+                .isPresent();
 
         new Documenter(modules)
                 .writeModulesAsPlantUml(DiagramOptions.defaults())
