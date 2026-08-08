@@ -43,7 +43,11 @@ final class ProjectionRestMapper {
         var outcomes = domain.outcomes().stream()
                 .map(o -> new EventOutcome(o.outcomeId(), o.description()))
                 .toList();
-        return new ActiveEvent(domain.eventId(), domain.title(), domain.isCascaded(), outcomes);
+        return new ActiveEvent(
+                domain.eventId(),
+                domain.title(),
+                ActiveEvent.CarryOverStateEnum.valueOf(domain.carryOverState().name()),
+                outcomes);
     }
 
     private static PlayerInGame toPlayerInGame(io.github.temporalrift.read.projection.domain.model.GamePlayer domain) {

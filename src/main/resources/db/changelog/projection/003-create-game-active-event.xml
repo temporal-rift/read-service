@@ -20,7 +20,7 @@
       <column name="title" type="VARCHAR(255)">
         <constraints nullable="false"/>
       </column>
-      <column name="is_cascaded" type="BOOLEAN">
+      <column name="carry_over_state" type="VARCHAR(16)">
         <constraints nullable="false"/>
       </column>
     </createTable>

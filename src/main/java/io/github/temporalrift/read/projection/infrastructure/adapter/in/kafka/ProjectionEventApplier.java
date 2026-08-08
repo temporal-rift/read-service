@@ -78,7 +78,7 @@ class ProjectionEventApplier {
                     .toList();
             gameActiveEvents.save(
                     payload.gameId(),
-                    new GameActiveEvent(event.eventId(), event.title(), event.isCascaded(), outcomes));
+                    new GameActiveEvent(event.eventId(), event.title(), event.carryOverState(), outcomes));
         }
     }
 

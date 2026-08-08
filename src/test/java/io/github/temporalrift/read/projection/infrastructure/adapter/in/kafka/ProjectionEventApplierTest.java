@@ -18,6 +18,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import io.github.temporalrift.read.projection.domain.model.CarryOverState;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.GameProjection;
@@ -103,16 +104,38 @@ class ProjectionEventApplierTest {
                 gameId,
                 1,
                 List.of(new EventsDrawnPayload.DrawnEvent(
-                        eventId, "Title", List.of(new EventsDrawnPayload.DrawnOutcome(outcomeId, "desc", 50)), false)));
+                        eventId,
+                        "Title",
+                        List.of(new EventsDrawnPayload.DrawnOutcome(outcomeId, "desc", 50)),
+                        CarryOverState.FRESH)));
 
         applier.applyEventsDrawn(payload);
 
         var captor = ArgumentCaptor.forClass(GameActiveEvent.class);
         then(gameActiveEvents).should().save(eq(gameId), captor.capture());
         assertThat(captor.getValue().eventId()).isEqualTo(eventId);
+        assertThat(captor.getValue().carryOverState()).isEqualTo(CarryOverState.FRESH);
         assertThat(captor.getValue().outcomes())
                 .containsExactly(
                         new io.github.temporalrift.read.projection.domain.model.EventOutcome(outcomeId, "desc"));
+    }
+
+    @Test
+    void applyEventsDrawn_preservesStalledCarryOverState() {
+        var eventId = UUID.randomUUID();
+        var payload = new EventsDrawnPayload(
+                gameId,
+                2,
+                List.of(new EventsDrawnPayload.DrawnEvent(
+                        eventId, "Stalled Event", List.of(), CarryOverState.STALLED)));
+
+        applier.applyEventsDrawn(payload);
+
+        var captor = ArgumentCaptor.forClass(GameActiveEvent.class);
+        then(gameActiveEvents).should().save(eq(gameId), captor.capture());
+        assertThat(captor.getValue())
+                .extracting(GameActiveEvent::eventId, GameActiveEvent::carryOverState)
+                .containsExactly(eventId, CarryOverState.STALLED);
     }
 
     @Test
