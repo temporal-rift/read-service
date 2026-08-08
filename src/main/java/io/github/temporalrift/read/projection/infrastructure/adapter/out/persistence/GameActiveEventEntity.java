@@ -13,6 +13,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
 
+import io.github.temporalrift.read.projection.domain.model.CarryOverState;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 
 @Entity
@@ -32,8 +33,8 @@ class GameActiveEventEntity {
     @Column(name = "title", nullable = false)
     private String title;
 
-    @Column(name = "is_cascaded", nullable = false)
-    private boolean isCascaded;
+    @Column(name = "carry_over_state", nullable = false)
+    private String carryOverState;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "game_active_event_outcome", joinColumns = @JoinColumn(name = "game_active_event_id"))
@@ -47,13 +48,13 @@ class GameActiveEventEntity {
             UUID gameId,
             UUID eventId,
             String title,
-            boolean isCascaded,
+            String carryOverState,
             List<GameActiveEventOutcomeValue> outcomes) {
         this.id = id;
         this.gameId = gameId;
         this.eventId = eventId;
         this.title = title;
-        this.isCascaded = isCascaded;
+        this.carryOverState = carryOverState;
         this.outcomes = outcomes;
     }
 
@@ -63,7 +64,7 @@ class GameActiveEventEntity {
                 gameId,
                 domain.eventId(),
                 domain.title(),
-                domain.isCascaded(),
+                domain.carryOverState().name(),
                 domain.outcomes().stream()
                         .map(GameActiveEventOutcomeValue::fromDomain)
                         .toList());
@@ -73,7 +74,7 @@ class GameActiveEventEntity {
         return new GameActiveEvent(
                 eventId,
                 title,
-                isCascaded,
+                CarryOverState.valueOf(carryOverState),
                 outcomes.stream().map(GameActiveEventOutcomeValue::toDomain).toList());
     }
 
