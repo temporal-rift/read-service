@@ -12,6 +12,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import tools.jackson.databind.ObjectMapper;
 
 import io.github.temporalrift.read.notification.application.port.in.ConnectNotificationSessionUseCase;
+import io.github.temporalrift.read.notification.infrastructure.adapter.out.websocket.WebSocketNotificationDeliveryAdapter;
 import io.github.temporalrift.read.notification.infrastructure.config.NotificationWebSocketProperties;
 import io.github.temporalrift.read.shared.CurrentPlayer;
 
@@ -40,7 +41,7 @@ public class GameNotificationWebSocketHandler extends TextWebSocketHandler {
                     session.getId(),
                     gameId(session),
                     CurrentPlayer.id(session.getPrincipal()),
-                    message -> send(decoratedSession, message));
+                    new WebSocketNotificationDeliveryAdapter(decoratedSession, objectMapper));
         } catch (RuntimeException e) {
             session.close(CloseStatus.POLICY_VIOLATION);
         }
@@ -56,14 +57,6 @@ public class GameNotificationWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         sessions.disconnect(session.getId());
-    }
-
-    private void send(WebSocketSession session, Object message) {
-        try {
-            session.sendMessage(new TextMessage(objectMapper.writeValueAsString(message)));
-        } catch (IOException e) {
-            throw new IllegalStateException("Unable to deliver WebSocket notification", e);
-        }
     }
 
     private static UUID gameId(WebSocketSession session) {

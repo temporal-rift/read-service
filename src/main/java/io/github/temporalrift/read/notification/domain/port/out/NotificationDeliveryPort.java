@@ -5,4 +5,6 @@ import io.github.temporalrift.read.notification.domain.model.NotificationMessage
 public interface NotificationDeliveryPort {
 
     void send(NotificationMessage message);
+
+    default void close() {}
 }

@@ -64,3 +64,4 @@ notification:
     allowed-origins: ${NOTIFICATION_WEBSOCKET_ALLOWED_ORIGINS:http://localhost:*}
     send-time-limit: 10s
     send-buffer-size: 512KB
+    max-pending-messages: 256

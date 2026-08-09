@@ -91,7 +91,7 @@ class NotificationFanOutServiceTest {
 
     private static NotificationSession activeSession(
             String sessionId, UUID gameId, UUID playerId, NotificationDeliveryPort delivery) {
-        var session = new NotificationSession(sessionId, new NotificationRecipient(gameId, playerId), delivery);
+        var session = new NotificationSession(sessionId, new NotificationRecipient(gameId, playerId), delivery, 256);
         session.activate(new NotificationMessage("SNAPSHOT", null, null, null));
         org.mockito.Mockito.clearInvocations(delivery);
         return session;

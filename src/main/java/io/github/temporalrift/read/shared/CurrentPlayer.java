@@ -18,6 +18,7 @@ public final class CurrentPlayer {
 
     public static UUID id(Principal principal) {
         if (principal instanceof Authentication authentication
+                && authentication.isAuthenticated()
                 && authentication.getPrincipal() instanceof PlayerPrincipal(var playerId)) {
             return playerId;
         }
