@@ -74,6 +74,9 @@ class NotificationFanOutServiceTest {
         org.mockito.Mockito.doThrow(new IllegalStateException("closed"))
                 .when(failing)
                 .send(org.mockito.ArgumentMatchers.any());
+        org.mockito.Mockito.doThrow(new IllegalStateException("already closed"))
+                .when(failing)
+                .close();
         var service = new NotificationFanOutService(new NotificationPolicy(), registry, new ObjectMapper());
 
         service.fanOut(message(gameId, "ParadoxCascaded", "{}"));
