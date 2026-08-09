@@ -92,8 +92,9 @@ class GameHistoryIT {
                         "affectedEventId",
                         secondEventId,
                         "carryForwardProbabilityState",
-                        List.of()));
+                        List.of(Map.of("outcomeId", secondOutcomeId, "probability", 45))));
         awaitJsonArraySize(gameId, 2, "cascaded_event_references", 1);
+        awaitCarryForwardState(gameId, 2, secondOutcomeId, 45);
         publish(
                 "game.events",
                 "EventsDrawn",
@@ -111,6 +112,7 @@ class GameHistoryIT {
                 gameId,
                 Map.of("gameId", gameId, "eraNumber", 2, "cascadedParadoxCount", 1, "nextEraNumber", 3));
         awaitClosedEraCount(gameId, 2);
+        awaitJsonArraySize(gameId, 1, "resolved_outcome_references", 1);
 
         mockMvc.perform(get("/api/v1/games/{gameId}/history", gameId)
                         .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(UUID.randomUUID())))))
@@ -199,5 +201,19 @@ class GameHistoryIT {
                                 Integer.class,
                                 gameId))
                         .isEqualTo(expectedCount));
+    }
+
+    private void awaitCarryForwardState(UUID gameId, int eraNumber, UUID outcomeId, int probability) {
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+            var state = jdbcTemplate.queryForMap("""
+                    SELECT cascaded_event_references #>> '{0,carryForwardProbabilityState,0,outcomeId}' AS outcome_id,
+                           cascaded_event_references #>> '{0,carryForwardProbabilityState,0,probability}' AS probability
+                    FROM game_history_projection
+                    WHERE game_id = ? AND era_number = ?
+                    """, gameId, eraNumber);
+            org.assertj.core.api.Assertions.assertThat(state)
+                    .containsEntry("outcome_id", outcomeId.toString())
+                    .containsEntry("probability", Integer.toString(probability));
+        });
     }
 }

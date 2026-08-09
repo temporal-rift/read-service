@@ -15,19 +15,22 @@ class GameHistoryProjectionTest {
     private final UUID secondEventId = UUID.randomUUID();
     private final UUID firstOutcomeId = UUID.randomUUID();
     private final UUID secondOutcomeId = UUID.randomUUID();
+    private final CarryForwardProbability carryForwardProbability = new CarryForwardProbability(secondOutcomeId, 45);
 
     @Test
     void terminalFactsBeforeMetadata_materializeAfterDefinitionsArriveInRevealOrder() {
         var projection = GameHistoryProjection.empty(gameId, 1)
                 .recordResolvedOutcome(secondEventId, secondOutcomeId)
                 .recordResolvedOutcome(firstEventId, firstOutcomeId)
-                .recordCascade(secondEventId)
+                .recordCascade(secondEventId, List.of(carryForwardProbability))
                 .mergeEventDefinitions(definitions());
 
         assertThat(projection.resolvedOutcomes())
                 .extracting(ResolvedOutcome::eventId)
                 .containsExactly(firstEventId, secondEventId);
         assertThat(projection.cascadedEvents()).containsExactly(new CascadedEvent(secondEventId, "Second event"));
+        assertThat(projection.cascadedEventReferences().getFirst().carryForwardProbabilityState())
+                .containsExactly(carryForwardProbability);
     }
 
     @Test
@@ -35,8 +38,8 @@ class GameHistoryProjectionTest {
         var projection = GameHistoryProjection.empty(gameId, 1)
                 .recordResolvedOutcome(firstEventId, firstOutcomeId)
                 .recordResolvedOutcome(firstEventId, firstOutcomeId)
-                .recordCascade(secondEventId)
-                .recordCascade(secondEventId)
+                .recordCascade(secondEventId, List.of(carryForwardProbability))
+                .recordCascade(secondEventId, List.of(carryForwardProbability))
                 .mergeEventDefinitions(definitions());
 
         assertThat(projection.resolvedOutcomes()).hasSize(1);
@@ -47,7 +50,7 @@ class GameHistoryProjectionTest {
     @Test
     void eraClosure_replacesObservedCascadeCountWithAuthoritativeValue() {
         var projection = GameHistoryProjection.empty(gameId, 1)
-                .recordCascade(firstEventId)
+                .recordCascade(firstEventId, List.of())
                 .close(2);
 
         assertThat(projection.closed()).isTrue();
@@ -58,7 +61,7 @@ class GameHistoryProjectionTest {
     void incompleteCorrelation_omitsInvalidResponseItems() {
         var projection = GameHistoryProjection.empty(gameId, 1)
                 .recordResolvedOutcome(firstEventId, firstOutcomeId)
-                .recordCascade(secondEventId);
+                .recordCascade(secondEventId, List.of(carryForwardProbability));
 
         assertThat(projection.resolvedOutcomes()).isEmpty();
         assertThat(projection.cascadedEvents()).isEmpty();

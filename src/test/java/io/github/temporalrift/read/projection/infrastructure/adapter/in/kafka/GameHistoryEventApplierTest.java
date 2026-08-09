@@ -12,6 +12,7 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
+import io.github.temporalrift.read.projection.domain.model.CarryForwardProbability;
 import io.github.temporalrift.read.projection.domain.model.CarryOverState;
 import io.github.temporalrift.read.projection.domain.model.GameHistoryProjection;
 import io.github.temporalrift.read.projection.domain.port.out.GameHistoryRepository;
@@ -53,6 +54,8 @@ class GameHistoryEventApplierTest {
 
         assertThat(history().cascadedEvents()).hasSize(1);
         assertThat(history().paradoxesCascaded()).isEqualTo(1);
+        assertThat(history().cascadedEventReferences().getFirst().carryForwardProbabilityState())
+                .containsExactly(new CarryForwardProbability(outcomeId, 45));
     }
 
     @Test
@@ -82,7 +85,12 @@ class GameHistoryEventApplierTest {
     }
 
     private ParadoxCascadedPayload paradoxCascaded() {
-        return new ParadoxCascadedPayload(gameId, 1, UUID.randomUUID(), eventId, List.of());
+        return new ParadoxCascadedPayload(
+                gameId,
+                1,
+                UUID.randomUUID(),
+                eventId,
+                List.of(new ParadoxCascadedPayload.CarryForwardProbability(outcomeId, 45)));
     }
 
     private GameHistoryProjection history() {
