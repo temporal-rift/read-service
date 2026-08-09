@@ -61,35 +61,19 @@ class GameHistoryProjectionEntity {
 
     protected GameHistoryProjectionEntity() {}
 
-    private GameHistoryProjectionEntity(
-            UUID id,
-            UUID gameId,
-            int eraNumber,
-            String eventDefinitions,
-            String resolvedOutcomeReferences,
-            String cascadedEventReferences,
-            int cascadedParadoxCount,
-            boolean closed) {
+    private GameHistoryProjectionEntity(UUID id, GameHistoryProjection domain, ObjectMapper objectMapper) {
         this.id = id;
-        this.gameId = gameId;
-        this.eraNumber = eraNumber;
-        this.eventDefinitions = eventDefinitions;
-        this.resolvedOutcomeReferences = resolvedOutcomeReferences;
-        this.cascadedEventReferences = cascadedEventReferences;
-        this.cascadedParadoxCount = cascadedParadoxCount;
-        this.closed = closed;
+        this.gameId = domain.gameId();
+        this.eraNumber = domain.eraNumber();
+        this.eventDefinitions = objectMapper.writeValueAsString(domain.eventDefinitions());
+        this.resolvedOutcomeReferences = objectMapper.writeValueAsString(domain.resolvedOutcomeReferences());
+        this.cascadedEventReferences = objectMapper.writeValueAsString(domain.cascadedEventReferences());
+        this.cascadedParadoxCount = domain.cascadedParadoxCount();
+        this.closed = domain.closed();
     }
 
     static GameHistoryProjectionEntity fromDomain(UUID id, GameHistoryProjection domain, ObjectMapper objectMapper) {
-        return new GameHistoryProjectionEntity(
-                id,
-                domain.gameId(),
-                domain.eraNumber(),
-                objectMapper.writeValueAsString(domain.eventDefinitions()),
-                objectMapper.writeValueAsString(domain.resolvedOutcomeReferences()),
-                objectMapper.writeValueAsString(domain.cascadedEventReferences()),
-                domain.cascadedParadoxCount(),
-                domain.closed());
+        return new GameHistoryProjectionEntity(id, domain, objectMapper);
     }
 
     GameHistoryProjection toDomain(ObjectMapper objectMapper) {
