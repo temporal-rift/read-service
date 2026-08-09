@@ -4,6 +4,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
@@ -16,6 +18,8 @@ import io.github.temporalrift.read.notification.domain.model.NotificationSession
 
 @Service
 class NotificationFanOutService implements FanOutNotificationUseCase {
+
+    private static final Logger log = LoggerFactory.getLogger(NotificationFanOutService.class);
 
     private final NotificationPolicy policy;
     private final NotificationSessionRegistry sessions;
@@ -53,7 +57,14 @@ class NotificationFanOutService implements FanOutNotificationUseCase {
                         session.deliver(notification);
                     } catch (RuntimeException e) {
                         sessions.unregister(session.sessionId());
-                        session.close();
+                        try {
+                            session.close();
+                        } catch (RuntimeException closeFailure) {
+                            log.debug(
+                                    "Unable to close failed notification session {}",
+                                    session.sessionId(),
+                                    closeFailure);
+                        }
                     }
                 });
     }
