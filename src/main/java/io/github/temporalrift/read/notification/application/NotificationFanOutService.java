@@ -42,10 +42,19 @@ class NotificationFanOutService implements FanOutNotificationUseCase {
         var payload = payload(message.getPayload());
         var notification = NotificationMessage.event(eventType, occurredAt(message), payload);
         var targetPlayerId = delivery == NotificationPolicy.Delivery.TARGETED ? uuid(payload, "playerId") : null;
+        if (delivery == NotificationPolicy.Delivery.TARGETED && targetPlayerId == null) {
+            return;
+        }
         sessions.sessionsFor(gameId).stream()
                 .filter(session ->
                         targetPlayerId == null || session.recipient().playerId().equals(targetPlayerId))
-                .forEach(session -> session.delivery().send(notification));
+                .forEach(session -> {
+                    try {
+                        session.deliver(notification);
+                    } catch (RuntimeException e) {
+                        sessions.unregister(session.sessionId());
+                    }
+                });
     }
 
     private JsonNode payload(Object value) {

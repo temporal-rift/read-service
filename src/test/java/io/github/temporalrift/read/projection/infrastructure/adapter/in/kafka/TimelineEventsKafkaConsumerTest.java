@@ -12,7 +12,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import tools.jackson.databind.ObjectMapper;
 
-import io.github.temporalrift.read.shared.domain.port.out.ProcessedEventPort;
+import io.github.temporalrift.read.shared.ProcessedEventPort;
 
 @ExtendWith(MockitoExtension.class)
 class TimelineEventsKafkaConsumerTest {

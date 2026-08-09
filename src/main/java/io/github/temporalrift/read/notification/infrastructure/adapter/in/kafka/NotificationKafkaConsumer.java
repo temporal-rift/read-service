@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.temporalrift.read.notification.application.port.in.FanOutNotificationUseCase;
-import io.github.temporalrift.read.shared.domain.port.out.ProcessedEventPort;
+import io.github.temporalrift.read.shared.ProcessedEventPort;
 import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.InboundEventClaim;
 
 @Component

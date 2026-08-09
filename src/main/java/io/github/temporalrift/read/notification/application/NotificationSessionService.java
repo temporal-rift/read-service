@@ -31,9 +31,15 @@ class NotificationSessionService implements ConnectNotificationSessionUseCase {
 
     @Override
     public void connect(String sessionId, UUID gameId, UUID playerId, NotificationDeliveryPort delivery) {
-        var snapshot = playerGameState.get(gameId, playerId);
-        delivery.send(new NotificationMessage("SNAPSHOT", null, null, objectMapper.valueToTree(snapshot)));
-        sessions.register(new NotificationSession(sessionId, new NotificationRecipient(gameId, playerId), delivery));
+        var session = new NotificationSession(sessionId, new NotificationRecipient(gameId, playerId), delivery);
+        sessions.register(session);
+        try {
+            var snapshot = playerGameState.get(gameId, playerId);
+            session.activate(new NotificationMessage("SNAPSHOT", null, null, objectMapper.valueToTree(snapshot)));
+        } catch (RuntimeException e) {
+            sessions.unregister(sessionId);
+            throw e;
+        }
     }
 
     @Override

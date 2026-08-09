@@ -10,8 +10,6 @@ import org.springframework.security.oauth2.server.resource.web.BearerTokenResolv
 import org.springframework.security.web.SecurityFilterChain;
 import tools.jackson.databind.ObjectMapper;
 
-import io.github.temporalrift.read.notification.infrastructure.config.WebSocketBearerTokenResolver;
-
 @EnableWebSecurity
 @Configuration
 public class SecurityConfig {

@@ -7,36 +7,40 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 import tools.jackson.databind.ObjectMapper;
 
 import io.github.temporalrift.read.notification.application.port.in.ConnectNotificationSessionUseCase;
-import io.github.temporalrift.read.shared.infrastructure.config.PlayerAuthenticationToken;
+import io.github.temporalrift.read.notification.infrastructure.config.NotificationWebSocketProperties;
+import io.github.temporalrift.read.shared.CurrentPlayer;
 
 @Component
 public class GameNotificationWebSocketHandler extends TextWebSocketHandler {
 
     private final ConnectNotificationSessionUseCase sessions;
     private final ObjectMapper objectMapper;
+    private final NotificationWebSocketProperties properties;
 
-    GameNotificationWebSocketHandler(ConnectNotificationSessionUseCase sessions, ObjectMapper objectMapper) {
+    GameNotificationWebSocketHandler(
+            ConnectNotificationSessionUseCase sessions,
+            ObjectMapper objectMapper,
+            NotificationWebSocketProperties properties) {
         this.sessions = sessions;
         this.objectMapper = objectMapper;
+        this.properties = properties;
     }
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws IOException {
-        var principal = session.getPrincipal();
-        if (!(principal instanceof PlayerAuthenticationToken token)) {
-            session.close(CloseStatus.POLICY_VIOLATION);
-            return;
-        }
+        var decoratedSession = new ConcurrentWebSocketSessionDecorator(
+                session, properties.sendTimeLimitMillis(), properties.sendBufferSizeBytes());
         try {
             sessions.connect(
                     session.getId(),
                     gameId(session),
-                    token.getPrincipal().playerId(),
-                    message -> send(session, message));
+                    CurrentPlayer.id(session.getPrincipal()),
+                    message -> send(decoratedSession, message));
         } catch (RuntimeException e) {
             session.close(CloseStatus.POLICY_VIOLATION);
         }

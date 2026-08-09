@@ -7,7 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.messaging.Message;
 
-import io.github.temporalrift.read.shared.domain.port.out.ProcessedEventPort;
+import io.github.temporalrift.read.shared.ProcessedEventPort;
 
 /** Idempotency prologue for read-service Kafka consumers. */
 public final class InboundEventClaim {
