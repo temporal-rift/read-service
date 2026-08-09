@@ -1,10 +1,10 @@
-package io.github.temporalrift.read.notification.infrastructure.config;
+package io.github.temporalrift.read.shared.infrastructure.config;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 
-public final class WebSocketBearerTokenResolver implements BearerTokenResolver {
+final class WebSocketBearerTokenResolver implements BearerTokenResolver {
 
     private final DefaultBearerTokenResolver delegate = new DefaultBearerTokenResolver();
 

@@ -7,7 +7,7 @@ import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
-import io.github.temporalrift.read.shared.domain.port.out.ProcessedEventPort;
+import io.github.temporalrift.read.shared.ProcessedEventPort;
 
 @Repository
 class JpaProcessedEventAdapter implements ProcessedEventPort {
