@@ -53,6 +53,7 @@ class NotificationFanOutService implements FanOutNotificationUseCase {
                         session.deliver(notification);
                     } catch (RuntimeException e) {
                         sessions.unregister(session.sessionId());
+                        session.close();
                     }
                 });
     }

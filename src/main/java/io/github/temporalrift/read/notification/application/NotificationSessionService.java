@@ -2,6 +2,7 @@ package io.github.temporalrift.read.notification.application;
 
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
 
@@ -19,25 +20,33 @@ class NotificationSessionService implements ConnectNotificationSessionUseCase {
     private final GetPlayerGameStateUseCase playerGameState;
     private final NotificationSessionRegistry sessions;
     private final ObjectMapper objectMapper;
+    private final int maxPendingMessages;
 
     NotificationSessionService(
             GetPlayerGameStateUseCase playerGameState,
             NotificationSessionRegistry sessions,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            @Value("${notification.websocket.max-pending-messages}") int maxPendingMessages) {
         this.playerGameState = playerGameState;
         this.sessions = sessions;
         this.objectMapper = objectMapper;
+        if (maxPendingMessages < 1) {
+            throw new IllegalArgumentException("notification.websocket.max-pending-messages must be positive");
+        }
+        this.maxPendingMessages = maxPendingMessages;
     }
 
     @Override
     public void connect(String sessionId, UUID gameId, UUID playerId, NotificationDeliveryPort delivery) {
-        var session = new NotificationSession(sessionId, new NotificationRecipient(gameId, playerId), delivery);
+        var session = new NotificationSession(
+                sessionId, new NotificationRecipient(gameId, playerId), delivery, maxPendingMessages);
         sessions.register(session);
         try {
             var snapshot = playerGameState.get(gameId, playerId);
             session.activate(new NotificationMessage("SNAPSHOT", null, null, objectMapper.valueToTree(snapshot)));
         } catch (RuntimeException e) {
             sessions.unregister(sessionId);
+            delivery.close();
             throw e;
         }
     }

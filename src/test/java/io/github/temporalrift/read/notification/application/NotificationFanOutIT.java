@@ -67,7 +67,7 @@ class NotificationFanOutIT {
     private CapturingDelivery register(UUID gameId, UUID playerId) {
         var delivery = new CapturingDelivery();
         var session = new NotificationSession(
-                UUID.randomUUID().toString(), new NotificationRecipient(gameId, playerId), delivery);
+                UUID.randomUUID().toString(), new NotificationRecipient(gameId, playerId), delivery, 256);
         session.activate(new NotificationMessage("SNAPSHOT", null, null, null));
         delivery.messages.clear();
         sessions.register(session);
