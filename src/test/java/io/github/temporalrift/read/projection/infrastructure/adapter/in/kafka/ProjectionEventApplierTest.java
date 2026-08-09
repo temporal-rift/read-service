@@ -266,4 +266,82 @@ class ProjectionEventApplierTest {
 
         then(gameActiveEvents).should().deleteByGameIdAndEventId(gameId, eventId);
     }
+
+    @Test
+    void applyParadoxResolutionPhaseStarted_opensPhaseWithPendingParadoxIds() {
+        var paradox1 = UUID.randomUUID();
+        var paradox2 = UUID.randomUUID();
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.RESOLUTION)));
+
+        applier.applyParadoxResolutionPhaseStarted(
+                new ParadoxResolutionPhaseStartedPayload(gameId, 1, List.of(paradox1, paradox2), 60));
+
+        then(gameProjections)
+                .should()
+                .save(new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradox1, paradox2)));
+    }
+
+    @Test
+    void applyParadoxResolved_oneOfTwoPending_keepsPhaseOpen() {
+        var paradox1 = UUID.randomUUID();
+        var paradox2 = UUID.randomUUID();
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(
+                        new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradox1, paradox2))));
+
+        applier.applyParadoxResolved(new ParadoxResolvedPayload(gameId, 1, paradox1, UUID.randomUUID()));
+
+        then(gameProjections).should().save(new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradox2)));
+    }
+
+    @Test
+    void applyParadoxCascaded_lastPending_closesPhaseBackToResolution() {
+        var paradoxId = UUID.randomUUID();
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradoxId))));
+
+        applier.applyParadoxCascaded(new ParadoxCascadedPayload(gameId, 1, paradoxId, UUID.randomUUID(), List.of()));
+
+        then(gameProjections).should().save(new GameProjection(gameId, 1, Phase.RESOLUTION, List.of()));
+    }
+
+    @Test
+    void applyParadoxResolved_mixedWithCascade_closesOnceBothTerminal() {
+        var paradox1 = UUID.randomUUID();
+        var paradox2 = UUID.randomUUID();
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(
+                        new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradox1, paradox2))));
+
+        applier.applyParadoxResolved(new ParadoxResolvedPayload(gameId, 1, paradox1, UUID.randomUUID()));
+
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradox2))));
+
+        applier.applyParadoxCascaded(new ParadoxCascadedPayload(gameId, 1, paradox2, UUID.randomUUID(), List.of()));
+
+        then(gameProjections).should().save(new GameProjection(gameId, 1, Phase.RESOLUTION, List.of()));
+    }
+
+    @Test
+    void applyParadoxResolved_notPending_isNoOp() {
+        var paradoxId = UUID.randomUUID();
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.RESOLUTION, List.of())));
+
+        applier.applyParadoxResolved(new ParadoxResolvedPayload(gameId, 1, paradoxId, UUID.randomUUID()));
+
+        then(gameProjections).should(never()).save(any());
+    }
+
+    @Test
+    void applyParadoxResolutionPhaseStarted_unknownGame_skipsWithoutSaving() {
+        given(gameProjections.findByGameId(gameId)).willReturn(Optional.empty());
+
+        applier.applyParadoxResolutionPhaseStarted(
+                new ParadoxResolutionPhaseStartedPayload(gameId, 1, List.of(UUID.randomUUID()), 60));
+
+        then(gameProjections).should(never()).save(any());
+    }
 }

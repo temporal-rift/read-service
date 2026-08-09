@@ -204,4 +204,44 @@ class ProjectionEventApplier {
     void applyOutcomeApplied(OutcomeAppliedPayload payload) {
         gameActiveEvents.deleteByGameIdAndEventId(payload.gameId(), payload.eventId());
     }
+
+    void applyParadoxResolutionPhaseStarted(ParadoxResolutionPhaseStartedPayload payload) {
+        gameProjections
+                .findByGameId(payload.gameId())
+                .ifPresentOrElse(
+                        existing -> gameProjections.save(new GameProjection(
+                                existing.gameId(),
+                                existing.eraNumber(),
+                                Phase.PARADOX_RESOLUTION,
+                                payload.paradoxIds())),
+                        () -> log.warn(
+                                "ParadoxResolutionPhaseStarted for unknown game {} — skipping", payload.gameId()));
+    }
+
+    void applyParadoxResolved(ParadoxResolvedPayload payload) {
+        closeParadoxId(payload.gameId(), payload.paradoxId());
+    }
+
+    void applyParadoxCascaded(ParadoxCascadedPayload payload) {
+        closeParadoxId(payload.gameId(), payload.paradoxId());
+    }
+
+    private void closeParadoxId(UUID gameId, UUID paradoxId) {
+        gameProjections
+                .findByGameId(gameId)
+                .ifPresentOrElse(
+                        existing -> {
+                            if (!existing.pendingParadoxIds().contains(paradoxId)) {
+                                log.warn("Paradox {} not pending for game {} — skipping", paradoxId, gameId);
+                                return;
+                            }
+                            var stillPending = existing.pendingParadoxIds().stream()
+                                    .filter(pending -> !pending.equals(paradoxId))
+                                    .toList();
+                            var phase = stillPending.isEmpty() ? Phase.RESOLUTION : Phase.PARADOX_RESOLUTION;
+                            gameProjections.save(
+                                    new GameProjection(existing.gameId(), existing.eraNumber(), phase, stillPending));
+                        },
+                        () -> log.warn("Paradox resolution for unknown game {} — skipping", gameId));
+    }
 }

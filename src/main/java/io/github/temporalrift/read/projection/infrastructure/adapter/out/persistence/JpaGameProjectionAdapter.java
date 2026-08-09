@@ -29,6 +29,7 @@ class JpaGameProjectionAdapter implements GameProjectionRepository {
             var entity = existing.get();
             entity.setEraNumber(gameProjection.eraNumber());
             entity.setPhase(gameProjection.phase());
+            entity.setPendingParadoxIds(gameProjection.pendingParadoxIds());
         } else {
             repository.save(GameProjectionEntity.fromDomain(gameProjection));
         }
