@@ -18,6 +18,23 @@
         <constraints nullable="false"/>
       </column>
     </createTable>
+
+    <createTable tableName="game_projection_pending_paradox">
+      <column name="game_projection_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="paradox_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
+
+    <addForeignKeyConstraint
+        baseTableName="game_projection_pending_paradox"
+        baseColumnNames="game_projection_id"
+        referencedTableName="game_projection"
+        referencedColumnNames="game_id"
+        constraintName="fk_game_projection_pending_paradox_game_projection"
+        onDelete="CASCADE"/>
   </changeSet>
 
 </databaseChangeLog>

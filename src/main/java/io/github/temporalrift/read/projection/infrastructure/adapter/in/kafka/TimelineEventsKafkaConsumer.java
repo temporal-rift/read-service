@@ -37,9 +37,22 @@ class TimelineEventsKafkaConsumer {
 
     private void dispatch(Message<Object> message) {
         var eventType = MessageHeaders.asString(message, EVENT_TYPE_HEADER);
-        if ("OutcomeApplied".equals(eventType)) {
-            applier.applyOutcomeApplied(
-                    GameEventPayloads.read(objectMapper, message.getPayload(), OutcomeAppliedPayload.class));
+        switch (eventType) {
+            case null -> {
+                // No eventType header — nothing to dispatch.
+            }
+            case "OutcomeApplied" -> applier.applyOutcomeApplied(read(message, OutcomeAppliedPayload.class));
+            case "ParadoxResolutionPhaseStarted" ->
+                applier.applyParadoxResolutionPhaseStarted(read(message, ParadoxResolutionPhaseStartedPayload.class));
+            case "ParadoxResolved" -> applier.applyParadoxResolved(read(message, ParadoxResolvedPayload.class));
+            case "ParadoxCascaded" -> applier.applyParadoxCascaded(read(message, ParadoxCascadedPayload.class));
+            default -> {
+                // Other timeline.events types aren't consumed by this projection.
+            }
         }
+    }
+
+    private <T> T read(Message<Object> message, Class<T> type) {
+        return GameEventPayloads.read(objectMapper, message.getPayload(), type);
     }
 }

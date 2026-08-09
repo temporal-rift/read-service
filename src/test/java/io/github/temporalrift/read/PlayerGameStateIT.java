@@ -264,6 +264,83 @@ class PlayerGameStateIT {
     }
 
     @Test
+    void paradoxResolutionPhase_opensThenClosesBackToResolution() throws Exception {
+        var gameId = UUID.randomUUID();
+        var player1 = UUID.randomUUID();
+        var paradox1 = UUID.randomUUID();
+        var paradox2 = UUID.randomUUID();
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "GameStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "lobbyId",
+                        UUID.randomUUID(),
+                        "playerIds",
+                        List.of(player1),
+                        "totalFactions",
+                        3,
+                        "deckSize",
+                        30));
+        awaitPlayerGameStateRowExists(gameId, player1);
+
+        publish(GAME_EVENTS_TOPIC, "ResolutionStarted", gameId, Map.of("gameId", gameId, "eraNumber", 1));
+        awaitPhase(gameId, "RESOLUTION");
+
+        publish(
+                TIMELINE_EVENTS_TOPIC,
+                "ParadoxResolutionPhaseStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "paradoxIds",
+                        List.of(paradox1, paradox2),
+                        "timerSeconds",
+                        60));
+        awaitPhase(gameId, "PARADOX_RESOLUTION");
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(player1)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.phase").value("PARADOX_RESOLUTION"));
+
+        publish(
+                TIMELINE_EVENTS_TOPIC,
+                "ParadoxResolved",
+                gameId,
+                Map.of("gameId", gameId, "eraNumber", 1, "paradoxId", paradox1, "resolvedByPlayerId", player1));
+
+        // One of two paradoxes still pending — phase must stay open.
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(player1)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.phase").value("PARADOX_RESOLUTION"));
+
+        publish(
+                TIMELINE_EVENTS_TOPIC,
+                "ParadoxCascaded",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "paradoxId",
+                        paradox2,
+                        "affectedEventId",
+                        UUID.randomUUID(),
+                        "carryForwardProbabilityState",
+                        List.of()));
+        awaitPhase(gameId, "RESOLUTION");
+    }
+
+    @Test
     void nonParticipant_getState_returns404() throws Exception {
         var gameId = UUID.randomUUID();
         var participant = UUID.randomUUID();
