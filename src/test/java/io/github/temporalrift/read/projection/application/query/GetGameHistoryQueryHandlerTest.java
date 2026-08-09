@@ -49,8 +49,9 @@ class GetGameHistoryQueryHandlerTest {
         var eventId = UUID.randomUUID();
         var outcomeId = UUID.randomUUID();
         given(histories.findByGameId(gameId))
-                .willReturn(List.of(
-                        history(1, eventId, outcomeId).recordCascade(eventId).close(1)));
+                .willReturn(List.of(history(1, eventId, outcomeId)
+                        .recordCascade(eventId, List.of())
+                        .close(1)));
 
         var era = handler.get(gameId).eras().getFirst();
 
@@ -75,7 +76,7 @@ class GetGameHistoryQueryHandlerTest {
     void get_partialCorrelation_omitsIncompleteChildren() {
         var incomplete = GameHistoryProjection.empty(gameId, 1)
                 .recordResolvedOutcome(UUID.randomUUID(), UUID.randomUUID())
-                .recordCascade(UUID.randomUUID());
+                .recordCascade(UUID.randomUUID(), List.of());
         given(histories.findByGameId(gameId)).willReturn(List.of(incomplete));
 
         var era = handler.get(gameId).eras().getFirst();

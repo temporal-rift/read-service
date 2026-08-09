@@ -6,6 +6,7 @@ import java.util.stream.IntStream;
 
 import org.springframework.stereotype.Component;
 
+import io.github.temporalrift.read.projection.domain.model.CarryForwardProbability;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
 import io.github.temporalrift.read.projection.domain.model.GameHistoryProjection;
 import io.github.temporalrift.read.projection.domain.model.HistoryEventDefinition;
@@ -45,7 +46,13 @@ class GameHistoryEventApplier {
     }
 
     void applyParadoxCascaded(ParadoxCascadedPayload payload) {
-        update(payload.gameId(), payload.eraNumber(), history -> history.recordCascade(payload.affectedEventId()));
+        var carryForwardProbabilityState = payload.carryForwardProbabilityState().stream()
+                .map(state -> new CarryForwardProbability(state.outcomeId(), state.probability()))
+                .toList();
+        update(
+                payload.gameId(),
+                payload.eraNumber(),
+                history -> history.recordCascade(payload.affectedEventId(), carryForwardProbabilityState));
     }
 
     void applyEraEnded(EraEndedPayload payload) {
