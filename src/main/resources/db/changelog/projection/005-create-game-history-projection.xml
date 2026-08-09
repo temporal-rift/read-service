@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+  <!-- Bounded, replay-safe correlation state for one game era. -->
+  <changeSet id="005-create-game-history-projection" author="read-service">
+    <createTable tableName="game_history_projection">
+      <column name="id" type="UUID">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="game_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="era_number" type="INT">
+        <constraints nullable="false"/>
+      </column>
+      <column name="event_definitions" type="JSONB" defaultValueComputed="'[]'::jsonb">
+        <constraints nullable="false"/>
+      </column>
+      <column name="resolved_outcome_references" type="JSONB" defaultValueComputed="'[]'::jsonb">
+        <constraints nullable="false"/>
+      </column>
+      <column name="cascaded_event_references" type="JSONB" defaultValueComputed="'[]'::jsonb">
+        <constraints nullable="false"/>
+      </column>
+      <column name="cascaded_paradox_count" type="INT" defaultValueNumeric="0">
+        <constraints nullable="false"/>
+      </column>
+      <column name="closed" type="BOOLEAN" defaultValueBoolean="false">
+        <constraints nullable="false"/>
+      </column>
+      <column name="version" type="BIGINT" defaultValueNumeric="0">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
+
+    <addUniqueConstraint
+        tableName="game_history_projection"
+        columnNames="game_id, era_number"
+        constraintName="uq_game_history_projection_game_id_era_number"/>
+
+    <sql>
+      ALTER TABLE game_history_projection
+        ADD CONSTRAINT ck_game_history_projection_era_number CHECK (era_number &gt;= 1),
+        ADD CONSTRAINT ck_game_history_projection_cascade_count CHECK (cascaded_paradox_count &gt;= 0)
+    </sql>
+  </changeSet>
+
+</databaseChangeLog>
