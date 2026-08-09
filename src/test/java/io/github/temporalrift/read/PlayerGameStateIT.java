@@ -315,6 +315,7 @@ class PlayerGameStateIT {
                 "ParadoxResolved",
                 gameId,
                 Map.of("gameId", gameId, "eraNumber", 1, "paradoxId", paradox1, "resolvedByPlayerId", player1));
+        awaitPendingParadoxCount(gameId, 1);
 
         // One of two paradoxes still pending — phase must stay open.
         mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
@@ -454,6 +455,15 @@ class PlayerGameStateIT {
                 .untilAsserted(() -> org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
                                 "SELECT phase FROM game_projection WHERE game_id = ?", String.class, gameId))
                         .isEqualTo(phase));
+    }
+
+    private void awaitPendingParadoxCount(UUID gameId, int count) {
+        await().atMost(Duration.ofSeconds(30))
+                .untilAsserted(() -> org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                                "SELECT COUNT(*) FROM game_projection_pending_paradox WHERE game_projection_id = ?",
+                                Integer.class,
+                                gameId))
+                        .isEqualTo(count));
     }
 
     private void awaitActiveEventRemoved(UUID gameId, UUID eventId) {
