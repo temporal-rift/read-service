@@ -1,6 +1,5 @@
 package io.github.temporalrift.read.projection.infrastructure.adapter.in.kafka;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -55,16 +54,14 @@ class ProjectionEventApplier {
         }
     }
 
+    // Per-player events are not guaranteed to arrive after GameStarted creates the row they target —
+    // IncompleteEventPublicationResubmitter can resubmit a failed send out of original order, so
+    // delivery order is not a safe assumption. Find-or-create rather than skip-on-missing, matching
+    // game-service's own ActionStateProjectionEventListener.onHandDealt precedent for the same race.
     void applyFactionAssigned(FactionAssignedPayload payload) {
-        playerGameStates
-                .findByGameIdAndPlayerId(payload.gameId(), payload.playerId())
-                .ifPresentOrElse(
-                        existing -> playerGameStates.save(new PlayerGameState(
-                                existing.gameId(), existing.playerId(), payload.faction(), existing.myHand())),
-                        () -> log.warn(
-                                "FactionAssigned for unknown player {} in game {} — skipping",
-                                payload.playerId(),
-                                payload.gameId()));
+        var existing = findOrCreatePlayerGameState(payload.gameId(), payload.playerId());
+        playerGameStates.save(new PlayerGameState(
+                existing.gameId(), existing.playerId(), payload.faction(), existing.myHand()));
     }
 
     void applyEraStarted(EraStartedPayload payload) {
@@ -82,21 +79,23 @@ class ProjectionEventApplier {
         }
     }
 
+    // HandDealt replaces the hand rather than appending to it: game-service deals a full fresh hand
+    // each era (EraSagaImpl) and game-service's own PlayerState is reconstituted the same way
+    // (ActionStateProjectionEventListener.onHandDealt), so this side must match or the projected hand
+    // grows without bound across eras.
     void applyHandDealt(HandDealtPayload payload) {
-        playerGameStates
-                .findByGameIdAndPlayerId(payload.gameId(), payload.playerId())
-                .ifPresentOrElse(
-                        existing -> {
-                            var hand = new ArrayList<>(existing.myHand());
-                            payload.cards()
-                                    .forEach(card -> hand.add(new HandCard(card.cardInstanceId(), card.cardType())));
-                            playerGameStates.save(new PlayerGameState(
-                                    existing.gameId(), existing.playerId(), existing.myFaction(), hand));
-                        },
-                        () -> log.warn(
-                                "HandDealt for unknown player {} in game {} — skipping",
-                                payload.playerId(),
-                                payload.gameId()));
+        var existing = findOrCreatePlayerGameState(payload.gameId(), payload.playerId());
+        var hand = payload.cards().stream()
+                .map(card -> new HandCard(card.cardInstanceId(), card.cardType()))
+                .toList();
+        playerGameStates.save(
+                new PlayerGameState(existing.gameId(), existing.playerId(), existing.myFaction(), hand));
+    }
+
+    private PlayerGameState findOrCreatePlayerGameState(UUID gameId, UUID playerId) {
+        return playerGameStates
+                .findByGameIdAndPlayerId(gameId, playerId)
+                .orElseGet(() -> new PlayerGameState(gameId, playerId, null, List.of()));
     }
 
     void applyPlayerDisconnected(PlayerDisconnectedPayload payload) {
@@ -108,14 +107,10 @@ class ProjectionEventApplier {
     }
 
     private void setConnected(UUID gameId, UUID playerId, boolean connected) {
-        gamePlayers
+        var existing = gamePlayers
                 .findByGameIdAndPlayerId(gameId, playerId)
-                .ifPresentOrElse(
-                        existing -> gamePlayers.save(
-                                gameId,
-                                new GamePlayer(existing.playerId(), existing.score(), connected, existing.faction())),
-                        () -> log.warn(
-                                "Connection update for unknown player {} in game {} — skipping", playerId, gameId));
+                .orElseGet(() -> new GamePlayer(playerId, 0, connected, null));
+        gamePlayers.save(gameId, new GamePlayer(existing.playerId(), existing.score(), connected, existing.faction()));
     }
 
     void applyEraEnded(EraEndedPayload payload) {

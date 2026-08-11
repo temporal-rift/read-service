@@ -80,13 +80,16 @@ class ProjectionEventApplierTest {
     }
 
     @Test
-    void applyFactionAssigned_unknownPlayer_skipsWithoutSaving() {
+    void applyFactionAssigned_arrivesBeforeGameStarted_createsRowRatherThanDropping() {
+        // IncompleteEventPublicationResubmitter can resubmit a failed send out of original order, so
+        // FactionAssigned reaching read-service before GameStarted's row exists is a real possibility,
+        // not just a hypothetical — it must not be silently dropped.
         var playerId = UUID.randomUUID();
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
 
         applier.applyFactionAssigned(new FactionAssignedPayload(gameId, playerId, "ERASERS"));
 
-        then(playerGameStates).should(never()).save(any());
+        then(playerGameStates).should().save(new PlayerGameState(gameId, playerId, "ERASERS", List.of()));
     }
 
     @Test
@@ -139,19 +142,36 @@ class ProjectionEventApplierTest {
     }
 
     @Test
-    void applyHandDealt_appendsCardsToExistingHand() {
+    void applyHandDealt_replacesRatherThanAppendsToExistingHand() {
+        // game-service deals a full fresh hand each era and replaces PlayerState's hand wholesale
+        // (ActionStateProjectionEventListener.onHandDealt) — this side must match, or the projected
+        // hand accumulates every era's cards without bound instead of reflecting only the current one.
         var playerId = UUID.randomUUID();
-        var existingCard = new HandCard(UUID.randomUUID(), "SCAN");
-        var newCardId = UUID.randomUUID();
+        var eraOneCard = new HandCard(UUID.randomUUID(), "SCAN");
+        var eraTwoCardId = UUID.randomUUID();
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
-                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of(existingCard))));
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of(eraOneCard))));
 
-        applier.applyHandDealt(
-                new HandDealtPayload(gameId, 1, playerId, List.of(new HandDealtPayload.DealtCard(newCardId, "PUSH"))));
+        applier.applyHandDealt(new HandDealtPayload(
+                gameId, 2, playerId, List.of(new HandDealtPayload.DealtCard(eraTwoCardId, "PUSH"))));
 
         var captor = ArgumentCaptor.forClass(PlayerGameState.class);
         then(playerGameStates).should().save(captor.capture());
-        assertThat(captor.getValue().myHand()).containsExactly(existingCard, new HandCard(newCardId, "PUSH"));
+        assertThat(captor.getValue().myHand()).containsExactly(new HandCard(eraTwoCardId, "PUSH"));
+    }
+
+    @Test
+    void applyHandDealt_arrivesBeforeGameStarted_createsRowRatherThanDropping() {
+        var playerId = UUID.randomUUID();
+        var cardId = UUID.randomUUID();
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
+
+        applier.applyHandDealt(
+                new HandDealtPayload(gameId, 1, playerId, List.of(new HandDealtPayload.DealtCard(cardId, "PUSH"))));
+
+        then(playerGameStates)
+                .should()
+                .save(new PlayerGameState(gameId, playerId, null, List.of(new HandCard(cardId, "PUSH"))));
     }
 
     @Test
@@ -163,6 +183,16 @@ class ProjectionEventApplierTest {
         applier.applyPlayerDisconnected(new PlayerDisconnectedPayload(gameId, playerId));
 
         then(gamePlayers).should().save(gameId, new GamePlayer(playerId, 5, false, null));
+    }
+
+    @Test
+    void applyPlayerDisconnected_arrivesBeforeGameStarted_createsRowRatherThanDropping() {
+        var playerId = UUID.randomUUID();
+        given(gamePlayers.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
+
+        applier.applyPlayerDisconnected(new PlayerDisconnectedPayload(gameId, playerId));
+
+        then(gamePlayers).should().save(gameId, new GamePlayer(playerId, 0, false, null));
     }
 
     @Test
