@@ -58,6 +58,8 @@ class ProjectionEventApplierTest {
     void applyGameStarted_createsGameProjectionAndOneRowPerPlayer() {
         var player1 = UUID.randomUUID();
         var player2 = UUID.randomUUID();
+        given(gamePlayers.findByGameIdAndPlayerId(eq(gameId), any())).willReturn(Optional.empty());
+        given(playerGameStates.findByGameIdAndPlayerId(eq(gameId), any())).willReturn(Optional.empty());
 
         applier.applyGameStarted(new GameStartedPayload(gameId, UUID.randomUUID(), List.of(player1, player2), 3, 30));
 
@@ -66,6 +68,43 @@ class ProjectionEventApplierTest {
         then(gamePlayers).should().save(gameId, new GamePlayer(player2, 0, true, null));
         then(playerGameStates).should().save(new PlayerGameState(gameId, player1, null, List.of()));
         then(playerGameStates).should().save(new PlayerGameState(gameId, player2, null, List.of()));
+    }
+
+    @Test
+    void applyGameStarted_afterFactionAssignedAlreadyArrived_preservesFactionRatherThanResetting() {
+        var playerId = UUID.randomUUID();
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of())));
+        given(gamePlayers.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
+
+        applier.applyGameStarted(new GameStartedPayload(gameId, UUID.randomUUID(), List.of(playerId), 3, 30));
+
+        then(playerGameStates).should().save(new PlayerGameState(gameId, playerId, "ERASERS", List.of()));
+    }
+
+    @Test
+    void applyGameStarted_afterHandDealtAlreadyArrived_preservesHandRatherThanResetting() {
+        var playerId = UUID.randomUUID();
+        var card = new HandCard(UUID.randomUUID(), "PUSH");
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, null, List.of(card))));
+        given(gamePlayers.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
+
+        applier.applyGameStarted(new GameStartedPayload(gameId, UUID.randomUUID(), List.of(playerId), 3, 30));
+
+        then(playerGameStates).should().save(new PlayerGameState(gameId, playerId, null, List.of(card)));
+    }
+
+    @Test
+    void applyGameStarted_afterPlayerDisconnectedAlreadyArrived_preservesConnectionStateRatherThanResetting() {
+        var playerId = UUID.randomUUID();
+        given(gamePlayers.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new GamePlayer(playerId, 0, false, null)));
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
+
+        applier.applyGameStarted(new GameStartedPayload(gameId, UUID.randomUUID(), List.of(playerId), 3, 30));
+
+        then(gamePlayers).should().save(gameId, new GamePlayer(playerId, 0, false, null));
     }
 
     @Test

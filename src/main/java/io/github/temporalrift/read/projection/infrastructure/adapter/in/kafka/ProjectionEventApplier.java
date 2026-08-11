@@ -46,11 +46,15 @@ class ProjectionEventApplier {
         this.playerGameStates = playerGameStates;
     }
 
+    // Preserves rather than overwrites: a per-player event can arrive, and find-or-create a row,
+    // before GameStarted does (see applyFactionAssigned). Re-initializing unconditionally here would
+    // stomp that already-correct data back to defaults the instant GameStarted is finally applied,
+    // silently undoing the out-of-order handling below rather than complementing it.
     void applyGameStarted(GameStartedPayload payload) {
         gameProjections.save(new GameProjection(payload.gameId(), 0, Phase.LOBBY));
         for (var playerId : payload.playerIds()) {
-            gamePlayers.save(payload.gameId(), new GamePlayer(playerId, 0, true, null));
-            playerGameStates.save(new PlayerGameState(payload.gameId(), playerId, null, List.of()));
+            gamePlayers.save(payload.gameId(), findOrCreateGamePlayer(payload.gameId(), playerId));
+            playerGameStates.save(findOrCreatePlayerGameState(payload.gameId(), playerId));
         }
     }
 
@@ -106,10 +110,12 @@ class ProjectionEventApplier {
     }
 
     private void setConnected(UUID gameId, UUID playerId, boolean connected) {
-        var existing = gamePlayers
-                .findByGameIdAndPlayerId(gameId, playerId)
-                .orElseGet(() -> new GamePlayer(playerId, 0, connected, null));
+        var existing = findOrCreateGamePlayer(gameId, playerId);
         gamePlayers.save(gameId, new GamePlayer(existing.playerId(), existing.score(), connected, existing.faction()));
+    }
+
+    private GamePlayer findOrCreateGamePlayer(UUID gameId, UUID playerId) {
+        return gamePlayers.findByGameIdAndPlayerId(gameId, playerId).orElseGet(() -> new GamePlayer(playerId, 0, true, null));
     }
 
     void applyEraEnded(EraEndedPayload payload) {
