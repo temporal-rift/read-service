@@ -60,8 +60,8 @@ class ProjectionEventApplier {
     // game-service's own ActionStateProjectionEventListener.onHandDealt precedent for the same race.
     void applyFactionAssigned(FactionAssignedPayload payload) {
         var existing = findOrCreatePlayerGameState(payload.gameId(), payload.playerId());
-        playerGameStates.save(new PlayerGameState(
-                existing.gameId(), existing.playerId(), payload.faction(), existing.myHand()));
+        playerGameStates.save(
+                new PlayerGameState(existing.gameId(), existing.playerId(), payload.faction(), existing.myHand()));
     }
 
     void applyEraStarted(EraStartedPayload payload) {
@@ -88,8 +88,7 @@ class ProjectionEventApplier {
         var hand = payload.cards().stream()
                 .map(card -> new HandCard(card.cardInstanceId(), card.cardType()))
                 .toList();
-        playerGameStates.save(
-                new PlayerGameState(existing.gameId(), existing.playerId(), existing.myFaction(), hand));
+        playerGameStates.save(new PlayerGameState(existing.gameId(), existing.playerId(), existing.myFaction(), hand));
     }
 
     private PlayerGameState findOrCreatePlayerGameState(UUID gameId, UUID playerId) {
