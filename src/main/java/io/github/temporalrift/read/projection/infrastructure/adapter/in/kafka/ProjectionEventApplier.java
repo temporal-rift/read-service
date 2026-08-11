@@ -115,7 +115,9 @@ class ProjectionEventApplier {
     }
 
     private GamePlayer findOrCreateGamePlayer(UUID gameId, UUID playerId) {
-        return gamePlayers.findByGameIdAndPlayerId(gameId, playerId).orElseGet(() -> new GamePlayer(playerId, 0, true, null));
+        return gamePlayers
+                .findByGameIdAndPlayerId(gameId, playerId)
+                .orElseGet(() -> new GamePlayer(playerId, 0, true, null));
     }
 
     void applyEraEnded(EraEndedPayload payload) {
