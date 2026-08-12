@@ -4,9 +4,10 @@ import java.util.List;
 import java.util.UUID;
 
 import io.github.temporalrift.read.projection.domain.model.CascadedEvent;
+import io.github.temporalrift.read.projection.domain.model.DealtCard;
 import io.github.temporalrift.read.projection.domain.model.ResolvedOutcome;
 
-/** Retrieves the bounded shared history for one game without applying player-specific filtering. */
+/** Retrieves the shared history for one game, scoping dealt-hand data to the requesting player. */
 public interface GetGameHistoryUseCase {
 
     /**
@@ -15,7 +16,7 @@ public interface GetGameHistoryUseCase {
      * @throws io.github.temporalrift.read.projection.domain.model.GameHistoryNotFoundException when the game has no
      *     history rows
      */
-    Result get(UUID gameId);
+    Result get(UUID gameId, UUID playerId);
 
     record Result(UUID gameId, List<EraResult> eras) {
         public Result {
@@ -24,10 +25,15 @@ public interface GetGameHistoryUseCase {
     }
 
     record EraResult(
-            int eraNumber, List<ResolvedOutcome> outcomes, int paradoxesCascaded, List<CascadedEvent> cascadedEvents) {
+            int eraNumber,
+            List<ResolvedOutcome> outcomes,
+            int paradoxesCascaded,
+            List<CascadedEvent> cascadedEvents,
+            List<DealtCard> myHand) {
         public EraResult {
             outcomes = List.copyOf(outcomes);
             cascadedEvents = List.copyOf(cascadedEvents);
+            myHand = List.copyOf(myHand);
         }
     }
 }

@@ -7,12 +7,13 @@ import java.util.stream.IntStream;
 import org.springframework.stereotype.Component;
 
 import io.github.temporalrift.read.projection.domain.model.CarryForwardProbability;
+import io.github.temporalrift.read.projection.domain.model.DealtCard;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
 import io.github.temporalrift.read.projection.domain.model.GameHistoryProjection;
 import io.github.temporalrift.read.projection.domain.model.HistoryEventDefinition;
 import io.github.temporalrift.read.projection.domain.port.out.GameHistoryRepository;
 
-/** Applies the four replayable source facts to the independent game-history correlation state. */
+/** Applies the five replayable source facts to the independent game-history correlation state. */
 @Component
 class GameHistoryEventApplier {
 
@@ -57,6 +58,13 @@ class GameHistoryEventApplier {
 
     void applyEraEnded(EraEndedPayload payload) {
         update(payload.gameId(), payload.eraNumber(), history -> history.close(payload.cascadedParadoxCount()));
+    }
+
+    void applyHandDealt(HandDealtPayload payload) {
+        var cards = payload.cards().stream()
+                .map(card -> new DealtCard(card.cardInstanceId(), card.cardType(), card.grade()))
+                .toList();
+        update(payload.gameId(), payload.eraNumber(), history -> history.recordDealtHand(payload.playerId(), cards));
     }
 
     private void update(UUID gameId, int eraNumber, UnaryOperator<GameHistoryProjection> update) {

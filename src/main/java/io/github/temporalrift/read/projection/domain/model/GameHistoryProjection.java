@@ -21,6 +21,7 @@ public record GameHistoryProjection(
         List<HistoryEventDefinition> eventDefinitions,
         List<ResolvedOutcomeReference> resolvedOutcomeReferences,
         List<CascadedEventReference> cascadedEventReferences,
+        List<DealtHand> dealtHands,
         int cascadedParadoxCount,
         boolean closed) {
 
@@ -32,13 +33,14 @@ public record GameHistoryProjection(
         eventDefinitions = List.copyOf(eventDefinitions);
         resolvedOutcomeReferences = List.copyOf(resolvedOutcomeReferences);
         cascadedEventReferences = List.copyOf(cascadedEventReferences);
+        dealtHands = List.copyOf(dealtHands);
         if (cascadedParadoxCount < 0) {
             throw new IllegalArgumentException("cascadedParadoxCount must not be negative");
         }
     }
 
     public static GameHistoryProjection empty(UUID gameId, int eraNumber) {
-        return new GameHistoryProjection(gameId, eraNumber, List.of(), List.of(), List.of(), 0, false);
+        return new GameHistoryProjection(gameId, eraNumber, List.of(), List.of(), List.of(), List.of(), 0, false);
     }
 
     public GameHistoryProjection mergeEventDefinitions(List<HistoryEventDefinition> definitions) {
@@ -49,6 +51,7 @@ public record GameHistoryProjection(
                 List.copyOf(merged.values()),
                 resolvedOutcomeReferences,
                 cascadedEventReferences,
+                dealtHands,
                 cascadedParadoxCount,
                 closed);
     }
@@ -60,7 +63,13 @@ public record GameHistoryProjection(
         }
         var references = new ArrayList<>(resolvedOutcomeReferences);
         references.add(new ResolvedOutcomeReference(eventId, winningOutcomeId));
-        return copy(eventDefinitions, List.copyOf(references), cascadedEventReferences, cascadedParadoxCount, closed);
+        return copy(
+                eventDefinitions,
+                List.copyOf(references),
+                cascadedEventReferences,
+                dealtHands,
+                cascadedParadoxCount,
+                closed);
     }
 
     public GameHistoryProjection recordCascade(
@@ -71,7 +80,28 @@ public record GameHistoryProjection(
         }
         var references = new ArrayList<>(cascadedEventReferences);
         references.add(new CascadedEventReference(eventId, carryForwardProbabilityState));
-        return copy(eventDefinitions, resolvedOutcomeReferences, List.copyOf(references), cascadedParadoxCount, closed);
+        return copy(
+                eventDefinitions,
+                resolvedOutcomeReferences,
+                List.copyOf(references),
+                dealtHands,
+                cascadedParadoxCount,
+                closed);
+    }
+
+    public GameHistoryProjection recordDealtHand(UUID playerId, List<DealtCard> cards) {
+        if (dealtHands.stream().anyMatch(hand -> hand.playerId().equals(playerId))) {
+            return this;
+        }
+        var hands = new ArrayList<>(dealtHands);
+        hands.add(new DealtHand(playerId, cards));
+        return copy(
+                eventDefinitions,
+                resolvedOutcomeReferences,
+                cascadedEventReferences,
+                List.copyOf(hands),
+                cascadedParadoxCount,
+                closed);
     }
 
     public GameHistoryProjection close(int authoritativeCascadeCount) {
@@ -79,7 +109,20 @@ public record GameHistoryProjection(
             throw new IllegalArgumentException("authoritativeCascadeCount must not be negative");
         }
         return copy(
-                eventDefinitions, resolvedOutcomeReferences, cascadedEventReferences, authoritativeCascadeCount, true);
+                eventDefinitions,
+                resolvedOutcomeReferences,
+                cascadedEventReferences,
+                dealtHands,
+                authoritativeCascadeCount,
+                true);
+    }
+
+    public List<DealtCard> myHand(UUID playerId) {
+        return dealtHands.stream()
+                .filter(hand -> hand.playerId().equals(playerId))
+                .findFirst()
+                .map(DealtHand::cards)
+                .orElse(List.of());
     }
 
     public int paradoxesCascaded() {
@@ -131,8 +174,10 @@ public record GameHistoryProjection(
             List<HistoryEventDefinition> definitions,
             List<ResolvedOutcomeReference> outcomes,
             List<CascadedEventReference> cascades,
+            List<DealtHand> hands,
             int cascadeCount,
             boolean isClosed) {
-        return new GameHistoryProjection(gameId, eraNumber, definitions, outcomes, cascades, cascadeCount, isClosed);
+        return new GameHistoryProjection(
+                gameId, eraNumber, definitions, outcomes, cascades, hands, cascadeCount, isClosed);
     }
 }

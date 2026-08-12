@@ -4,6 +4,7 @@ import io.github.temporalrift.read.projection.application.port.in.GetGameHistory
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActiveEvent;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CascadedEvent;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.DealtHandCard;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.EventOutcome;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.GameHistoryEra;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.GameHistoryResponse;
@@ -57,7 +58,8 @@ final class ProjectionRestMapper {
                                 outcome.winningOutcomeId(),
                                 outcome.winningOutcomeDescription()))
                         .toList(),
-                era.paradoxesCascaded());
+                era.paradoxesCascaded(),
+                era.myHand().stream().map(ProjectionRestMapper::toDealtHandCard).toList());
         response.setCascadedEvents(
                 era.cascadedEvents().isEmpty()
                         ? null
@@ -65,6 +67,10 @@ final class ProjectionRestMapper {
                                 .map(event -> new CascadedEvent(event.eventId(), event.title()))
                                 .toList());
         return response;
+    }
+
+    private static DealtHandCard toDealtHandCard(io.github.temporalrift.read.projection.domain.model.DealtCard domain) {
+        return new DealtHandCard(domain.cardInstanceId(), domain.cardType(), domain.grade());
     }
 
     private static HandCard toHandCard(io.github.temporalrift.read.projection.domain.model.HandCard domain) {

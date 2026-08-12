@@ -14,6 +14,7 @@ import org.hibernate.type.SqlTypes;
 import tools.jackson.databind.ObjectMapper;
 
 import io.github.temporalrift.read.projection.domain.model.CascadedEventReference;
+import io.github.temporalrift.read.projection.domain.model.DealtHand;
 import io.github.temporalrift.read.projection.domain.model.GameHistoryProjection;
 import io.github.temporalrift.read.projection.domain.model.HistoryEventDefinition;
 import io.github.temporalrift.read.projection.domain.model.ResolvedOutcomeReference;
@@ -49,6 +50,10 @@ class GameHistoryProjectionEntity {
     @Column(name = "cascaded_event_references", nullable = false, columnDefinition = "jsonb")
     private String cascadedEventReferences;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "dealt_hands", nullable = false, columnDefinition = "jsonb")
+    private String dealtHands;
+
     @Column(name = "cascaded_paradox_count", nullable = false)
     private int cascadedParadoxCount;
 
@@ -68,6 +73,7 @@ class GameHistoryProjectionEntity {
         this.eventDefinitions = objectMapper.writeValueAsString(domain.eventDefinitions());
         this.resolvedOutcomeReferences = objectMapper.writeValueAsString(domain.resolvedOutcomeReferences());
         this.cascadedEventReferences = objectMapper.writeValueAsString(domain.cascadedEventReferences());
+        this.dealtHands = objectMapper.writeValueAsString(domain.dealtHands());
         this.cascadedParadoxCount = domain.cascadedParadoxCount();
         this.closed = domain.closed();
     }
@@ -83,6 +89,7 @@ class GameHistoryProjectionEntity {
                 Arrays.asList(objectMapper.readValue(eventDefinitions, HistoryEventDefinition[].class)),
                 Arrays.asList(objectMapper.readValue(resolvedOutcomeReferences, ResolvedOutcomeReference[].class)),
                 Arrays.asList(objectMapper.readValue(cascadedEventReferences, CascadedEventReference[].class)),
+                Arrays.asList(objectMapper.readValue(dealtHands, DealtHand[].class)),
                 cascadedParadoxCount,
                 closed);
     }
@@ -91,6 +98,7 @@ class GameHistoryProjectionEntity {
         eventDefinitions = objectMapper.writeValueAsString(domain.eventDefinitions());
         resolvedOutcomeReferences = objectMapper.writeValueAsString(domain.resolvedOutcomeReferences());
         cascadedEventReferences = objectMapper.writeValueAsString(domain.cascadedEventReferences());
+        dealtHands = objectMapper.writeValueAsString(domain.dealtHands());
         cascadedParadoxCount = domain.cascadedParadoxCount();
         closed = domain.closed();
     }

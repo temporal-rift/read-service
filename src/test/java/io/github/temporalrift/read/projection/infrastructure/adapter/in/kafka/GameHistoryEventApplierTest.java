@@ -69,6 +69,31 @@ class GameHistoryEventApplierTest {
         assertThat(history().cascadedEvents()).hasSize(1);
     }
 
+    @Test
+    void handDealt_recordsDealtCardsForPlayer() {
+        var playerId = UUID.randomUUID();
+        var cardInstanceId = UUID.randomUUID();
+
+        applier.applyHandDealt(new HandDealtPayload(
+                gameId, 1, playerId, List.of(new HandDealtPayload.DealtCard(cardInstanceId, "PUSH", "I"))));
+
+        assertThat(history().myHand(playerId))
+                .containsExactly(
+                        new io.github.temporalrift.read.projection.domain.model.DealtCard(cardInstanceId, "PUSH", "I"));
+    }
+
+    @Test
+    void handDealt_duplicateDelivery_isIdempotent() {
+        var playerId = UUID.randomUUID();
+        var payload = new HandDealtPayload(
+                gameId, 1, playerId, List.of(new HandDealtPayload.DealtCard(UUID.randomUUID(), "PUSH", "I")));
+
+        applier.applyHandDealt(payload);
+        applier.applyHandDealt(payload);
+
+        assertThat(history().myHand(playerId)).hasSize(1);
+    }
+
     private EventsDrawnPayload eventsDrawn() {
         return new EventsDrawnPayload(
                 gameId,
