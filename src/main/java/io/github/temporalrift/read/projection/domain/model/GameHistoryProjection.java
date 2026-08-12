@@ -89,6 +89,9 @@ public record GameHistoryProjection(
                 closed);
     }
 
+    // First-write-wins by design, unlike the live projection's replace-on-HandDealt semantics: this is the
+    // durable record of what was originally dealt, so a same-era re-deal (if one were ever emitted) must not
+    // overwrite it.
     public GameHistoryProjection recordDealtHand(UUID playerId, List<DealtCard> cards) {
         if (dealtHands.stream().anyMatch(hand -> hand.playerId().equals(playerId))) {
             return this;
