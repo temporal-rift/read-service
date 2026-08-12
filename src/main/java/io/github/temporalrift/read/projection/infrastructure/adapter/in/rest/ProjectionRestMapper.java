@@ -70,7 +70,7 @@ final class ProjectionRestMapper {
     }
 
     private static DealtHandCard toDealtHandCard(io.github.temporalrift.read.projection.domain.model.DealtCard domain) {
-        return new DealtHandCard(domain.cardInstanceId(), domain.cardType(), domain.grade());
+        return new DealtHandCard(domain.cardInstanceId(), domain.cardType());
     }
 
     private static HandCard toHandCard(io.github.temporalrift.read.projection.domain.model.HandCard domain) {

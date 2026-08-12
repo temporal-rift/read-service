@@ -153,7 +153,7 @@ class GameHistoryIT {
                         "playerId",
                         firstPlayerId,
                         "cards",
-                        List.of(Map.of("cardInstanceId", cardInstanceId, "cardType", "PUSH", "grade", "I"))));
+                        List.of(Map.of("cardInstanceId", cardInstanceId, "cardType", "PUSH"))));
         awaitJsonArraySize(gameId, 1, "dealt_hands", 1);
 
         mockMvc.perform(get("/api/v1/games/{gameId}/history", gameId)
@@ -161,8 +161,7 @@ class GameHistoryIT {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.eras[0].myHand.length()").value(1))
                 .andExpect(jsonPath("$.eras[0].myHand[0].cardInstanceId").value(cardInstanceId.toString()))
-                .andExpect(jsonPath("$.eras[0].myHand[0].cardType").value("PUSH"))
-                .andExpect(jsonPath("$.eras[0].myHand[0].grade").value("I"));
+                .andExpect(jsonPath("$.eras[0].myHand[0].cardType").value("PUSH"));
 
         mockMvc.perform(get("/api/v1/games/{gameId}/history", gameId)
                         .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(secondPlayerId)))))
