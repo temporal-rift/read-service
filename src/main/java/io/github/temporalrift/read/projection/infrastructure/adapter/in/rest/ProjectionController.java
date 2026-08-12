@@ -26,7 +26,8 @@ class ProjectionController implements ProjectionApi {
 
     @Override
     public ResponseEntity<GameHistoryResponse> getGameHistory(UUID gameId) {
-        return ResponseEntity.ok(ProjectionRestMapper.toResponse(getGameHistoryUseCase.get(gameId)));
+        var result = getGameHistoryUseCase.get(gameId, CurrentPlayer.id());
+        return ResponseEntity.ok(ProjectionRestMapper.toResponse(result));
     }
 
     @Override

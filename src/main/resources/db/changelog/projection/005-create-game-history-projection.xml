@@ -26,6 +26,9 @@
       <column name="cascaded_event_references" type="JSONB" defaultValueComputed="'[]'::jsonb">
         <constraints nullable="false"/>
       </column>
+      <column name="dealt_hands" type="JSONB" defaultValueComputed="'[]'::jsonb">
+        <constraints nullable="false"/>
+      </column>
       <column name="cascaded_paradox_count" type="INT" defaultValueNumeric="0">
         <constraints nullable="false"/>
       </column>

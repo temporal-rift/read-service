@@ -13,6 +13,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import io.github.temporalrift.read.projection.domain.model.DealtCard;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
 import io.github.temporalrift.read.projection.domain.model.GameHistoryNotFoundException;
 import io.github.temporalrift.read.projection.domain.model.GameHistoryProjection;
@@ -29,6 +30,7 @@ class GetGameHistoryQueryHandlerTest {
     GetGameHistoryQueryHandler handler;
 
     private final UUID gameId = UUID.randomUUID();
+    private final UUID playerId = UUID.randomUUID();
 
     @Test
     void get_singleEra_materializesResolvedOutcome() {
@@ -37,7 +39,7 @@ class GetGameHistoryQueryHandlerTest {
         given(histories.findByGameId(gameId))
                 .willReturn(List.of(history(1, eventId, outcomeId).recordResolvedOutcome(eventId, outcomeId)));
 
-        var result = handler.get(gameId);
+        var result = handler.get(gameId, playerId);
 
         assertThat(result.eras()).hasSize(1);
         assertThat(result.eras().getFirst().outcomes().getFirst().winningOutcomeDescription())
@@ -53,7 +55,7 @@ class GetGameHistoryQueryHandlerTest {
                         .recordCascade(eventId, List.of())
                         .close(1)));
 
-        var era = handler.get(gameId).eras().getFirst();
+        var era = handler.get(gameId, playerId).eras().getFirst();
 
         assertThat(era.paradoxesCascaded()).isEqualTo(1);
         assertThat(era.cascadedEvents()).extracting(event -> event.eventId()).containsExactly(eventId);
@@ -67,7 +69,7 @@ class GetGameHistoryQueryHandlerTest {
                 .willReturn(
                         List.of(history(2, secondEvent, UUID.randomUUID()), history(1, firstEvent, UUID.randomUUID())));
 
-        assertThat(handler.get(gameId).eras())
+        assertThat(handler.get(gameId, playerId).eras())
                 .extracting(era -> era.eraNumber())
                 .containsExactly(1, 2);
     }
@@ -79,7 +81,7 @@ class GetGameHistoryQueryHandlerTest {
                 .recordCascade(UUID.randomUUID(), List.of());
         given(histories.findByGameId(gameId)).willReturn(List.of(incomplete));
 
-        var era = handler.get(gameId).eras().getFirst();
+        var era = handler.get(gameId, playerId).eras().getFirst();
 
         assertThat(era.outcomes()).isEmpty();
         assertThat(era.cascadedEvents()).isEmpty();
@@ -89,9 +91,33 @@ class GetGameHistoryQueryHandlerTest {
     void get_noRows_throwsHistoryNotFound() {
         given(histories.findByGameId(gameId)).willReturn(List.of());
 
-        assertThatThrownBy(() -> handler.get(gameId))
+        assertThatThrownBy(() -> handler.get(gameId, playerId))
                 .isInstanceOf(GameHistoryNotFoundException.class)
                 .hasMessageContaining(gameId.toString());
+    }
+
+    @Test
+    void get_callerHasDealtHand_returnsOwnHand() {
+        var card = new DealtCard(UUID.randomUUID(), "PUSH", "I");
+        var withHand = GameHistoryProjection.empty(gameId, 1).recordDealtHand(playerId, List.of(card));
+        given(histories.findByGameId(gameId)).willReturn(List.of(withHand));
+
+        var era = handler.get(gameId, playerId).eras().getFirst();
+
+        assertThat(era.myHand()).containsExactly(card);
+    }
+
+    @Test
+    void get_otherPlayerHasDealtHand_neverReturnsTheirCards() {
+        var otherPlayerId = UUID.randomUUID();
+        var otherPlayersCard = new DealtCard(UUID.randomUUID(), "SCAN", "II");
+        var withOtherPlayerHand =
+                GameHistoryProjection.empty(gameId, 1).recordDealtHand(otherPlayerId, List.of(otherPlayersCard));
+        given(histories.findByGameId(gameId)).willReturn(List.of(withOtherPlayerHand));
+
+        var era = handler.get(gameId, playerId).eras().getFirst();
+
+        assertThat(era.myHand()).isEmpty();
     }
 
     private GameHistoryProjection history(int eraNumber, UUID eventId, UUID outcomeId) {

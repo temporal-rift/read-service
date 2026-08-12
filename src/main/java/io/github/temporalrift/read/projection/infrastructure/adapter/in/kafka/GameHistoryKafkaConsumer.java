@@ -25,7 +25,7 @@ class GameHistoryKafkaConsumer {
     private static final String EVENT_TYPE_HEADER = "eventType";
     private static final String CONSUMER = "projection.game-history";
     private static final String GROUP_ID = "read-service." + CONSUMER;
-    private static final Set<String> GAME_EVENT_TYPES = Set.of("EventsDrawn", "EraEnded");
+    private static final Set<String> GAME_EVENT_TYPES = Set.of("EventsDrawn", "EraEnded", "HandDealt");
     private static final Set<String> TIMELINE_EVENT_TYPES = Set.of("OutcomeApplied", "ParadoxCascaded");
 
     private final ProcessedEventPort processedEvents;
@@ -70,6 +70,7 @@ class GameHistoryKafkaConsumer {
         switch (eventType) {
             case "EventsDrawn" -> applier.applyEventsDrawn(read(message, EventsDrawnPayload.class));
             case "EraEnded" -> applier.applyEraEnded(read(message, EraEndedPayload.class));
+            case "HandDealt" -> applier.applyHandDealt(read(message, HandDealtPayload.class));
             default -> throw new IllegalArgumentException("Unsupported game history event type " + eventType);
         }
     }

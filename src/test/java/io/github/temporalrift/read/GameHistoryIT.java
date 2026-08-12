@@ -135,6 +135,42 @@ class GameHistoryIT {
     }
 
     @Test
+    void handDealt_isCapturedPerPlayerInHistory() throws Exception {
+        var gameId = UUID.randomUUID();
+        var firstPlayerId = UUID.randomUUID();
+        var secondPlayerId = UUID.randomUUID();
+        var cardInstanceId = UUID.randomUUID();
+
+        publish(
+                "game.events",
+                "HandDealt",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "playerId",
+                        firstPlayerId,
+                        "cards",
+                        List.of(Map.of("cardInstanceId", cardInstanceId, "cardType", "PUSH", "grade", "I"))));
+        awaitJsonArraySize(gameId, 1, "dealt_hands", 1);
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/history", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(firstPlayerId)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.eras[0].myHand.length()").value(1))
+                .andExpect(jsonPath("$.eras[0].myHand[0].cardInstanceId").value(cardInstanceId.toString()))
+                .andExpect(jsonPath("$.eras[0].myHand[0].cardType").value("PUSH"))
+                .andExpect(jsonPath("$.eras[0].myHand[0].grade").value("I"));
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/history", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(secondPlayerId)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.eras[0].myHand").isEmpty());
+    }
+
+    @Test
     void noHistory_authenticatedRequest_returnsProblemDetails404() throws Exception {
         var gameId = UUID.randomUUID();
 

@@ -68,6 +68,51 @@ class GameHistoryProjectionTest {
     }
 
     @Test
+    void dealtHand_isRecordedForPlayer() {
+        var playerId = UUID.randomUUID();
+        var card = new DealtCard(UUID.randomUUID(), "PUSH", "I");
+
+        var projection = GameHistoryProjection.empty(gameId, 1).recordDealtHand(playerId, List.of(card));
+
+        assertThat(projection.myHand(playerId)).containsExactly(card);
+    }
+
+    @Test
+    void dealtHand_duplicateDelivery_isIdempotent() {
+        var playerId = UUID.randomUUID();
+        var card = new DealtCard(UUID.randomUUID(), "PUSH", "I");
+        var otherCard = new DealtCard(UUID.randomUUID(), "SCAN", "II");
+
+        var projection = GameHistoryProjection.empty(gameId, 1)
+                .recordDealtHand(playerId, List.of(card))
+                .recordDealtHand(playerId, List.of(otherCard));
+
+        assertThat(projection.myHand(playerId)).containsExactly(card);
+    }
+
+    @Test
+    void dealtHand_forDifferentPlayers_remainsIndependent() {
+        var firstPlayerId = UUID.randomUUID();
+        var secondPlayerId = UUID.randomUUID();
+        var firstCard = new DealtCard(UUID.randomUUID(), "PUSH", "I");
+        var secondCard = new DealtCard(UUID.randomUUID(), "SCAN", "II");
+
+        var projection = GameHistoryProjection.empty(gameId, 1)
+                .recordDealtHand(firstPlayerId, List.of(firstCard))
+                .recordDealtHand(secondPlayerId, List.of(secondCard));
+
+        assertThat(projection.myHand(firstPlayerId)).containsExactly(firstCard);
+        assertThat(projection.myHand(secondPlayerId)).containsExactly(secondCard);
+    }
+
+    @Test
+    void dealtHand_forPlayerWithNoRecordedHand_isEmpty() {
+        var projection = GameHistoryProjection.empty(gameId, 1);
+
+        assertThat(projection.myHand(UUID.randomUUID())).isEmpty();
+    }
+
+    @Test
     void eventDefinition_rejectsDescriptionThatWouldViolateTheRestContract() {
         assertThatThrownBy(() -> new HistoryEventDefinition(
                         firstEventId, 0, "Event", List.of(new EventOutcome(firstOutcomeId, " "))))

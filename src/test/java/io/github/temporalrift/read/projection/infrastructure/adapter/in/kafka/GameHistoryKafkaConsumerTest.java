@@ -39,6 +39,16 @@ class GameHistoryKafkaConsumerTest {
     }
 
     @Test
+    void handDealt_claimsThenDispatches() {
+        var eventId = UUID.randomUUID();
+        given(processedEvents.claim(eventId, "projection.game-history")).willReturn(true);
+
+        consumer().handleGameEvent(KafkaTestMessages.withEventIdAndEventType(eventId, "HandDealt"));
+
+        then(applier).should().applyHandDealt(any());
+    }
+
+    @Test
     void supportedTimelineEvent_claimsThenDispatches() {
         var eventId = UUID.randomUUID();
         given(processedEvents.claim(eventId, "projection.game-history")).willReturn(true);

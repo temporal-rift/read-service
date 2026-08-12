@@ -20,6 +20,7 @@ import tools.jackson.databind.ObjectMapper;
 import io.github.temporalrift.read.TestSecurityConfig;
 import io.github.temporalrift.read.TestcontainersConfiguration;
 import io.github.temporalrift.read.projection.domain.model.CarryForwardProbability;
+import io.github.temporalrift.read.projection.domain.model.DealtCard;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
 import io.github.temporalrift.read.projection.domain.model.GameHistoryProjection;
 import io.github.temporalrift.read.projection.domain.model.HistoryEventDefinition;
@@ -66,6 +67,24 @@ class GameHistoryPersistenceIT {
                 .containsExactly(carryForwardProbability);
         assertThat(restored.paradoxesCascaded()).isEqualTo(1);
         assertThat(restored.closed()).isTrue();
+    }
+
+    @Test
+    void saveLoad_preservesDealtHandsPerPlayer() {
+        var gameId = UUID.randomUUID();
+        var firstPlayerId = UUID.randomUUID();
+        var secondPlayerId = UUID.randomUUID();
+        var firstCard = new DealtCard(UUID.randomUUID(), "PUSH", "I");
+        var secondCard = new DealtCard(UUID.randomUUID(), "SCAN", "II");
+        var history = history(gameId, 1, UUID.randomUUID(), UUID.randomUUID())
+                .recordDealtHand(firstPlayerId, List.of(firstCard))
+                .recordDealtHand(secondPlayerId, List.of(secondCard));
+
+        save(history);
+
+        var restored = histories.findByGameIdAndEraNumber(gameId, 1).orElseThrow();
+        assertThat(restored.myHand(firstPlayerId)).containsExactly(firstCard);
+        assertThat(restored.myHand(secondPlayerId)).containsExactly(secondCard);
     }
 
     @Test

@@ -192,7 +192,7 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of(eraOneCard))));
 
         applier.applyHandDealt(new HandDealtPayload(
-                gameId, 2, playerId, List.of(new HandDealtPayload.DealtCard(eraTwoCardId, "PUSH"))));
+                gameId, 2, playerId, List.of(new HandDealtPayload.DealtCard(eraTwoCardId, "PUSH", "I"))));
 
         var captor = ArgumentCaptor.forClass(PlayerGameState.class);
         then(playerGameStates).should().save(captor.capture());
@@ -205,8 +205,8 @@ class ProjectionEventApplierTest {
         var cardId = UUID.randomUUID();
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
 
-        applier.applyHandDealt(
-                new HandDealtPayload(gameId, 1, playerId, List.of(new HandDealtPayload.DealtCard(cardId, "PUSH"))));
+        applier.applyHandDealt(new HandDealtPayload(
+                gameId, 1, playerId, List.of(new HandDealtPayload.DealtCard(cardId, "PUSH", "I"))));
 
         then(playerGameStates)
                 .should()
