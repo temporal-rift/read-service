@@ -98,7 +98,7 @@ class GetGameHistoryQueryHandlerTest {
 
     @Test
     void get_callerHasDealtHand_returnsOwnHand() {
-        var card = new DealtCard(UUID.randomUUID(), "PUSH", "I");
+        var card = new DealtCard(UUID.randomUUID(), "PUSH");
         var withHand = GameHistoryProjection.empty(gameId, 1).recordDealtHand(playerId, List.of(card));
         given(histories.findByGameId(gameId)).willReturn(List.of(withHand));
 
@@ -110,7 +110,7 @@ class GetGameHistoryQueryHandlerTest {
     @Test
     void get_otherPlayerHasDealtHand_neverReturnsTheirCards() {
         var otherPlayerId = UUID.randomUUID();
-        var otherPlayersCard = new DealtCard(UUID.randomUUID(), "SCAN", "II");
+        var otherPlayersCard = new DealtCard(UUID.randomUUID(), "SCAN");
         var withOtherPlayerHand =
                 GameHistoryProjection.empty(gameId, 1).recordDealtHand(otherPlayerId, List.of(otherPlayersCard));
         given(histories.findByGameId(gameId)).willReturn(List.of(withOtherPlayerHand));

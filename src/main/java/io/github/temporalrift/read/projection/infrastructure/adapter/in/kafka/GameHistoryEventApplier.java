@@ -62,7 +62,7 @@ class GameHistoryEventApplier {
 
     void applyHandDealt(HandDealtPayload payload) {
         var cards = payload.cards().stream()
-                .map(card -> new DealtCard(card.cardInstanceId(), card.cardType(), card.grade()))
+                .map(card -> new DealtCard(card.cardInstanceId(), card.cardType()))
                 .toList();
         update(payload.gameId(), payload.eraNumber(), history -> history.recordDealtHand(payload.playerId(), cards));
     }

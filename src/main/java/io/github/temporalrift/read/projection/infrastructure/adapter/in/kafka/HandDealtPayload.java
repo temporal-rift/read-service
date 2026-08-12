@@ -5,5 +5,5 @@ import java.util.UUID;
 
 record HandDealtPayload(UUID gameId, int eraNumber, UUID playerId, List<DealtCard> cards) {
 
-    record DealtCard(UUID cardInstanceId, String cardType, String grade) {}
+    record DealtCard(UUID cardInstanceId, String cardType) {}
 }

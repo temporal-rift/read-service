@@ -70,7 +70,7 @@ class GameHistoryProjectionTest {
     @Test
     void dealtHand_isRecordedForPlayer() {
         var playerId = UUID.randomUUID();
-        var card = new DealtCard(UUID.randomUUID(), "PUSH", "I");
+        var card = new DealtCard(UUID.randomUUID(), "PUSH");
 
         var projection = GameHistoryProjection.empty(gameId, 1).recordDealtHand(playerId, List.of(card));
 
@@ -80,8 +80,8 @@ class GameHistoryProjectionTest {
     @Test
     void dealtHand_duplicateDelivery_isIdempotent() {
         var playerId = UUID.randomUUID();
-        var card = new DealtCard(UUID.randomUUID(), "PUSH", "I");
-        var otherCard = new DealtCard(UUID.randomUUID(), "SCAN", "II");
+        var card = new DealtCard(UUID.randomUUID(), "PUSH");
+        var otherCard = new DealtCard(UUID.randomUUID(), "SCAN");
 
         var projection = GameHistoryProjection.empty(gameId, 1)
                 .recordDealtHand(playerId, List.of(card))
@@ -94,8 +94,8 @@ class GameHistoryProjectionTest {
     void dealtHand_forDifferentPlayers_remainsIndependent() {
         var firstPlayerId = UUID.randomUUID();
         var secondPlayerId = UUID.randomUUID();
-        var firstCard = new DealtCard(UUID.randomUUID(), "PUSH", "I");
-        var secondCard = new DealtCard(UUID.randomUUID(), "SCAN", "II");
+        var firstCard = new DealtCard(UUID.randomUUID(), "PUSH");
+        var secondCard = new DealtCard(UUID.randomUUID(), "SCAN");
 
         var projection = GameHistoryProjection.empty(gameId, 1)
                 .recordDealtHand(firstPlayerId, List.of(firstCard))

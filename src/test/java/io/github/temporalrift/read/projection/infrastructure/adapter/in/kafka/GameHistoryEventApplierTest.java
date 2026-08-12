@@ -75,18 +75,18 @@ class GameHistoryEventApplierTest {
         var cardInstanceId = UUID.randomUUID();
 
         applier.applyHandDealt(new HandDealtPayload(
-                gameId, 1, playerId, List.of(new HandDealtPayload.DealtCard(cardInstanceId, "PUSH", "I"))));
+                gameId, 1, playerId, List.of(new HandDealtPayload.DealtCard(cardInstanceId, "PUSH"))));
 
         assertThat(history().myHand(playerId))
                 .containsExactly(
-                        new io.github.temporalrift.read.projection.domain.model.DealtCard(cardInstanceId, "PUSH", "I"));
+                        new io.github.temporalrift.read.projection.domain.model.DealtCard(cardInstanceId, "PUSH"));
     }
 
     @Test
     void handDealt_duplicateDelivery_isIdempotent() {
         var playerId = UUID.randomUUID();
         var payload = new HandDealtPayload(
-                gameId, 1, playerId, List.of(new HandDealtPayload.DealtCard(UUID.randomUUID(), "PUSH", "I")));
+                gameId, 1, playerId, List.of(new HandDealtPayload.DealtCard(UUID.randomUUID(), "PUSH")));
 
         applier.applyHandDealt(payload);
         applier.applyHandDealt(payload);

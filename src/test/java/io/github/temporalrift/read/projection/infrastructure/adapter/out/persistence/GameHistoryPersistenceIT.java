@@ -74,8 +74,8 @@ class GameHistoryPersistenceIT {
         var gameId = UUID.randomUUID();
         var firstPlayerId = UUID.randomUUID();
         var secondPlayerId = UUID.randomUUID();
-        var firstCard = new DealtCard(UUID.randomUUID(), "PUSH", "I");
-        var secondCard = new DealtCard(UUID.randomUUID(), "SCAN", "II");
+        var firstCard = new DealtCard(UUID.randomUUID(), "PUSH");
+        var secondCard = new DealtCard(UUID.randomUUID(), "SCAN");
         var history = history(gameId, 1, UUID.randomUUID(), UUID.randomUUID())
                 .recordDealtHand(firstPlayerId, List.of(firstCard))
                 .recordDealtHand(secondPlayerId, List.of(secondCard));

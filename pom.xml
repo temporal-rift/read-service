@@ -53,7 +53,7 @@
         </sonar.coverage.jacoco.xmlReportPaths>
 
         <archunit-junit5.version>1.4.2</archunit-junit5.version>
-        <projection-api.version>2.2.0</projection-api.version>
+        <projection-api.version>2.3.0</projection-api.version>
     </properties>
 
     <dependencies>
