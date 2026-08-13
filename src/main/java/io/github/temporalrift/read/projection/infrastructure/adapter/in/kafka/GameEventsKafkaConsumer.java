@@ -2,6 +2,9 @@ package io.github.temporalrift.read.projection.infrastructure.adapter.in.kafka;
 
 import static org.springframework.transaction.annotation.Propagation.REQUIRES_NEW;
 
+import java.time.Instant;
+import java.util.UUID;
+
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Component;
@@ -12,8 +15,10 @@ import io.github.temporalrift.read.shared.ProcessedEventPort;
 import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.InboundEventClaim;
 
 /**
- * Consumes {@code game.events} (session/action/scoring facts from game-service), dispatching by the
- * stable {@code eventType} header.
+ * Consumes {@code game.events} — session/action/scoring facts from game-service, spread across three
+ * independently-owned {@code apis} contract modules that all publish to this one Kafka topic. Composes their
+ * generated dispatchers (design.md "Migration addendum: consumer contract adoption") rather than collapsing
+ * them into one generated artifact, so Kafka topic layout doesn't dictate dependency/code boundaries.
  */
 @Component
 class GameEventsKafkaConsumer {
@@ -22,13 +27,17 @@ class GameEventsKafkaConsumer {
     private static final String CONSUMER = "projection.game-events";
 
     private final ProcessedEventPort processedEvents;
-    private final ProjectionEventApplier applier;
+    private final SessionEventDispatcher session;
+    private final ActionEventDispatcher action;
+    private final ScoringEventDispatcher scoring;
     private final ObjectMapper objectMapper;
 
     GameEventsKafkaConsumer(
             ProcessedEventPort processedEvents, ProjectionEventApplier applier, ObjectMapper objectMapper) {
         this.processedEvents = processedEvents;
-        this.applier = applier;
+        this.session = new SessionEventDispatcher(applier);
+        this.action = new ActionEventDispatcher(applier);
+        this.scoring = new ScoringEventDispatcher(applier);
         this.objectMapper = objectMapper;
     }
 
@@ -43,30 +52,84 @@ class GameEventsKafkaConsumer {
         if (eventType == null) {
             return;
         }
-        switch (eventType) {
-            case "GameStarted" -> applier.applyGameStarted(read(message, GameStartedPayload.class));
-            case "FactionAssigned" -> applier.applyFactionAssigned(read(message, FactionAssignedPayload.class));
-            case "EraStarted" -> applier.applyEraStarted(read(message, EraStartedPayload.class));
-            case "EventsDrawn" -> applier.applyEventsDrawn(read(message, EventsDrawnPayload.class));
-            case "HandDealt" -> applier.applyHandDealt(read(message, HandDealtPayload.class));
-            case "PlayerDisconnected" ->
-                applier.applyPlayerDisconnected(read(message, PlayerDisconnectedPayload.class));
-            case "PlayerAbandoned" -> applier.applyPlayerAbandoned(read(message, PlayerAbandonedPayload.class));
-            case "EraEnded" -> applier.applyEraEnded(read(message, EraEndedPayload.class));
-            case "GameEnded" -> applier.applyGameEnded(read(message, GameEndedPayload.class));
-            case "FactionRevealed" -> applier.applyFactionRevealed(read(message, FactionRevealedPayload.class));
-            case "ResolutionStarted" -> applier.applyResolutionStarted(read(message, ResolutionStartedPayload.class));
-            case "ActionRoundStarted" ->
-                applier.applyActionRoundStarted(read(message, ActionRoundStartedPayload.class));
-            case "CardPlayed" -> applier.applyCardPlayed(read(message, CardPlayedPayload.class));
-            case "ScoresUpdated" -> applier.applyScoresUpdated(read(message, ScoresUpdatedPayload.class));
-            default -> {
-                // Not consumed by this slice.
-            }
+        var payload = message.getPayload();
+        if (session.dispatch(
+                eventType,
+                payload,
+                headers(
+                        message,
+                        eventType,
+                        io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EventHeaders::new),
+                this::deserialize)) {
+            return;
         }
+        if (action.dispatch(
+                eventType,
+                payload,
+                headers(
+                        message,
+                        eventType,
+                        io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.EventHeaders::new),
+                this::deserialize)) {
+            return;
+        }
+        if (scoring.dispatch(
+                eventType,
+                payload,
+                headers(
+                        message,
+                        eventType,
+                        io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.EventHeaders::new),
+                this::deserialize)) {
+            return;
+        }
+        // dispatch() returning false means "not this contract family," not "safe to ignore" — an eventType
+        // none of session/action/scoring recognizes is a real failure at the Kafka boundary (design.md
+        // "Migration addendum: consumer contract adoption"), not a slice this projection simply skips.
+        throw new IllegalArgumentException("Unknown eventType: " + eventType);
     }
 
-    private <T> T read(Message<Object> message, Class<T> type) {
-        return GameEventPayloads.read(objectMapper, message.getPayload(), type);
+    private <T> T deserialize(Object rawPayload, Class<T> type) {
+        return GameEventPayloads.read(objectMapper, rawPayload, type);
+    }
+
+    private static <H> H headers(Message<Object> message, String eventType, EventHeadersFactory<H> factory) {
+        return factory.create(
+                eventType,
+                asUuid(MessageHeaders.asString(message, "eventId")),
+                asUuid(MessageHeaders.asString(message, "aggregateId")),
+                MessageHeaders.asString(message, "aggregateType"),
+                asUuid(MessageHeaders.asString(message, "gameId")),
+                asInstant(MessageHeaders.asString(message, "occurredAt")),
+                asInt(MessageHeaders.asString(message, "version")));
+    }
+
+    private static UUID asUuid(String value) {
+        return value == null ? null : UUID.fromString(value);
+    }
+
+    private static Instant asInstant(String value) {
+        return value == null ? null : Instant.parse(value);
+    }
+
+    private static int asInt(String value) {
+        return value == null ? 0 : Integer.parseInt(value);
+    }
+
+    /**
+     * Bridges one parsed header set to whichever of {@code session}/{@code action}/{@code scoring}'s own
+     * generated {@code EventHeaders} record is needed — the three are structurally identical but distinct
+     * types (one per independently-owned {@code apis} module), so a single shared instance isn't possible.
+     */
+    @FunctionalInterface
+    private interface EventHeadersFactory<H> {
+        H create(
+                String eventType,
+                UUID eventId,
+                UUID aggregateId,
+                String aggregateType,
+                UUID gameId,
+                Instant occurredAt,
+                int version);
     }
 }

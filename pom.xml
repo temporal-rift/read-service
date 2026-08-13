@@ -6,7 +6,7 @@
     <parent>
         <groupId>io.github.temporal-rift</groupId>
         <artifactId>temporal-rift-bom</artifactId>
-        <version>1.7.0</version>
+        <version>1.9.0</version>
         <relativePath/>
     </parent>
 
@@ -54,6 +54,10 @@
 
         <archunit-junit5.version>1.4.2</archunit-junit5.version>
         <projection-api.version>2.3.0</projection-api.version>
+        <session-event.version>1.0.5</session-event.version>
+        <action-event.version>1.1.0</action-event.version>
+        <scoring-event.version>1.0.1</scoring-event.version>
+        <timeline-event.version>1.0.5</timeline-event.version>
     </properties>
 
     <dependencies>
@@ -63,6 +67,36 @@
             <groupId>io.github.temporal-rift</groupId>
             <artifactId>projection-api</artifactId>
             <version>${projection-api.version}</version>
+        </dependency>
+        <!-- Spec-only: bundles session-event's asyncapi.yml, no compiled code. Consumed for the session-owned
+             game.events facts GameEventsKafkaConsumer and GameHistoryKafkaConsumer project, which this service
+             reads but does not produce. -->
+        <dependency>
+            <groupId>io.github.temporal-rift</groupId>
+            <artifactId>session-event</artifactId>
+            <version>${session-event.version}</version>
+        </dependency>
+        <!-- Spec-only: bundles action-event's asyncapi.yml, no compiled code. Consumed for ActionRoundStarted
+             and CardPlayed, which this service reads from game.events but does not produce. -->
+        <dependency>
+            <groupId>io.github.temporal-rift</groupId>
+            <artifactId>action-event</artifactId>
+            <version>${action-event.version}</version>
+        </dependency>
+        <!-- Spec-only: bundles scoring-event's asyncapi.yml, no compiled code. Consumed for ScoresUpdated,
+             which this service reads from game.events but does not produce. -->
+        <dependency>
+            <groupId>io.github.temporal-rift</groupId>
+            <artifactId>scoring-event</artifactId>
+            <version>${scoring-event.version}</version>
+        </dependency>
+        <!-- Spec-only: bundles timeline-event's asyncapi.yml, no compiled code. Consumed for the resolution
+             facts TimelineEventsKafkaConsumer and GameHistoryKafkaConsumer project from timeline.events, which
+             this service reads but does not produce. -->
+        <dependency>
+            <groupId>io.github.temporal-rift</groupId>
+            <artifactId>timeline-event</artifactId>
+            <version>${timeline-event.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

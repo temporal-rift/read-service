@@ -18,6 +18,30 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundStartedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
+import io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.ScoresUpdatedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardType;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EraEndedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EraStartedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EventsDrawnFutureEvent;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EventsDrawnOutcome;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EventsDrawnPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Faction;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.FactionAssignedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.FactionRevealedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.FactionRevealedPlayerFactionResult;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GameEndedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GameEndedPlayerScoreResult;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GameStartedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandDealtCardInstance;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandDealtPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PlayerDisconnectedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ResolutionStartedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.OutcomeAppliedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolutionPhaseStartedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolvedPayload;
 import io.github.temporalrift.read.projection.domain.model.CarryOverState;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
@@ -113,7 +137,7 @@ class ProjectionEventApplierTest {
         var existing = new PlayerGameState(gameId, playerId, null, List.of());
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.of(existing));
 
-        applier.applyFactionAssigned(new FactionAssignedPayload(gameId, playerId, "ERASERS"));
+        applier.applyFactionAssigned(new FactionAssignedPayload(gameId, playerId, Faction.ERASERS));
 
         then(playerGameStates).should().save(new PlayerGameState(gameId, playerId, "ERASERS", List.of()));
     }
@@ -126,7 +150,7 @@ class ProjectionEventApplierTest {
         var playerId = UUID.randomUUID();
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
 
-        applier.applyFactionAssigned(new FactionAssignedPayload(gameId, playerId, "ERASERS"));
+        applier.applyFactionAssigned(new FactionAssignedPayload(gameId, playerId, Faction.ERASERS));
 
         then(playerGameStates).should().save(new PlayerGameState(gameId, playerId, "ERASERS", List.of()));
     }
@@ -145,11 +169,11 @@ class ProjectionEventApplierTest {
         var payload = new EventsDrawnPayload(
                 gameId,
                 1,
-                List.of(new EventsDrawnPayload.DrawnEvent(
+                List.of(new EventsDrawnFutureEvent(
                         eventId,
                         "Title",
-                        List.of(new EventsDrawnPayload.DrawnOutcome(outcomeId, "desc", 50)),
-                        CarryOverState.FRESH)));
+                        List.of(new EventsDrawnOutcome(outcomeId, "desc", 50)),
+                        io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CarryOverState.FRESH)));
 
         applier.applyEventsDrawn(payload);
 
@@ -168,8 +192,12 @@ class ProjectionEventApplierTest {
         var payload = new EventsDrawnPayload(
                 gameId,
                 2,
-                List.of(new EventsDrawnPayload.DrawnEvent(
-                        eventId, "Stalled Event", List.of(), CarryOverState.STALLED)));
+                List.of(new EventsDrawnFutureEvent(
+                        eventId,
+                        "Stalled Event",
+                        List.of(),
+                        io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CarryOverState
+                                .STALLED)));
 
         applier.applyEventsDrawn(payload);
 
@@ -192,7 +220,7 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of(eraOneCard))));
 
         applier.applyHandDealt(new HandDealtPayload(
-                gameId, 2, playerId, List.of(new HandDealtPayload.DealtCard(eraTwoCardId, "PUSH"))));
+                gameId, 2, playerId, List.of(new HandDealtCardInstance(eraTwoCardId, CardType.PUSH))));
 
         var captor = ArgumentCaptor.forClass(PlayerGameState.class);
         then(playerGameStates).should().save(captor.capture());
@@ -206,7 +234,7 @@ class ProjectionEventApplierTest {
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
 
         applier.applyHandDealt(
-                new HandDealtPayload(gameId, 1, playerId, List.of(new HandDealtPayload.DealtCard(cardId, "PUSH"))));
+                new HandDealtPayload(gameId, 1, playerId, List.of(new HandDealtCardInstance(cardId, CardType.PUSH))));
 
         then(playerGameStates)
                 .should()
@@ -251,7 +279,7 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new GamePlayer(playerId, 10, true, "ERASERS")));
 
         applier.applyGameEnded(new GameEndedPayload(
-                gameId, "SCORE_THRESHOLD", List.of(new GameEndedPayload.FinalScore(playerId, "ERASERS", 20))));
+                gameId, "SCORE_THRESHOLD", List.of(new GameEndedPlayerScoreResult(playerId, Faction.ERASERS, 20))));
 
         then(gameProjections).should().save(new GameProjection(gameId, 3, Phase.GAME_ENDED));
         then(gamePlayers).should().save(gameId, new GamePlayer(playerId, 20, true, "ERASERS"));
@@ -263,8 +291,8 @@ class ProjectionEventApplierTest {
         given(gamePlayers.findByGameIdAndPlayerId(gameId, playerId))
                 .willReturn(Optional.of(new GamePlayer(playerId, 5, true, null)));
 
-        applier.applyFactionRevealed(
-                new FactionRevealedPayload(gameId, List.of(new FactionRevealedPayload.Reveal(playerId, "WEAVERS"))));
+        applier.applyFactionRevealed(new FactionRevealedPayload(
+                gameId, List.of(new FactionRevealedPlayerFactionResult(playerId, Faction.WEAVERS))));
 
         then(gamePlayers).should().save(gameId, new GamePlayer(playerId, 5, true, "WEAVERS"));
     }
@@ -305,7 +333,7 @@ class ProjectionEventApplierTest {
                 1,
                 playerId,
                 playedCard.cardInstanceId(),
-                "PUSH",
+                io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardType.PUSH,
                 UUID.randomUUID(),
                 null,
                 UUID.randomUUID()));
@@ -322,7 +350,14 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new GamePlayer(playerId, 4, true, "PROPHETS")));
 
         applier.applyScoresUpdated(new ScoresUpdatedPayload(
-                gameId, 1, List.of(new ScoresUpdatedPayload.ScoreUpdate(playerId, "PROPHETS", 4, "REASON", 8))));
+                gameId,
+                1,
+                List.of(new io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.ScoreUpdate(
+                        playerId,
+                        io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.Faction.PROPHETS,
+                        4,
+                        "REASON",
+                        8))));
 
         then(gamePlayers).should().save(gameId, new GamePlayer(playerId, 8, true, "PROPHETS"));
     }
@@ -370,7 +405,8 @@ class ProjectionEventApplierTest {
         given(gameProjections.findByGameId(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradoxId))));
 
-        applier.applyParadoxCascaded(new ParadoxCascadedPayload(gameId, 1, paradoxId, UUID.randomUUID(), List.of()));
+        applier.applyParadoxCascaded(
+                new ParadoxCascadedPayload(gameId, 1, paradoxId, UUID.randomUUID(), List.of(), null));
 
         then(gameProjections).should().save(new GameProjection(gameId, 1, Phase.RESOLUTION, List.of()));
     }
@@ -388,7 +424,8 @@ class ProjectionEventApplierTest {
         given(gameProjections.findByGameId(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradox2))));
 
-        applier.applyParadoxCascaded(new ParadoxCascadedPayload(gameId, 1, paradox2, UUID.randomUUID(), List.of()));
+        applier.applyParadoxCascaded(
+                new ParadoxCascadedPayload(gameId, 1, paradox2, UUID.randomUUID(), List.of(), null));
 
         then(gameProjections).should().save(new GameProjection(gameId, 1, Phase.RESOLUTION, List.of()));
     }

@@ -12,8 +12,17 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardType;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EraEndedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EventsDrawnFutureEvent;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EventsDrawnOutcome;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EventsDrawnPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandDealtCardInstance;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandDealtPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.OutcomeAppliedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedProbabilityState;
 import io.github.temporalrift.read.projection.domain.model.CarryForwardProbability;
-import io.github.temporalrift.read.projection.domain.model.CarryOverState;
 import io.github.temporalrift.read.projection.domain.model.GameHistoryProjection;
 import io.github.temporalrift.read.projection.domain.port.out.GameHistoryRepository;
 
@@ -75,7 +84,7 @@ class GameHistoryEventApplierTest {
         var cardInstanceId = UUID.randomUUID();
 
         applier.applyHandDealt(new HandDealtPayload(
-                gameId, 1, playerId, List.of(new HandDealtPayload.DealtCard(cardInstanceId, "PUSH"))));
+                gameId, 1, playerId, List.of(new HandDealtCardInstance(cardInstanceId, CardType.PUSH))));
 
         assertThat(history().myHand(playerId))
                 .containsExactly(
@@ -86,7 +95,7 @@ class GameHistoryEventApplierTest {
     void handDealt_duplicateDelivery_isIdempotent() {
         var playerId = UUID.randomUUID();
         var payload = new HandDealtPayload(
-                gameId, 1, playerId, List.of(new HandDealtPayload.DealtCard(UUID.randomUUID(), "PUSH")));
+                gameId, 1, playerId, List.of(new HandDealtCardInstance(UUID.randomUUID(), CardType.PUSH)));
 
         applier.applyHandDealt(payload);
         applier.applyHandDealt(payload);
@@ -98,11 +107,11 @@ class GameHistoryEventApplierTest {
         return new EventsDrawnPayload(
                 gameId,
                 1,
-                List.of(new EventsDrawnPayload.DrawnEvent(
+                List.of(new EventsDrawnFutureEvent(
                         eventId,
                         "Event",
-                        List.of(new EventsDrawnPayload.DrawnOutcome(outcomeId, "Outcome", 100)),
-                        CarryOverState.FRESH)));
+                        List.of(new EventsDrawnOutcome(outcomeId, "Outcome", 100)),
+                        io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CarryOverState.FRESH)));
     }
 
     private OutcomeAppliedPayload outcomeApplied() {
@@ -115,7 +124,8 @@ class GameHistoryEventApplierTest {
                 1,
                 UUID.randomUUID(),
                 eventId,
-                List.of(new ParadoxCascadedPayload.CarryForwardProbability(outcomeId, 45)));
+                List.of(new ParadoxCascadedProbabilityState(outcomeId, 45)),
+                null);
     }
 
     private GameHistoryProjection history() {

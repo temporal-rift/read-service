@@ -6,6 +6,11 @@ import java.util.stream.IntStream;
 
 import org.springframework.stereotype.Component;
 
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EraEndedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EventsDrawnPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandDealtPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.OutcomeAppliedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
 import io.github.temporalrift.read.projection.domain.model.CarryForwardProbability;
 import io.github.temporalrift.read.projection.domain.model.DealtCard;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
@@ -62,7 +67,8 @@ class GameHistoryEventApplier {
 
     void applyHandDealt(HandDealtPayload payload) {
         var cards = payload.cards().stream()
-                .map(card -> new DealtCard(card.cardInstanceId(), card.cardType()))
+                .map(card ->
+                        new DealtCard(card.cardInstanceId(), card.cardType().name()))
                 .toList();
         update(payload.gameId(), payload.eraNumber(), history -> history.recordDealtHand(payload.playerId(), cards));
     }
