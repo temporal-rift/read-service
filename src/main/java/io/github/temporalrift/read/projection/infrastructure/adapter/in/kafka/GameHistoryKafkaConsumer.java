@@ -10,6 +10,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EraEndedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EventsDrawnPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandDealtPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.OutcomeAppliedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
 import io.github.temporalrift.read.shared.ProcessedEventPort;
 import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.InboundEventClaim;
 

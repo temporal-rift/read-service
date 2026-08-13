@@ -7,6 +7,25 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundStartedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
+import io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.ScoresUpdatedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EraEndedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EraStartedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EventsDrawnPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.FactionAssignedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.FactionRevealedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GameEndedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GameStartedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandDealtPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PlayerAbandonedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PlayerDisconnectedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ResolutionStartedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.OutcomeAppliedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolutionPhaseStartedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolvedPayload;
+import io.github.temporalrift.read.projection.domain.model.CarryOverState;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
@@ -64,8 +83,8 @@ class ProjectionEventApplier {
     // game-service's own ActionStateProjectionEventListener.onHandDealt precedent for the same race.
     void applyFactionAssigned(FactionAssignedPayload payload) {
         var existing = findOrCreatePlayerGameState(payload.gameId(), payload.playerId());
-        playerGameStates.save(
-                new PlayerGameState(existing.gameId(), existing.playerId(), payload.faction(), existing.myHand()));
+        playerGameStates.save(new PlayerGameState(
+                existing.gameId(), existing.playerId(), payload.faction().name(), existing.myHand()));
     }
 
     void applyEraStarted(EraStartedPayload payload) {
@@ -79,7 +98,11 @@ class ProjectionEventApplier {
                     .toList();
             gameActiveEvents.save(
                     payload.gameId(),
-                    new GameActiveEvent(event.eventId(), event.title(), event.carryOverState(), outcomes));
+                    new GameActiveEvent(
+                            event.eventId(),
+                            event.title(),
+                            CarryOverState.valueOf(event.carryOverState().name()),
+                            outcomes));
         }
     }
 
@@ -90,7 +113,7 @@ class ProjectionEventApplier {
     void applyHandDealt(HandDealtPayload payload) {
         var existing = findOrCreatePlayerGameState(payload.gameId(), payload.playerId());
         var hand = payload.cards().stream()
-                .map(card -> new HandCard(card.cardInstanceId(), card.cardType()))
+                .map(card -> new HandCard(card.cardInstanceId(), card.cardType().name()))
                 .toList();
         playerGameStates.save(new PlayerGameState(existing.gameId(), existing.playerId(), existing.myFaction(), hand));
     }
@@ -153,7 +176,10 @@ class ProjectionEventApplier {
                     .ifPresent(existing -> gamePlayers.save(
                             payload.gameId(),
                             new GamePlayer(
-                                    existing.playerId(), existing.score(), existing.isConnected(), reveal.faction())));
+                                    existing.playerId(),
+                                    existing.score(),
+                                    existing.isConnected(),
+                                    reveal.faction().name())));
         }
     }
 
