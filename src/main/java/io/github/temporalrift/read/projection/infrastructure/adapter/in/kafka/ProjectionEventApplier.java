@@ -141,9 +141,21 @@ class ProjectionEventApplier {
     // replaces the projected hand again with the kept 5 once selection resolves, whether by player action or
     // the hand-selection-timer's random default (HandSelectedPayload.selectionOrigin distinguishes them, but
     // this projection has no read model for provenance, only the resulting hand). Recording eraNumber here is
-    // what lets applyHandDealt above reject a same-era offer that arrives out of order afterward.
+    // what lets applyHandDealt above reject a same-era offer that arrives out of order afterward — and a
+    // delayed earlier-era HandSelected must be rejected the same way, or it would regress
+    // handSelectedEraNumber and both corrupt the projected hand and reopen the door for a later-era HandDealt
+    // to slip past that guard.
     void applyHandSelected(HandSelectedPayload payload) {
         var existing = findOrCreatePlayerGameState(payload.gameId(), payload.playerId());
+        if (existing.handSelectedEraNumber() != null && existing.handSelectedEraNumber() > payload.eraNumber()) {
+            log.warn(
+                    "HandSelected for era {} arrived after selection for era {} (player {}, game {}) — dropping",
+                    payload.eraNumber(),
+                    existing.handSelectedEraNumber(),
+                    payload.playerId(),
+                    payload.gameId());
+            return;
+        }
         var hand = payload.cards().stream()
                 .map(card -> new HandCard(card.cardInstanceId(), card.cardType().name()))
                 .toList();

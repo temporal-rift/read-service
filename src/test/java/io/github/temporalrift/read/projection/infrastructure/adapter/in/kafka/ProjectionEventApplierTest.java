@@ -297,6 +297,26 @@ class ProjectionEventApplierTest {
     }
 
     @Test
+    void applyHandSelected_arrivesAfterLaterEraAlreadySelected_isDropped() {
+        // Symmetric to the HandDealt guard above: a delayed earlier-era HandSelected must not regress
+        // handSelectedEraNumber, or it would both corrupt the projected hand back to a stale era and reopen
+        // the door for a later-era HandDealt to slip past that other guard.
+        var playerId = UUID.randomUUID();
+        var eraTwoCard = new HandCard(UUID.randomUUID(), "PUSH");
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of(eraTwoCard), 2)));
+
+        applier.applyHandSelected(new HandSelectedPayload(
+                gameId,
+                1,
+                playerId,
+                HandSelectionOrigin.PLAYER,
+                List.of(new HandDealtCardInstance(UUID.randomUUID(), CardType.SCAN, CardGrade.I, 0))));
+
+        then(playerGameStates).should(never()).save(any());
+    }
+
+    @Test
     void applyHandSelected_timeoutRandomOrigin_arrivesBeforeGameStarted_createsRowRatherThanDropping() {
         var playerId = UUID.randomUUID();
         var cardId = UUID.randomUUID();
