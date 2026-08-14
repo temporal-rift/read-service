@@ -85,7 +85,11 @@ class ProjectionEventApplier {
     void applyFactionAssigned(FactionAssignedPayload payload) {
         var existing = findOrCreatePlayerGameState(payload.gameId(), payload.playerId());
         playerGameStates.save(new PlayerGameState(
-                existing.gameId(), existing.playerId(), payload.faction().name(), existing.myHand()));
+                existing.gameId(),
+                existing.playerId(),
+                payload.faction().name(),
+                existing.myHand(),
+                existing.handSelectedEraNumber()));
     }
 
     void applyEraStarted(EraStartedPayload payload) {
@@ -111,24 +115,40 @@ class ProjectionEventApplier {
     // each era (EraSagaImpl) and game-service's own PlayerState is reconstituted the same way
     // (ActionStateProjectionEventListener.onHandDealt), so this side must match or the projected hand
     // grows without bound across eras.
+    //
+    // IncompleteEventPublicationResubmitter can resubmit a failed send out of original order, so a HandDealt
+    // for an era whose HandSelected has already been applied can still arrive after the fact. Rather than
+    // reverting the kept five-card hand back to the seven-card offer, that late arrival is dropped.
     void applyHandDealt(HandDealtPayload payload) {
         var existing = findOrCreatePlayerGameState(payload.gameId(), payload.playerId());
+        if (existing.handSelectedEraNumber() != null && existing.handSelectedEraNumber() >= payload.eraNumber()) {
+            log.warn(
+                    "HandDealt for era {} arrived after selection for era {} (player {}, game {}) — dropping",
+                    payload.eraNumber(),
+                    existing.handSelectedEraNumber(),
+                    payload.playerId(),
+                    payload.gameId());
+            return;
+        }
         var hand = payload.cards().stream()
                 .map(card -> new HandCard(card.cardInstanceId(), card.cardType().name()))
                 .toList();
-        playerGameStates.save(new PlayerGameState(existing.gameId(), existing.playerId(), existing.myFaction(), hand));
+        playerGameStates.save(new PlayerGameState(
+                existing.gameId(), existing.playerId(), existing.myFaction(), hand, existing.handSelectedEraNumber()));
     }
 
     // HandDealt now carries the pending 7-card offer (game-service#121/#127), not the terminal hand — this
     // replaces the projected hand again with the kept 5 once selection resolves, whether by player action or
     // the hand-selection-timer's random default (HandSelectedPayload.selectionOrigin distinguishes them, but
-    // this projection has no read model for provenance, only the resulting hand).
+    // this projection has no read model for provenance, only the resulting hand). Recording eraNumber here is
+    // what lets applyHandDealt above reject a same-era offer that arrives out of order afterward.
     void applyHandSelected(HandSelectedPayload payload) {
         var existing = findOrCreatePlayerGameState(payload.gameId(), payload.playerId());
         var hand = payload.cards().stream()
                 .map(card -> new HandCard(card.cardInstanceId(), card.cardType().name()))
                 .toList();
-        playerGameStates.save(new PlayerGameState(existing.gameId(), existing.playerId(), existing.myFaction(), hand));
+        playerGameStates.save(new PlayerGameState(
+                existing.gameId(), existing.playerId(), existing.myFaction(), hand, payload.eraNumber()));
     }
 
     private PlayerGameState findOrCreatePlayerGameState(UUID gameId, UUID playerId) {
@@ -220,7 +240,11 @@ class ProjectionEventApplier {
                                     .filter(card -> !card.cardInstanceId().equals(payload.cardInstanceId()))
                                     .toList();
                             playerGameStates.save(new PlayerGameState(
-                                    existing.gameId(), existing.playerId(), existing.myFaction(), hand));
+                                    existing.gameId(),
+                                    existing.playerId(),
+                                    existing.myFaction(),
+                                    hand,
+                                    existing.handSelectedEraNumber()));
                         },
                         () -> log.warn(
                                 "CardPlayed for unknown player {} in game {} — skipping",

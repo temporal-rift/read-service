@@ -37,15 +37,24 @@ class PlayerGameStateEntity {
     @OrderColumn(name = "card_position")
     private List<PlayerGameStateHandCardValue> hand;
 
+    @Column(name = "hand_selected_era_number")
+    private Integer handSelectedEraNumber;
+
     protected PlayerGameStateEntity() {}
 
     PlayerGameStateEntity(
-            UUID id, UUID gameId, UUID playerId, String myFaction, List<PlayerGameStateHandCardValue> hand) {
+            UUID id,
+            UUID gameId,
+            UUID playerId,
+            String myFaction,
+            List<PlayerGameStateHandCardValue> hand,
+            Integer handSelectedEraNumber) {
         this.id = id;
         this.gameId = gameId;
         this.playerId = playerId;
         this.myFaction = myFaction;
         this.hand = hand;
+        this.handSelectedEraNumber = handSelectedEraNumber;
     }
 
     static PlayerGameStateEntity fromDomain(UUID id, PlayerGameState domain) {
@@ -56,7 +65,8 @@ class PlayerGameStateEntity {
                 domain.myFaction(),
                 domain.myHand().stream()
                         .map(PlayerGameStateHandCardValue::fromDomain)
-                        .toList());
+                        .toList(),
+                domain.handSelectedEraNumber());
     }
 
     PlayerGameState toDomain() {
@@ -64,7 +74,8 @@ class PlayerGameStateEntity {
                 gameId,
                 playerId,
                 myFaction,
-                hand.stream().map(PlayerGameStateHandCardValue::toDomain).toList());
+                hand.stream().map(PlayerGameStateHandCardValue::toDomain).toList(),
+                handSelectedEraNumber);
     }
 
     UUID getGameId() {
@@ -81,5 +92,9 @@ class PlayerGameStateEntity {
 
     void setHand(List<PlayerGameStateHandCardValue> hand) {
         this.hand = hand;
+    }
+
+    void setHandSelectedEraNumber(Integer handSelectedEraNumber) {
+        this.handSelectedEraNumber = handSelectedEraNumber;
     }
 }

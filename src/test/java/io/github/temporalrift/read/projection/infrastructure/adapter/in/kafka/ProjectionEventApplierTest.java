@@ -277,6 +277,26 @@ class ProjectionEventApplierTest {
     }
 
     @Test
+    void applyHandDealt_arrivesAfterHandSelectedForSameEra_isDropped() {
+        // IncompleteEventPublicationResubmitter can resubmit a failed send out of original order, so the
+        // seven-card offer for an era can still arrive after that era's HandSelected was already applied.
+        // Applying it anyway would silently revert the kept five-card hand back to the stale offer.
+        var playerId = UUID.randomUUID();
+        var keptCard = new HandCard(UUID.randomUUID(), "PUSH");
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of(keptCard), 1)));
+
+        applier.applyHandDealt(new HandDealtPayload(
+                gameId,
+                1,
+                playerId,
+                Instant.EPOCH,
+                List.of(new HandDealtCardInstance(UUID.randomUUID(), CardType.SCAN, CardGrade.I, 0))));
+
+        then(playerGameStates).should(never()).save(any());
+    }
+
+    @Test
     void applyHandSelected_timeoutRandomOrigin_arrivesBeforeGameStarted_createsRowRatherThanDropping() {
         var playerId = UUID.randomUUID();
         var cardId = UUID.randomUUID();

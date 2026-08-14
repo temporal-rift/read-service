@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+  <!--
+      Tracks the highest era number for which HandSelected has already been applied, so a HandDealt for that
+      same era arriving late (e.g. resubmitted out of order) does not silently revert the projected hand back
+      to the seven-card pending offer.
+  -->
+  <changeSet id="006-add-hand-selected-era-number-to-player-game-state" author="read-service">
+    <addColumn tableName="player_game_state">
+      <column name="hand_selected_era_number" type="INT"/>
+    </addColumn>
+  </changeSet>
+
+</databaseChangeLog>
