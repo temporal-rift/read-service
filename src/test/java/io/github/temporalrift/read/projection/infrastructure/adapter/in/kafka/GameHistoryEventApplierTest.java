@@ -2,6 +2,7 @@ package io.github.temporalrift.read.projection.infrastructure.adapter.in.kafka;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -12,6 +13,7 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardGrade;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardType;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EraEndedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EventsDrawnFutureEvent;
@@ -84,18 +86,26 @@ class GameHistoryEventApplierTest {
         var cardInstanceId = UUID.randomUUID();
 
         applier.applyHandDealt(new HandDealtPayload(
-                gameId, 1, playerId, List.of(new HandDealtCardInstance(cardInstanceId, CardType.PUSH))));
+                gameId,
+                1,
+                playerId,
+                Instant.parse("2026-08-15T00:00:00Z"),
+                List.of(new HandDealtCardInstance(cardInstanceId, CardType.PUSH, CardGrade.II, 1))));
 
         assertThat(history().myHand(playerId))
-                .containsExactly(
-                        new io.github.temporalrift.read.projection.domain.model.DealtCard(cardInstanceId, "PUSH"));
+                .containsExactly(new io.github.temporalrift.read.projection.domain.model.DealtCard(
+                        cardInstanceId, "PUSH", "II", 1));
     }
 
     @Test
     void handDealt_duplicateDelivery_isIdempotent() {
         var playerId = UUID.randomUUID();
         var payload = new HandDealtPayload(
-                gameId, 1, playerId, List.of(new HandDealtCardInstance(UUID.randomUUID(), CardType.PUSH)));
+                gameId,
+                1,
+                playerId,
+                Instant.parse("2026-08-15T00:00:00Z"),
+                List.of(new HandDealtCardInstance(UUID.randomUUID(), CardType.PUSH, CardGrade.I, 1)));
 
         applier.applyHandDealt(payload);
         applier.applyHandDealt(payload);

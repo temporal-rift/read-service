@@ -1,14 +1,19 @@
 package io.github.temporalrift.read.projection.infrastructure.adapter.in.rest;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+
 import io.github.temporalrift.read.projection.application.port.in.GetGameHistoryUseCase;
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActiveEvent;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CardGrade;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CascadedEvent;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.DealtHandCard;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.EventOutcome;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.GameHistoryEra;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.GameHistoryResponse;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.HandCard;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PendingHandSelection;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.Phase;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerGameStateResponse;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerInGame;
@@ -39,6 +44,8 @@ final class ProjectionRestMapper {
                         .map(ProjectionRestMapper::toPlayerInGame)
                         .toList());
         response.setMyFaction(result.myFaction());
+        response.setPendingHandSelection(
+                result.pendingHandSelection() == null ? null : toPendingHandSelection(result.pendingHandSelection()));
         return response;
     }
 
@@ -70,11 +77,28 @@ final class ProjectionRestMapper {
     }
 
     private static DealtHandCard toDealtHandCard(io.github.temporalrift.read.projection.domain.model.DealtCard domain) {
-        return new DealtHandCard(domain.cardInstanceId(), domain.cardType());
+        return new DealtHandCard(
+                domain.cardInstanceId(), domain.cardType(), toCardGrade(domain.grade()), domain.dealSlot());
     }
 
     private static HandCard toHandCard(io.github.temporalrift.read.projection.domain.model.HandCard domain) {
-        return new HandCard(domain.cardInstanceId(), domain.cardType());
+        return new HandCard(domain.cardInstanceId(), domain.cardType(), toCardGrade(domain.grade()));
+    }
+
+    private static PendingHandSelection toPendingHandSelection(
+            io.github.temporalrift.read.projection.domain.model.PendingHandSelection domain) {
+        var cards = domain.cards().stream()
+                .map(card -> new DealtHandCard(
+                        card.cardInstanceId(), card.cardType(), toCardGrade(card.grade()), card.dealSlot()))
+                .toList();
+        return new PendingHandSelection(
+                cards,
+                PendingHandSelection.RequiredSelectionCountEnum.NUMBER_5,
+                OffsetDateTime.ofInstant(domain.expiresAt(), ZoneOffset.UTC));
+    }
+
+    private static CardGrade toCardGrade(String grade) {
+        return CardGrade.valueOf(grade);
     }
 
     private static ActiveEvent toActiveEvent(

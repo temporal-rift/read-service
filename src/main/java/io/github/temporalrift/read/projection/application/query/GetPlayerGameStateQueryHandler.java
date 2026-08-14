@@ -53,6 +53,7 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                 gameProjection.phase(),
                 playerGameState.myFaction(),
                 playerGameState.myHand(),
+                playerGameState.pendingHandSelection(),
                 myScore,
                 players,
                 gameActiveEvents.findByGameId(gameId));

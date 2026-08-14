@@ -31,6 +31,7 @@ class JpaPlayerGameStateAdapter implements PlayerGameStateRepository {
             entity.setHand(playerGameState.myHand().stream()
                     .map(PlayerGameStateHandCardValue::fromDomain)
                     .toList());
+            entity.setPendingHandSelection(playerGameState.pendingHandSelection());
         } else {
             repository.save(PlayerGameStateEntity.fromDomain(UUID.randomUUID(), playerGameState));
         }
