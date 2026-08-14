@@ -65,6 +65,7 @@ class PlayerGameStateIT {
         var eventId = UUID.randomUUID();
         var outcomeId = UUID.randomUUID();
         var cardInstanceId = UUID.randomUUID();
+        var keptCardInstanceId = UUID.randomUUID();
 
         publish(
                 GAME_EVENTS_TOPIC,
@@ -152,6 +153,34 @@ class PlayerGameStateIT {
                                 "cardInstanceId", cardInstanceId, "cardType", "PUSH", "grade", "II", "dealSlot", 1))));
         awaitMyHandSize(gameId, player1, 1);
 
+        // Selects a different card than the one offered, proving the live projection reflects HandSelected's
+        // kept hand rather than just replaying HandDealt's pending offer (game-service#121/#127: round 1
+        // cannot open until every player has selected, so this always precedes ActionRoundStarted).
+        publish(
+                GAME_EVENTS_TOPIC,
+                "HandSelected",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "playerId",
+                        player1,
+                        "selectionOrigin",
+                        "PLAYER",
+                        "cards",
+                        List.of(Map.of(
+                                "cardInstanceId",
+                                keptCardInstanceId,
+                                "cardType",
+                                "SCAN",
+                                "grade",
+                                "I",
+                                "dealSlot",
+                                2))));
+        awaitMyHandSize(gameId, player1, 1);
+
         publish(
                 GAME_EVENTS_TOPIC,
                 "ActionRoundStarted",
@@ -173,7 +202,7 @@ class PlayerGameStateIT {
                 GAME_EVENTS_TOPIC,
                 "CardPlayed",
                 gameId,
-                cardPlayedPayload(gameId, player1, cardInstanceId, eventId, outcomeId));
+                cardPlayedPayload(gameId, player1, keptCardInstanceId, eventId, outcomeId));
         awaitMyHandSize(gameId, player1, 0);
 
         publish(GAME_EVENTS_TOPIC, "ResolutionStarted", gameId, Map.of("gameId", gameId, "eraNumber", 1));
