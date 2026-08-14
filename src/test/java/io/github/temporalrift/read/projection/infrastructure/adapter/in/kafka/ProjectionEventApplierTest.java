@@ -334,6 +334,7 @@ class ProjectionEventApplierTest {
                 playerId,
                 playedCard.cardInstanceId(),
                 io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardType.PUSH,
+                io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardGrade.II,
                 UUID.randomUUID(),
                 null,
                 UUID.randomUUID()));
