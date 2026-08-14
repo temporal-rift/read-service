@@ -18,6 +18,7 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Fa
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GameEndedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GameStartedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandDealtPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandSelectedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PlayerAbandonedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PlayerDisconnectedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ResolutionStartedPayload;
@@ -31,6 +32,8 @@ import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.GameProjection;
 import io.github.temporalrift.read.projection.domain.model.HandCard;
+import io.github.temporalrift.read.projection.domain.model.PendingHandCard;
+import io.github.temporalrift.read.projection.domain.model.PendingHandSelection;
 import io.github.temporalrift.read.projection.domain.model.Phase;
 import io.github.temporalrift.read.projection.domain.model.PlayerGameState;
 import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRepository;
@@ -84,7 +87,11 @@ class ProjectionEventApplier {
     void applyFactionAssigned(FactionAssignedPayload payload) {
         var existing = findOrCreatePlayerGameState(payload.gameId(), payload.playerId());
         playerGameStates.save(new PlayerGameState(
-                existing.gameId(), existing.playerId(), payload.faction().name(), existing.myHand()));
+                existing.gameId(),
+                existing.playerId(),
+                payload.faction().name(),
+                existing.myHand(),
+                existing.pendingHandSelection()));
     }
 
     void applyEraStarted(EraStartedPayload payload) {
@@ -106,16 +113,34 @@ class ProjectionEventApplier {
         }
     }
 
-    // HandDealt replaces the hand rather than appending to it: game-service deals a full fresh hand
-    // each era (EraSagaImpl) and game-service's own PlayerState is reconstituted the same way
-    // (ActionStateProjectionEventListener.onHandDealt), so this side must match or the projected hand
-    // grows without bound across eras.
+    // HandDealt holds the unresolved pool. The last final hand remains playable until HandSelected arrives.
     void applyHandDealt(HandDealtPayload payload) {
         var existing = findOrCreatePlayerGameState(payload.gameId(), payload.playerId());
-        var hand = payload.cards().stream()
-                .map(card -> new HandCard(card.cardInstanceId(), card.cardType().name()))
+        var pendingCards = payload.cards().stream()
+                .map(card -> new PendingHandCard(
+                        card.cardInstanceId(),
+                        card.cardType().name(),
+                        card.grade().name(),
+                        card.dealSlot()))
                 .toList();
-        playerGameStates.save(new PlayerGameState(existing.gameId(), existing.playerId(), existing.myFaction(), hand));
+        playerGameStates.save(new PlayerGameState(
+                existing.gameId(),
+                existing.playerId(),
+                existing.myFaction(),
+                existing.myHand(),
+                new PendingHandSelection(pendingCards, payload.selectionExpiresAt())));
+    }
+
+    void applyHandSelected(HandSelectedPayload payload) {
+        var existing = findOrCreatePlayerGameState(payload.gameId(), payload.playerId());
+        var hand = payload.cards().stream()
+                .map(card -> new HandCard(
+                        card.cardInstanceId(),
+                        card.cardType().name(),
+                        card.grade().name()))
+                .toList();
+        playerGameStates.save(
+                new PlayerGameState(existing.gameId(), existing.playerId(), existing.myFaction(), hand, null));
     }
 
     private PlayerGameState findOrCreatePlayerGameState(UUID gameId, UUID playerId) {
@@ -207,7 +232,11 @@ class ProjectionEventApplier {
                                     .filter(card -> !card.cardInstanceId().equals(payload.cardInstanceId()))
                                     .toList();
                             playerGameStates.save(new PlayerGameState(
-                                    existing.gameId(), existing.playerId(), existing.myFaction(), hand));
+                                    existing.gameId(),
+                                    existing.playerId(),
+                                    existing.myFaction(),
+                                    hand,
+                                    existing.pendingHandSelection()));
                         },
                         () -> log.warn(
                                 "CardPlayed for unknown player {} in game {} — skipping",

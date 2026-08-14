@@ -1,5 +1,6 @@
 package io.github.temporalrift.read.projection.infrastructure.adapter.out.persistence;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -13,6 +14,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
 
+import io.github.temporalrift.read.projection.domain.model.PendingHandSelection;
 import io.github.temporalrift.read.projection.domain.model.PlayerGameState;
 
 @Entity
@@ -37,15 +39,33 @@ class PlayerGameStateEntity {
     @OrderColumn(name = "card_position")
     private List<PlayerGameStateHandCardValue> hand;
 
+    @Column(name = "pending_hand_selection_expires_at")
+    private Instant pendingHandSelectionExpiresAt;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+            name = "player_game_state_pending_hand_card",
+            joinColumns = @JoinColumn(name = "player_game_state_id"))
+    @OrderColumn(name = "card_position")
+    private List<PlayerGameStatePendingHandCardValue> pendingHandSelectionCards;
+
     protected PlayerGameStateEntity() {}
 
     PlayerGameStateEntity(
-            UUID id, UUID gameId, UUID playerId, String myFaction, List<PlayerGameStateHandCardValue> hand) {
+            UUID id,
+            UUID gameId,
+            UUID playerId,
+            String myFaction,
+            List<PlayerGameStateHandCardValue> hand,
+            Instant pendingHandSelectionExpiresAt,
+            List<PlayerGameStatePendingHandCardValue> pendingHandSelectionCards) {
         this.id = id;
         this.gameId = gameId;
         this.playerId = playerId;
         this.myFaction = myFaction;
         this.hand = hand;
+        this.pendingHandSelectionExpiresAt = pendingHandSelectionExpiresAt;
+        this.pendingHandSelectionCards = pendingHandSelectionCards;
     }
 
     static PlayerGameStateEntity fromDomain(UUID id, PlayerGameState domain) {
@@ -56,7 +76,15 @@ class PlayerGameStateEntity {
                 domain.myFaction(),
                 domain.myHand().stream()
                         .map(PlayerGameStateHandCardValue::fromDomain)
-                        .toList());
+                        .toList(),
+                domain.pendingHandSelection() == null
+                        ? null
+                        : domain.pendingHandSelection().expiresAt(),
+                domain.pendingHandSelection() == null
+                        ? List.of()
+                        : domain.pendingHandSelection().cards().stream()
+                                .map(PlayerGameStatePendingHandCardValue::fromDomain)
+                                .toList());
     }
 
     PlayerGameState toDomain() {
@@ -64,7 +92,14 @@ class PlayerGameStateEntity {
                 gameId,
                 playerId,
                 myFaction,
-                hand.stream().map(PlayerGameStateHandCardValue::toDomain).toList());
+                hand.stream().map(PlayerGameStateHandCardValue::toDomain).toList(),
+                pendingHandSelectionExpiresAt == null
+                        ? null
+                        : new PendingHandSelection(
+                                pendingHandSelectionCards.stream()
+                                        .map(PlayerGameStatePendingHandCardValue::toDomain)
+                                        .toList(),
+                                pendingHandSelectionExpiresAt));
     }
 
     UUID getGameId() {
@@ -81,5 +116,14 @@ class PlayerGameStateEntity {
 
     void setHand(List<PlayerGameStateHandCardValue> hand) {
         this.hand = hand;
+    }
+
+    void setPendingHandSelection(PendingHandSelection pendingHandSelection) {
+        pendingHandSelectionExpiresAt = pendingHandSelection == null ? null : pendingHandSelection.expiresAt();
+        pendingHandSelectionCards = pendingHandSelection == null
+                ? List.of()
+                : pendingHandSelection.cards().stream()
+                        .map(PlayerGameStatePendingHandCardValue::fromDomain)
+                        .toList();
     }
 }

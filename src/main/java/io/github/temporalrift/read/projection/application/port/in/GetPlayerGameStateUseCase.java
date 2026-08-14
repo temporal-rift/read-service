@@ -6,6 +6,7 @@ import java.util.UUID;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.HandCard;
+import io.github.temporalrift.read.projection.domain.model.PendingHandSelection;
 import io.github.temporalrift.read.projection.domain.model.Phase;
 
 public interface GetPlayerGameStateUseCase {
@@ -19,6 +20,7 @@ public interface GetPlayerGameStateUseCase {
             Phase phase,
             String myFaction,
             List<HandCard> myHand,
+            PendingHandSelection pendingHandSelection,
             int myScore,
             List<GamePlayer> players,
             List<GameActiveEvent> activeEvents) {}

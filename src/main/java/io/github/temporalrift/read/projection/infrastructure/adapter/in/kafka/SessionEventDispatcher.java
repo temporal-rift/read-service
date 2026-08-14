@@ -9,6 +9,7 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Fa
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GameEndedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GameStartedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandDealtPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandSelectedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PlayerAbandonedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PlayerDisconnectedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ResolutionStartedPayload;
@@ -51,6 +52,11 @@ class SessionEventDispatcher
     @Override
     public void onHandDealt(HandDealtPayload payload, EventHeaders headers) {
         applier.applyHandDealt(payload);
+    }
+
+    @Override
+    public void onHandSelected(HandSelectedPayload payload, EventHeaders headers) {
+        applier.applyHandSelected(payload);
     }
 
     @Override

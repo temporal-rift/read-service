@@ -65,6 +65,10 @@ class PlayerGameStateIT {
         var eventId = UUID.randomUUID();
         var outcomeId = UUID.randomUUID();
         var cardInstanceId = UUID.randomUUID();
+        var selectedCardInstanceIds =
+                List.of(cardInstanceId, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+        var pendingCardInstanceId = UUID.randomUUID();
+        var expiresAt = "2026-08-15T00:00:00Z";
 
         publish(
                 GAME_EVENTS_TOPIC,
@@ -145,9 +149,60 @@ class PlayerGameStateIT {
                         1,
                         "playerId",
                         player1,
+                        "selectionExpiresAt",
+                        expiresAt,
                         "cards",
-                        List.of(Map.of("cardInstanceId", cardInstanceId, "cardType", "PUSH"))));
-        awaitMyHandSize(gameId, player1, 1);
+                        List.of(
+                                dealtCard(selectedCardInstanceIds.get(0), "PUSH", "II", 1),
+                                dealtCard(selectedCardInstanceIds.get(1), "SCAN", "I", 2),
+                                dealtCard(selectedCardInstanceIds.get(2), "TRACE", "I", 3),
+                                dealtCard(selectedCardInstanceIds.get(3), "SWING", "III", 4),
+                                dealtCard(selectedCardInstanceIds.get(4), "JAM", "II", 5),
+                                dealtCard(pendingCardInstanceId, "DECOY", "I", 6),
+                                dealtCard(UUID.randomUUID(), "SUPPRESS", "II", 7))));
+        awaitPendingHandSelectionCardCount(gameId, player1, 7);
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(player1)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.myHand").isEmpty())
+                .andExpect(jsonPath("$.pendingHandSelection.cards.length()").value(7))
+                .andExpect(jsonPath("$.pendingHandSelection.cards[0].cardInstanceId")
+                        .value(cardInstanceId.toString()))
+                .andExpect(jsonPath("$.pendingHandSelection.cards[0].grade").value("II"))
+                .andExpect(jsonPath("$.pendingHandSelection.cards[0].dealSlot").value(1))
+                .andExpect(jsonPath("$.pendingHandSelection.requiredSelectionCount")
+                        .value(5))
+                .andExpect(jsonPath("$.pendingHandSelection.expiresAt").value(expiresAt));
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "HandSelected",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "playerId",
+                        player1,
+                        "selectionOrigin",
+                        "PLAYER",
+                        "cards",
+                        List.of(
+                                dealtCard(selectedCardInstanceIds.get(0), "PUSH", "II", 1),
+                                dealtCard(selectedCardInstanceIds.get(1), "SCAN", "I", 2),
+                                dealtCard(selectedCardInstanceIds.get(2), "TRACE", "I", 3),
+                                dealtCard(selectedCardInstanceIds.get(3), "SWING", "III", 4),
+                                dealtCard(selectedCardInstanceIds.get(4), "JAM", "II", 5))));
+        awaitMyHandSize(gameId, player1, 5);
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(player1)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pendingHandSelection").doesNotExist())
+                .andExpect(jsonPath("$.myHand.length()").value(5))
+                .andExpect(jsonPath("$.myHand[0].grade").value("II"));
 
         publish(
                 GAME_EVENTS_TOPIC,
@@ -166,11 +221,13 @@ class PlayerGameStateIT {
                         List.of(player1, player2)));
         awaitPhase(gameId, "ACTION_ROUND_1");
 
-        publish(
-                GAME_EVENTS_TOPIC,
-                "CardPlayed",
-                gameId,
-                cardPlayedPayload(gameId, player1, cardInstanceId, eventId, outcomeId));
+        for (var selectedCardInstanceId : selectedCardInstanceIds) {
+            publish(
+                    GAME_EVENTS_TOPIC,
+                    "CardPlayed",
+                    gameId,
+                    cardPlayedPayload(gameId, player1, selectedCardInstanceId, eventId, outcomeId));
+        }
         awaitMyHandSize(gameId, player1, 0);
 
         publish(GAME_EVENTS_TOPIC, "ResolutionStarted", gameId, Map.of("gameId", gameId, "eraNumber", 1));
@@ -400,6 +457,10 @@ class PlayerGameStateIT {
         return payload;
     }
 
+    private static Map<String, Object> dealtCard(UUID cardInstanceId, String cardType, String grade, int dealSlot) {
+        return Map.of("cardInstanceId", cardInstanceId, "cardType", cardType, "grade", grade, "dealSlot", dealSlot);
+    }
+
     private CompletableFuture<SendResult<Object, Object>> publish(
             String topic, String eventType, UUID gameId, Object payload) {
         // Producer value-serializer is ByteArraySerializer (pairs with the consumer-side
@@ -445,6 +506,21 @@ class PlayerGameStateIT {
                     playerId);
             var count = jdbcTemplate.queryForObject(
                     "SELECT COUNT(*) FROM player_game_state_hand_card WHERE player_game_state_id = ?",
+                    Integer.class,
+                    stateId);
+            org.assertj.core.api.Assertions.assertThat(count).isEqualTo(size);
+        });
+    }
+
+    private void awaitPendingHandSelectionCardCount(UUID gameId, UUID playerId, int size) {
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+            var stateId = jdbcTemplate.queryForObject(
+                    "SELECT id FROM player_game_state WHERE game_id = ? AND player_id = ?",
+                    UUID.class,
+                    gameId,
+                    playerId);
+            var count = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM player_game_state_pending_hand_card WHERE player_game_state_id = ?",
                     Integer.class,
                     stateId);
             org.assertj.core.api.Assertions.assertThat(count).isEqualTo(size);

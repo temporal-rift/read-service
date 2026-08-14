@@ -14,5 +14,6 @@
     <include file="db/changelog/projection/003-create-game-active-event.xml"/>
     <include file="db/changelog/projection/004-create-player-game-state.xml"/>
     <include file="db/changelog/projection/005-create-game-history-projection.xml"/>
+    <include file="db/changelog/projection/006-add-hand-selection-state.xml"/>
 
 </databaseChangeLog>
