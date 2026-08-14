@@ -393,6 +393,7 @@ class PlayerGameStateIT {
         payload.put("playerId", playerId);
         payload.put("cardInstanceId", cardInstanceId);
         payload.put("cardType", "PUSH");
+        payload.put("grade", "II");
         payload.put("targetEventId", targetEventId);
         payload.put("sourceOutcomeId", null);
         payload.put("targetOutcomeId", targetOutcomeId);
