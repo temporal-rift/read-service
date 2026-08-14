@@ -18,6 +18,7 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Fa
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GameEndedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GameStartedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandDealtPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandSelectedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PlayerAbandonedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PlayerDisconnectedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ResolutionStartedPayload;
@@ -111,6 +112,18 @@ class ProjectionEventApplier {
     // (ActionStateProjectionEventListener.onHandDealt), so this side must match or the projected hand
     // grows without bound across eras.
     void applyHandDealt(HandDealtPayload payload) {
+        var existing = findOrCreatePlayerGameState(payload.gameId(), payload.playerId());
+        var hand = payload.cards().stream()
+                .map(card -> new HandCard(card.cardInstanceId(), card.cardType().name()))
+                .toList();
+        playerGameStates.save(new PlayerGameState(existing.gameId(), existing.playerId(), existing.myFaction(), hand));
+    }
+
+    // HandDealt now carries the pending 7-card offer (game-service#121/#127), not the terminal hand — this
+    // replaces the projected hand again with the kept 5 once selection resolves, whether by player action or
+    // the hand-selection-timer's random default (HandSelectedPayload.selectionOrigin distinguishes them, but
+    // this projection has no read model for provenance, only the resulting hand).
+    void applyHandSelected(HandSelectedPayload payload) {
         var existing = findOrCreatePlayerGameState(payload.gameId(), payload.playerId());
         var hand = payload.cards().stream()
                 .map(card -> new HandCard(card.cardInstanceId(), card.cardType().name()))

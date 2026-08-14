@@ -12,13 +12,15 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardGrade;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardType;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EraEndedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EventsDrawnFutureEvent;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EventsDrawnOutcome;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EventsDrawnPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandDealtCardInstance;
-import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandDealtPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandSelectedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandSelectionOrigin;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.OutcomeAppliedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedProbabilityState;
@@ -79,12 +81,16 @@ class GameHistoryEventApplierTest {
     }
 
     @Test
-    void handDealt_recordsDealtCardsForPlayer() {
+    void handSelected_recordsDealtCardsForPlayer() {
         var playerId = UUID.randomUUID();
         var cardInstanceId = UUID.randomUUID();
 
-        applier.applyHandDealt(new HandDealtPayload(
-                gameId, 1, playerId, List.of(new HandDealtCardInstance(cardInstanceId, CardType.PUSH))));
+        applier.applyHandSelected(new HandSelectedPayload(
+                gameId,
+                1,
+                playerId,
+                HandSelectionOrigin.PLAYER,
+                List.of(new HandDealtCardInstance(cardInstanceId, CardType.PUSH, CardGrade.II, 0))));
 
         assertThat(history().myHand(playerId))
                 .containsExactly(
@@ -92,13 +98,17 @@ class GameHistoryEventApplierTest {
     }
 
     @Test
-    void handDealt_duplicateDelivery_isIdempotent() {
+    void handSelected_duplicateDelivery_isIdempotent() {
         var playerId = UUID.randomUUID();
-        var payload = new HandDealtPayload(
-                gameId, 1, playerId, List.of(new HandDealtCardInstance(UUID.randomUUID(), CardType.PUSH)));
+        var payload = new HandSelectedPayload(
+                gameId,
+                1,
+                playerId,
+                HandSelectionOrigin.TIMEOUT_RANDOM,
+                List.of(new HandDealtCardInstance(UUID.randomUUID(), CardType.PUSH, CardGrade.II, 0)));
 
-        applier.applyHandDealt(payload);
-        applier.applyHandDealt(payload);
+        applier.applyHandSelected(payload);
+        applier.applyHandSelected(payload);
 
         assertThat(history().myHand(playerId)).hasSize(1);
     }

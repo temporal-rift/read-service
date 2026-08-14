@@ -135,7 +135,7 @@ class GameHistoryIT {
     }
 
     @Test
-    void handDealt_isCapturedPerPlayerInHistory() throws Exception {
+    void handSelected_isCapturedPerPlayerInHistory() throws Exception {
         var gameId = UUID.randomUUID();
         var firstPlayerId = UUID.randomUUID();
         var secondPlayerId = UUID.randomUUID();
@@ -143,7 +143,7 @@ class GameHistoryIT {
 
         publish(
                 "game.events",
-                "HandDealt",
+                "HandSelected",
                 gameId,
                 Map.of(
                         "gameId",
@@ -152,8 +152,11 @@ class GameHistoryIT {
                         1,
                         "playerId",
                         firstPlayerId,
+                        "selectionOrigin",
+                        "PLAYER",
                         "cards",
-                        List.of(Map.of("cardInstanceId", cardInstanceId, "cardType", "PUSH"))));
+                        List.of(Map.of(
+                                "cardInstanceId", cardInstanceId, "cardType", "PUSH", "grade", "II", "dealSlot", 1))));
         awaitJsonArraySize(gameId, 1, "dealt_hands", 1);
 
         mockMvc.perform(get("/api/v1/games/{gameId}/history", gameId)

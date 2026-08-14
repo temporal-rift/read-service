@@ -145,8 +145,11 @@ class PlayerGameStateIT {
                         1,
                         "playerId",
                         player1,
+                        "selectionExpiresAt",
+                        java.time.Instant.EPOCH.toString(),
                         "cards",
-                        List.of(Map.of("cardInstanceId", cardInstanceId, "cardType", "PUSH"))));
+                        List.of(Map.of(
+                                "cardInstanceId", cardInstanceId, "cardType", "PUSH", "grade", "II", "dealSlot", 1))));
         awaitMyHandSize(gameId, player1, 1);
 
         publish(

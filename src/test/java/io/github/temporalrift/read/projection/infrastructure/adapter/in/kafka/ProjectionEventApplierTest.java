@@ -8,6 +8,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,6 +22,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundStartedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
 import io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.ScoresUpdatedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardGrade;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardType;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EraEndedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EraStartedPayload;
@@ -36,6 +38,8 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Ga
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GameStartedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandDealtCardInstance;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandDealtPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandSelectedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandSelectionOrigin;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PlayerDisconnectedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ResolutionStartedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.OutcomeAppliedPayload;
@@ -220,7 +224,11 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of(eraOneCard))));
 
         applier.applyHandDealt(new HandDealtPayload(
-                gameId, 2, playerId, List.of(new HandDealtCardInstance(eraTwoCardId, CardType.PUSH))));
+                gameId,
+                2,
+                playerId,
+                Instant.EPOCH,
+                List.of(new HandDealtCardInstance(eraTwoCardId, CardType.PUSH, CardGrade.II, 0))));
 
         var captor = ArgumentCaptor.forClass(PlayerGameState.class);
         then(playerGameStates).should().save(captor.capture());
@@ -233,8 +241,53 @@ class ProjectionEventApplierTest {
         var cardId = UUID.randomUUID();
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
 
-        applier.applyHandDealt(
-                new HandDealtPayload(gameId, 1, playerId, List.of(new HandDealtCardInstance(cardId, CardType.PUSH))));
+        applier.applyHandDealt(new HandDealtPayload(
+                gameId,
+                1,
+                playerId,
+                Instant.EPOCH,
+                List.of(new HandDealtCardInstance(cardId, CardType.PUSH, CardGrade.II, 0))));
+
+        then(playerGameStates)
+                .should()
+                .save(new PlayerGameState(gameId, playerId, null, List.of(new HandCard(cardId, "PUSH"))));
+    }
+
+    @Test
+    void applyHandSelected_replacesPendingOfferWithKeptHand() {
+        // HandDealt now carries the pending 7-card offer (game-service#121/#127); HandSelected carries the
+        // terminal 5-card kept hand once selection resolves, whether by player choice or the hand-selection
+        // timer's random default — the projected hand must reflect the kept cards, not the offer.
+        var playerId = UUID.randomUUID();
+        var offeredCard = new HandCard(UUID.randomUUID(), "SCAN");
+        var keptCardId = UUID.randomUUID();
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of(offeredCard))));
+
+        applier.applyHandSelected(new HandSelectedPayload(
+                gameId,
+                1,
+                playerId,
+                HandSelectionOrigin.PLAYER,
+                List.of(new HandDealtCardInstance(keptCardId, CardType.PUSH, CardGrade.II, 0))));
+
+        var captor = ArgumentCaptor.forClass(PlayerGameState.class);
+        then(playerGameStates).should().save(captor.capture());
+        assertThat(captor.getValue().myHand()).containsExactly(new HandCard(keptCardId, "PUSH"));
+    }
+
+    @Test
+    void applyHandSelected_timeoutRandomOrigin_arrivesBeforeGameStarted_createsRowRatherThanDropping() {
+        var playerId = UUID.randomUUID();
+        var cardId = UUID.randomUUID();
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
+
+        applier.applyHandSelected(new HandSelectedPayload(
+                gameId,
+                1,
+                playerId,
+                HandSelectionOrigin.TIMEOUT_RANDOM,
+                List.of(new HandDealtCardInstance(cardId, CardType.PUSH, CardGrade.II, 0))));
 
         then(playerGameStates)
                 .should()
