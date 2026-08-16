@@ -135,7 +135,7 @@ class GameHistoryIT {
     }
 
     @Test
-    void handDealt_isCapturedPerPlayerInHistory() throws Exception {
+    void handSelected_isCapturedPerPlayerInHistory() throws Exception {
         var gameId = UUID.randomUUID();
         var firstPlayerId = UUID.randomUUID();
         var secondPlayerId = UUID.randomUUID();
@@ -143,7 +143,7 @@ class GameHistoryIT {
 
         publish(
                 "game.events",
-                "HandDealt",
+                "HandSelected",
                 gameId,
                 Map.of(
                         "gameId",
@@ -152,8 +152,8 @@ class GameHistoryIT {
                         1,
                         "playerId",
                         firstPlayerId,
-                        "selectionExpiresAt",
-                        "2026-08-15T00:00:00Z",
+                        "selectionOrigin",
+                        "PLAYER",
                         "cards",
                         List.of(Map.of(
                                 "cardInstanceId", cardInstanceId, "cardType", "PUSH", "grade", "II", "dealSlot", 1))));
