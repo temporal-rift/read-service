@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EraEndedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EventsDrawnPayload;
-import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandDealtPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandSelectedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.OutcomeAppliedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
 import io.github.temporalrift.read.projection.domain.model.CarryForwardProbability;
@@ -65,7 +65,10 @@ class GameHistoryEventApplier {
         update(payload.gameId(), payload.eraNumber(), history -> history.close(payload.cascadedParadoxCount()));
     }
 
-    void applyHandDealt(HandDealtPayload payload) {
+    // Records HandSelected (the terminal five-card hand), not HandDealt (the pending seven-card offer) — history
+    // must reflect what the player actually ended up with, whether they chose it or the hand-selection timer's
+    // random default resolved it for them.
+    void applyHandSelected(HandSelectedPayload payload) {
         var cards = payload.cards().stream()
                 .map(card -> new DealtCard(
                         card.cardInstanceId(),

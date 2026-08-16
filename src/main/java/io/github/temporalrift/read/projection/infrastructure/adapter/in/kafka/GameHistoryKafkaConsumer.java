@@ -12,7 +12,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EraEndedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EventsDrawnPayload;
-import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandDealtPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandSelectedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.OutcomeAppliedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
 import io.github.temporalrift.read.shared.ProcessedEventPort;
@@ -30,7 +30,7 @@ class GameHistoryKafkaConsumer {
     private static final String EVENT_TYPE_HEADER = "eventType";
     private static final String CONSUMER = "projection.game-history";
     private static final String GROUP_ID = "read-service." + CONSUMER;
-    private static final Set<String> GAME_EVENT_TYPES = Set.of("EventsDrawn", "EraEnded", "HandDealt");
+    private static final Set<String> GAME_EVENT_TYPES = Set.of("EventsDrawn", "EraEnded", "HandSelected");
     private static final Set<String> TIMELINE_EVENT_TYPES = Set.of("OutcomeApplied", "ParadoxCascaded");
 
     private final ProcessedEventPort processedEvents;
@@ -75,7 +75,7 @@ class GameHistoryKafkaConsumer {
         switch (eventType) {
             case "EventsDrawn" -> applier.applyEventsDrawn(read(message, EventsDrawnPayload.class));
             case "EraEnded" -> applier.applyEraEnded(read(message, EraEndedPayload.class));
-            case "HandDealt" -> applier.applyHandDealt(read(message, HandDealtPayload.class));
+            case "HandSelected" -> applier.applyHandSelected(read(message, HandSelectedPayload.class));
             default -> throw new IllegalArgumentException("Unsupported game history event type " + eventType);
         }
     }
