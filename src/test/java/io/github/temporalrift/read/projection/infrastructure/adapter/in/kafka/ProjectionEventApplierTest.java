@@ -331,7 +331,7 @@ class ProjectionEventApplierTest {
 
         then(playerGameStates)
                 .should()
-                .save(new PlayerGameState(gameId, playerId, null, List.of(new HandCard(cardId, "PUSH"))));
+                .save(new PlayerGameState(gameId, playerId, null, List.of(new HandCard(cardId, "PUSH")), 1));
     }
 
     @Test
