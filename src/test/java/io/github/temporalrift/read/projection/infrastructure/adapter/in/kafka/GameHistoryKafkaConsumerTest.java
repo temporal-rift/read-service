@@ -65,6 +65,16 @@ class GameHistoryKafkaConsumerTest {
         verifyNoInteractions(processedEvents, applier);
     }
 
+    // History records the terminal HandSelected hand, never HandDealt's pending seven-card offer. Named
+    // explicitly rather than leaning on the generic filter test above, so re-adding HandDealt to the
+    // supported set fails here instead of silently reinstating offer-shaped history.
+    @Test
+    void handDealt_isNotRecordedInHistory() {
+        consumer().handleGameEvent(KafkaTestMessages.withEventIdAndEventType(UUID.randomUUID(), "HandDealt"));
+
+        verifyNoInteractions(processedEvents, applier);
+    }
+
     @Test
     void duplicateDelivery_doesNotDispatch() {
         var eventId = UUID.randomUUID();
