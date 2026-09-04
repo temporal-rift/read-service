@@ -51,6 +51,8 @@
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml
         </sonar.coverage.jacoco.xmlReportPaths>
+        <sonar.exclusions>**/generated-sources/**/*</sonar.exclusions>
+        <sonar.coverage.exclusions>**/generated-sources/**/*</sonar.coverage.exclusions>
 
         <archunit-junit5.version>1.4.2</archunit-junit5.version>
         <projection-api.version>2.5.0</projection-api.version>
