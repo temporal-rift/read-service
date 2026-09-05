@@ -5,6 +5,7 @@ import java.time.ZoneOffset;
 
 import io.github.temporalrift.read.projection.application.port.in.GetGameHistoryUseCase;
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
+import io.github.temporalrift.read.projection.domain.model.Phase;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActiveEvent;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CardGrade;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CascadedEvent;
@@ -14,7 +15,6 @@ import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.GameHistoryResponse;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.HandCard;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PendingHandSelection;
-import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.Phase;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerGameStateResponse;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerInGame;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ResolvedOutcome;
@@ -34,8 +34,11 @@ final class ProjectionRestMapper {
         var response = new PlayerGameStateResponse(
                 result.gameId(),
                 result.eraNumber(),
-                Phase.valueOf(result.phase().name()),
-                result.myHand().stream().map(ProjectionRestMapper::toHandCard).toList(),
+                io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.Phase.valueOf(
+                        result.phase().name()),
+                result.myHand().stream()
+                        .map(card -> toHandCard(card, result.phase(), result.eraNumber()))
+                        .toList(),
                 result.myScore(),
                 result.activeEvents().stream()
                         .map(ProjectionRestMapper::toActiveEvent)
@@ -81,8 +84,26 @@ final class ProjectionRestMapper {
                 domain.cardInstanceId(), domain.cardType(), toCardGrade(domain.grade()), domain.dealSlot());
     }
 
-    private static HandCard toHandCard(io.github.temporalrift.read.projection.domain.model.HandCard domain) {
-        return new HandCard(domain.cardInstanceId(), domain.cardType(), toCardGrade(domain.grade()));
+    private static HandCard toHandCard(
+            io.github.temporalrift.read.projection.domain.model.HandCard domain, Phase phase, int eraNumber) {
+        return new HandCard(
+                domain.cardInstanceId(),
+                domain.cardType(),
+                toCardGrade(domain.grade()),
+                isPlayableThisRound(domain.cardType(), phase, eraNumber));
+    }
+
+    private static boolean isPlayableThisRound(String cardType, Phase phase, int eraNumber) {
+        return switch (cardType) {
+            case "TRACE" -> !(phase == Phase.ACTION_ROUND_1 && eraNumber == 1);
+            case "JAM", "SCAN", "INTERCEPT" -> phase != Phase.ACTION_ROUND_3;
+            case "STABILIZE", "DETONATE" -> !isActionRound(phase);
+            default -> true;
+        };
+    }
+
+    private static boolean isActionRound(Phase phase) {
+        return phase == Phase.ACTION_ROUND_1 || phase == Phase.ACTION_ROUND_2 || phase == Phase.ACTION_ROUND_3;
     }
 
     private static PendingHandSelection toPendingHandSelection(
