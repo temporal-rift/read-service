@@ -10,6 +10,13 @@ spring:
     url: jdbc:postgresql://${SPRING_DATASOURCE_HOST:localhost}:${SPRING_DATASOURCE_PORT:5432}/${SPRING_DATASOURCE_NAME:temporal_rift}?sslmode=require
     username: ${SPRING_DATASOURCE_USERNAME}
     password: ${SPRING_DATASOURCE_PASSWORD}
+    hikari:
+      # Sized for 5 Kafka consumer groups at listener.concurrency=3 below (up to 15 listener
+      # threads needing a connection at once) plus headroom for REST traffic and Liquibase.
+      # connection-timeout is lowered from the 30s default so pool exhaustion fails loudly with
+      # a stack trace instead of blocking a listener thread in silence for up to 30s per retry.
+      maximum-pool-size: 20
+      connection-timeout: 10000
   jpa:
     hibernate:
       ddl-auto: validate
@@ -25,6 +32,15 @@ spring:
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
     listener:
+      # Every topic here (game.events, timeline.events) has 3 partitions (infrastructure's
+      # kafka-topics provisioning). The default concurrency of 1 means a single thread processes
+      # every game's events strictly serially per consumer group -- one slow message (a slow DB
+      # call, a GC pause) blocks every other in-flight game behind it in that group, not just the
+      # slow one. Matching concurrency to partition count lets Kafka assign one thread per
+      # partition instead, which still preserves per-game ordering (every topic here is
+      # partitioned by gameId, so one game's events always land in the same partition) while
+      # letting unrelated games' events keep flowing independently.
+      concurrency: 3
       observation-enabled: true
     properties:
       security.protocol: ${KAFKA_SECURITY_PROTOCOL}
