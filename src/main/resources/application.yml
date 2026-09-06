@@ -11,11 +11,15 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME}
     password: ${SPRING_DATASOURCE_PASSWORD}
     hikari:
-      # Sized for 5 Kafka consumer groups at listener.concurrency=3 below (up to 15 listener
-      # threads needing a connection at once) plus headroom for REST traffic and Liquibase.
-      # connection-timeout is lowered from the 30s default so pool exhaustion fails loudly with
-      # a stack trace instead of blocking a listener thread in silence for up to 30s per retry.
-      maximum-pool-size: 20
+      # Sized for this service's 6 @KafkaListener containers (NotificationKafkaConsumer x2,
+      # GameEventsKafkaConsumer, GameHistoryKafkaConsumer x2, TimelineEventsKafkaConsumer) at
+      # listener.concurrency=3 below -- up to 18 listener threads needing a connection at once,
+      # not 15 (two of those containers share one group-id string but are still separate
+      # containers, each independently getting its own concurrency=3 allocation) -- plus headroom
+      # for REST traffic and Liquibase. connection-timeout is lowered from the 30s default so pool
+      # exhaustion fails loudly with a stack trace instead of blocking a listener thread in
+      # silence for up to 30s per retry.
+      maximum-pool-size: 25
       connection-timeout: 10000
   jpa:
     hibernate:
