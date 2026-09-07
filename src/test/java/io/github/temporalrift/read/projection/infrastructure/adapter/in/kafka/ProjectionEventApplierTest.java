@@ -101,6 +101,27 @@ class ProjectionEventApplierTest {
     }
 
     @Test
+    void applyGameStarted_afterActionRoundStartedAlreadyArrived_preservesNewerProjectionAndPlayerState() {
+        var playerId = UUID.randomUUID();
+        var existingProjection = new GameProjection(gameId, 1, Phase.ACTION_ROUND_1);
+        var hand = List.of(new HandCard(UUID.randomUUID(), "PUSH"));
+        var pendingHand = new PendingHandSelection(
+                List.of(new PendingHandCard(UUID.randomUUID(), "SWING", "II", 0)),
+                Instant.parse("2030-01-01T00:00:00Z"));
+        var existingPlayerState = new PlayerGameState(gameId, playerId, "ERASERS", hand, pendingHand);
+        var existingPlayer = new GamePlayer(playerId, 7, false, "ERASERS");
+        given(gameProjections.findByGameId(gameId)).willReturn(Optional.of(existingProjection));
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.of(existingPlayerState));
+        given(gamePlayers.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.of(existingPlayer));
+
+        applier.applyGameStarted(new GameStartedPayload(gameId, UUID.randomUUID(), List.of(playerId), 3, 30));
+
+        then(gameProjections).should(never()).save(any());
+        then(playerGameStates).should().save(existingPlayerState);
+        then(gamePlayers).should().save(gameId, existingPlayer);
+    }
+
+    @Test
     void applyGameStarted_afterFactionAssignedAlreadyArrived_preservesFactionRatherThanResetting() {
         var playerId = UUID.randomUUID();
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))

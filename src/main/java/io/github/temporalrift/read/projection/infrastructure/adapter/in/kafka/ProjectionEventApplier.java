@@ -73,7 +73,9 @@ class ProjectionEventApplier {
     // stomp that already-correct data back to defaults the instant GameStarted is finally applied,
     // silently undoing the out-of-order handling below rather than complementing it.
     void applyGameStarted(GameStartedPayload payload) {
-        gameProjections.save(new GameProjection(payload.gameId(), 0, Phase.LOBBY));
+        if (gameProjections.findByGameId(payload.gameId()).isEmpty()) {
+            gameProjections.save(new GameProjection(payload.gameId(), 0, Phase.LOBBY));
+        }
         for (var playerId : payload.playerIds()) {
             gamePlayers.save(payload.gameId(), findOrCreateGamePlayer(payload.gameId(), playerId));
             playerGameStates.save(findOrCreatePlayerGameState(payload.gameId(), playerId));
