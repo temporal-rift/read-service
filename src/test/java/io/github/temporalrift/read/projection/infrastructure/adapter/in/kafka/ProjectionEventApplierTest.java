@@ -381,6 +381,7 @@ class ProjectionEventApplierTest {
                 io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardGrade.II,
                 UUID.randomUUID(),
                 null,
+                null,
                 UUID.randomUUID()));
 
         var captor = ArgumentCaptor.forClass(PlayerGameState.class);
