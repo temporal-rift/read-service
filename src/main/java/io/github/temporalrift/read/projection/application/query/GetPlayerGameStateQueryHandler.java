@@ -1,5 +1,6 @@
 package io.github.temporalrift.read.projection.application.query;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -12,6 +13,7 @@ import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRep
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameProjectionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PlayerGameStateRepository;
+import io.github.temporalrift.read.projection.domain.port.out.RevealedProbabilityIntelRepository;
 
 @Service
 class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
@@ -20,16 +22,19 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
     private final GamePlayerRepository gamePlayers;
     private final GameActiveEventRepository gameActiveEvents;
     private final PlayerGameStateRepository playerGameStates;
+    private final RevealedProbabilityIntelRepository revealedProbabilityIntel;
 
     GetPlayerGameStateQueryHandler(
             GameProjectionRepository gameProjections,
             GamePlayerRepository gamePlayers,
             GameActiveEventRepository gameActiveEvents,
-            PlayerGameStateRepository playerGameStates) {
+            PlayerGameStateRepository playerGameStates,
+            RevealedProbabilityIntelRepository revealedProbabilityIntel) {
         this.gameProjections = gameProjections;
         this.gamePlayers = gamePlayers;
         this.gameActiveEvents = gameActiveEvents;
         this.playerGameStates = playerGameStates;
+        this.revealedProbabilityIntel = revealedProbabilityIntel;
     }
 
     @Override
@@ -46,6 +51,13 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                 .findFirst()
                 .map(GamePlayer::score)
                 .orElse(0);
+        var myRevealedIntel =
+                gameProjection.phase() == io.github.temporalrift.read.projection.domain.model.Phase.ERA_END
+                                || gameProjection.phase()
+                                        == io.github.temporalrift.read.projection.domain.model.Phase.GAME_ENDED
+                        ? List.<io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel>of()
+                        : revealedProbabilityIntel.findByGameIdAndPlayerIdAndEraNumber(
+                                gameId, playerId, gameProjection.eraNumber());
 
         return new Result(
                 gameId,
@@ -54,6 +66,7 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                 playerGameState.myFaction(),
                 playerGameState.myHand(),
                 playerGameState.pendingHandSelection(),
+                myRevealedIntel,
                 myScore,
                 players,
                 gameActiveEvents.findByGameId(gameId));

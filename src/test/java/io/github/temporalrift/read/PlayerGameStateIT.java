@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -19,7 +20,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.support.KafkaHeaders;
+import org.springframework.kafka.support.JsonKafkaHeaderMapper;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
@@ -27,6 +28,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedOutcomeState;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedPayload;
 import io.github.temporalrift.read.shared.PlayerPrincipal;
 import io.github.temporalrift.read.shared.infrastructure.config.PlayerAuthenticationToken;
 
@@ -44,6 +47,7 @@ class PlayerGameStateIT {
 
     private static final String GAME_EVENTS_TOPIC = "game.events";
     private static final String TIMELINE_EVENTS_TOPIC = "timeline.events";
+    private static final JsonKafkaHeaderMapper HEADER_MAPPER = new JsonKafkaHeaderMapper();
 
     @Autowired
     KafkaTemplate<Object, Object> kafkaTemplate;
@@ -441,6 +445,108 @@ class PlayerGameStateIT {
                 .isEqualTo(gameId.toString());
     }
 
+    @Test
+    void probabilityIntel_survivesEarlyDeliveryAndReconnectWithoutLeakingOrCrossingEraBoundaries() throws Exception {
+        var gameId = UUID.randomUUID();
+        var scanningPlayerId = UUID.randomUUID();
+        var otherPlayerId = UUID.randomUUID();
+        var scannedEventId = UUID.randomUUID();
+        var outcomeId = UUID.randomUUID();
+        var firstReveal = new ProbabilityStateRevealedPayload(
+                gameId,
+                1,
+                1,
+                scanningPlayerId,
+                scannedEventId,
+                List.of(new ProbabilityStateRevealedOutcomeState(outcomeId, 40, false, false)));
+
+        // timeline.events may arrive before the matching game.events state on its independent consumer group.
+        publish(TIMELINE_EVENTS_TOPIC, "ProbabilityStateRevealed", gameId, firstReveal);
+        awaitProbabilityIntelCount(gameId, scanningPlayerId, 1, 1);
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "GameStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "lobbyId",
+                        UUID.randomUUID(),
+                        "playerIds",
+                        List.of(scanningPlayerId, otherPlayerId),
+                        "totalFactions",
+                        3,
+                        "deckSize",
+                        30));
+        awaitPlayerGameStateRowExists(gameId, scanningPlayerId);
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "EraStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "carryOverEventIds",
+                        List.of(),
+                        "playerIds",
+                        List.of(scanningPlayerId, otherPlayerId)));
+        awaitPhase(gameId, "HAND_SELECTION");
+
+        // A later Scan result for the same viewer/event replaces the round-one snapshot.
+        publish(
+                TIMELINE_EVENTS_TOPIC,
+                "ProbabilityStateRevealed",
+                gameId,
+                new ProbabilityStateRevealedPayload(
+                        gameId,
+                        1,
+                        2,
+                        scanningPlayerId,
+                        scannedEventId,
+                        List.of(new ProbabilityStateRevealedOutcomeState(outcomeId, 60, false, true))));
+        awaitProbabilityIntelProbability(gameId, scanningPlayerId, 1, scannedEventId, 60);
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(scanningPlayerId)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.myRevealedIntel.length()").value(1))
+                .andExpect(jsonPath("$.myRevealedIntel[0].kind").value("PROBABILITY"))
+                .andExpect(jsonPath("$.myRevealedIntel[0].observedInRound").value(2))
+                .andExpect(jsonPath("$.myRevealedIntel[0].eventId").value(scannedEventId.toString()))
+                .andExpect(
+                        jsonPath("$.myRevealedIntel[0].outcomes[0].probability").value(60))
+                .andExpect(jsonPath("$.myRevealedIntel[0].outcomes[0].isSealed").value(true));
+
+        // A reconnect/read must see only the caller's persisted, current-era projection.
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(otherPlayerId)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.myRevealedIntel").isEmpty());
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "EraEnded",
+                gameId,
+                Map.of("gameId", gameId, "eraNumber", 1, "cascadedParadoxCount", 0, "nextEraNumber", 2));
+        awaitPhase(gameId, "ERA_END");
+        awaitProbabilityIntelCount(gameId, scanningPlayerId, 1, 0);
+
+        // A late record from the completed era must not restore private intel into the next lifecycle state.
+        publish(TIMELINE_EVENTS_TOPIC, "ProbabilityStateRevealed", gameId, firstReveal);
+        await().pollDelay(Duration.ofSeconds(2))
+                .atMost(Duration.ofSeconds(10))
+                .untilAsserted(() -> assertThatProbabilityIntelCount(gameId, scanningPlayerId, 1, 0));
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(scanningPlayerId)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.myRevealedIntel").isEmpty());
+    }
+
     private static Map<String, Object> cardPlayedPayload(
             UUID gameId, UUID playerId, UUID cardInstanceId, UUID targetEventId, UUID targetOutcomeId) {
         var payload = new java.util.HashMap<String, Object>();
@@ -468,13 +574,18 @@ class PlayerGameStateIT {
         // Keyed by gameId to match production, where game-service's binder config and timeline-service's
         // OutboxRelay both do the same -- without a key, Kafka's default partitioner spreads a single
         // game's events across partitions with no ordering guarantee between them.
-        Message<Object> message = MessageBuilder.withPayload((Object) objectMapper.writeValueAsBytes(payload))
-                .setHeader(KafkaHeaders.TOPIC, topic)
-                .setHeader(KafkaHeaders.KEY, gameId.toString())
+        Message<Object> event = MessageBuilder.withPayload((Object) objectMapper.writeValueAsBytes(payload))
                 .setHeader("eventId", UUID.randomUUID().toString())
+                .setHeader("aggregateId", gameId.toString())
+                .setHeader("aggregateType", "Game")
+                .setHeader("gameId", gameId.toString())
+                .setHeader("occurredAt", java.time.Instant.now().toString())
+                .setHeader("version", "1")
                 .setHeader("eventType", eventType)
                 .build();
-        return kafkaTemplate.send(message);
+        var record = new ProducerRecord<Object, Object>(topic, null, gameId.toString(), event.getPayload());
+        HEADER_MAPPER.fromHeaders(event.getHeaders(), record.headers());
+        return kafkaTemplate.send(record);
     }
 
     private void awaitPlayerGameStateRowExists(UUID gameId, UUID playerId) {
@@ -561,5 +672,36 @@ class PlayerGameStateIT {
                                 gameId,
                                 playerId))
                         .isEqualTo(score));
+    }
+
+    private void awaitProbabilityIntelCount(UUID gameId, UUID playerId, int eraNumber, int expected) {
+        await().atMost(Duration.ofSeconds(30))
+                .untilAsserted(() -> assertThatProbabilityIntelCount(gameId, playerId, eraNumber, expected));
+    }
+
+    private void assertThatProbabilityIntelCount(UUID gameId, UUID playerId, int eraNumber, int expected) {
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM revealed_probability_intel "
+                                + "WHERE game_id = ? AND player_id = ? AND era_number = ?",
+                        Integer.class,
+                        gameId,
+                        playerId,
+                        eraNumber))
+                .isEqualTo(expected);
+    }
+
+    private void awaitProbabilityIntelProbability(
+            UUID gameId, UUID playerId, int eraNumber, UUID eventId, int expectedProbability) {
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+            var outcomes = jdbcTemplate.queryForObject(
+                    "SELECT outcomes::text FROM revealed_probability_intel "
+                            + "WHERE game_id = ? AND player_id = ? AND era_number = ? AND event_id = ?",
+                    String.class,
+                    gameId,
+                    playerId,
+                    eraNumber,
+                    eventId);
+            org.assertj.core.api.Assertions.assertThat(outcomes).contains("\"probability\":" + expectedProbability);
+        });
     }
 }

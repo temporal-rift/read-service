@@ -46,6 +46,8 @@ import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.O
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolutionPhaseStartedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolvedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedOutcomeState;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedPayload;
 import io.github.temporalrift.read.projection.domain.model.CarryOverState;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
@@ -55,10 +57,13 @@ import io.github.temporalrift.read.projection.domain.model.PendingHandCard;
 import io.github.temporalrift.read.projection.domain.model.PendingHandSelection;
 import io.github.temporalrift.read.projection.domain.model.Phase;
 import io.github.temporalrift.read.projection.domain.model.PlayerGameState;
+import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
+import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
 import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameProjectionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PlayerGameStateRepository;
+import io.github.temporalrift.read.projection.domain.port.out.RevealedProbabilityIntelRepository;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectionEventApplierTest {
@@ -75,13 +80,17 @@ class ProjectionEventApplierTest {
     @Mock
     PlayerGameStateRepository playerGameStates;
 
+    @Mock
+    RevealedProbabilityIntelRepository revealedProbabilityIntel;
+
     private ProjectionEventApplier applier;
 
     private final UUID gameId = UUID.randomUUID();
 
     @org.junit.jupiter.api.BeforeEach
     void setUp() {
-        applier = new ProjectionEventApplier(gameProjections, gamePlayers, gameActiveEvents, playerGameStates);
+        applier = new ProjectionEventApplier(
+                gameProjections, gamePlayers, gameActiveEvents, playerGameStates, revealedProbabilityIntel);
     }
 
     @Test
@@ -332,7 +341,57 @@ class ProjectionEventApplierTest {
         applier.applyEraEnded(new EraEndedPayload(gameId, 1, 0, 2));
 
         then(gameProjections).should().save(new GameProjection(gameId, 1, Phase.ERA_END));
+        then(revealedProbabilityIntel).should().deleteByGameIdAndEraNumber(gameId, 1);
         then(gameActiveEvents).should().deleteByGameId(gameId);
+    }
+
+    @Test
+    void applyProbabilityStateRevealed_withoutGameProjection_retainsPrivateIntel() {
+        var viewerId = UUID.randomUUID();
+        var eventId = UUID.randomUUID();
+        var outcomeId = UUID.randomUUID();
+        given(gameProjections.findByGameId(gameId)).willReturn(Optional.empty());
+        var payload = new ProbabilityStateRevealedPayload(
+                gameId,
+                2,
+                1,
+                viewerId,
+                eventId,
+                List.of(new ProbabilityStateRevealedOutcomeState(outcomeId, 45, false, true)));
+
+        applier.applyProbabilityStateRevealed(payload);
+
+        then(revealedProbabilityIntel)
+                .should()
+                .upsertLatest(new RevealedProbabilityIntel(
+                        gameId,
+                        viewerId,
+                        2,
+                        eventId,
+                        1,
+                        List.of(new RevealedProbabilityOutcome(outcomeId, 45, false, true))));
+    }
+
+    @Test
+    void applyProbabilityStateRevealed_forPriorEra_skipsIt() {
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));
+
+        applier.applyProbabilityStateRevealed(
+                new ProbabilityStateRevealedPayload(gameId, 1, 2, UUID.randomUUID(), UUID.randomUUID(), List.of()));
+
+        then(revealedProbabilityIntel).should(never()).upsertLatest(any());
+    }
+
+    @Test
+    void applyProbabilityStateRevealed_afterEraEnd_skipsIt() {
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ERA_END)));
+
+        applier.applyProbabilityStateRevealed(
+                new ProbabilityStateRevealedPayload(gameId, 2, 2, UUID.randomUUID(), UUID.randomUUID(), List.of()));
+
+        then(revealedProbabilityIntel).should(never()).upsertLatest(any());
     }
 
     @Test

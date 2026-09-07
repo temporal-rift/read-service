@@ -51,6 +51,26 @@ class NotificationFanOutServiceTest {
     }
 
     @Test
+    void targetsProbabilityStateRevealedToTheScanningPlayerOnly() {
+        var gameId = UUID.randomUUID();
+        var viewerId = UUID.randomUUID();
+        var viewer = org.mockito.Mockito.mock(NotificationDeliveryPort.class);
+        var otherOne = org.mockito.Mockito.mock(NotificationDeliveryPort.class);
+        var otherTwo = org.mockito.Mockito.mock(NotificationDeliveryPort.class);
+        var registry = new NotificationSessionRegistry();
+        registry.register(activeSession("viewer", gameId, viewerId, viewer));
+        registry.register(activeSession("other-one", gameId, UUID.randomUUID(), otherOne));
+        registry.register(activeSession("other-two", gameId, UUID.randomUUID(), otherTwo));
+        var service = new NotificationFanOutService(new NotificationPolicy(), registry, new ObjectMapper());
+
+        service.fanOut(message(gameId, "ProbabilityStateRevealed", "{\"playerId\":\"" + viewerId + "\"}"));
+
+        verify(viewer).send(org.mockito.ArgumentMatchers.any());
+        verify(otherOne, never()).send(org.mockito.ArgumentMatchers.any());
+        verify(otherTwo, never()).send(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
     void dropsTargetedEventWithoutPlayerId() {
         var gameId = UUID.randomUUID();
         var recipient = org.mockito.Mockito.mock(NotificationDeliveryPort.class);

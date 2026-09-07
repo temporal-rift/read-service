@@ -18,6 +18,8 @@ import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerGameStateResponse;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerInGame;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ResolvedOutcome;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.RevealedIntel;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.RevealedProbabilityOutcome;
 
 /**
  * Maps projection query results to generated response DTOs.
@@ -31,6 +33,9 @@ final class ProjectionRestMapper {
     private ProjectionRestMapper() {}
 
     static PlayerGameStateResponse toResponse(GetPlayerGameStateUseCase.Result result) {
+        var myRevealedIntel = result.myRevealedIntel().stream()
+                .map(ProjectionRestMapper::toRevealedIntel)
+                .toList();
         var response = new PlayerGameStateResponse(
                 result.gameId(),
                 result.eraNumber(),
@@ -40,6 +45,7 @@ final class ProjectionRestMapper {
                         .map(card -> toHandCard(card, result.phase(), result.eraNumber()))
                         .toList(),
                 result.myScore(),
+                myRevealedIntel,
                 result.activeEvents().stream()
                         .map(ProjectionRestMapper::toActiveEvent)
                         .toList(),
@@ -49,6 +55,17 @@ final class ProjectionRestMapper {
         response.setMyFaction(result.myFaction());
         response.setPendingHandSelection(
                 result.pendingHandSelection() == null ? null : toPendingHandSelection(result.pendingHandSelection()));
+        return response;
+    }
+
+    private static RevealedIntel toRevealedIntel(
+            io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel domain) {
+        var response =
+                new RevealedIntel(RevealedIntel.KindEnum.PROBABILITY, domain.observedInRound(), domain.eventId());
+        response.setOutcomes(domain.outcomes().stream()
+                .map(outcome -> new RevealedProbabilityOutcome(
+                        outcome.outcomeId(), outcome.probability(), outcome.isAnnihilated(), outcome.isSealed()))
+                .toList());
         return response;
     }
 

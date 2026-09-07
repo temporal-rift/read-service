@@ -12,6 +12,7 @@ import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.O
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolutionPhaseStartedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolvedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedPayload;
 import io.github.temporalrift.read.shared.ProcessedEventPort;
 import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.InboundEventClaim;
 
@@ -50,6 +51,8 @@ class TimelineEventsKafkaConsumer {
                 applier.applyParadoxResolutionPhaseStarted(read(message, ParadoxResolutionPhaseStartedPayload.class));
             case "ParadoxResolved" -> applier.applyParadoxResolved(read(message, ParadoxResolvedPayload.class));
             case "ParadoxCascaded" -> applier.applyParadoxCascaded(read(message, ParadoxCascadedPayload.class));
+            case "ProbabilityStateRevealed" ->
+                applier.applyProbabilityStateRevealed(read(message, ProbabilityStateRevealedPayload.class));
             default -> {
                 // Other timeline.events types aren't consumed by this projection.
             }

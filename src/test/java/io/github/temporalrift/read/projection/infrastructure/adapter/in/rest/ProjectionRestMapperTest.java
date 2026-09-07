@@ -12,6 +12,8 @@ import org.junit.jupiter.params.provider.CsvSource;
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
 import io.github.temporalrift.read.projection.domain.model.HandCard;
 import io.github.temporalrift.read.projection.domain.model.Phase;
+import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
+import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
 
 class ProjectionRestMapperTest {
 
@@ -54,6 +56,42 @@ class ProjectionRestMapperTest {
 
         assertThat(round2.getMyHand().getFirst().getIsPlayableThisRound()).isTrue();
         assertThat(round3.getMyHand().getFirst().getIsPlayableThisRound()).isFalse();
+    }
+
+    @Test
+    void toResponse_alwaysMapsProbabilityIntelAsAList() {
+        var eventId = UUID.randomUUID();
+        var outcomeId = UUID.randomUUID();
+        var intel = new RevealedProbabilityIntel(
+                GAME_ID,
+                UUID.randomUUID(),
+                2,
+                eventId,
+                2,
+                List.of(new RevealedProbabilityOutcome(outcomeId, 60, false, true)));
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID, 2, Phase.ACTION_ROUND_2, "ERASERS", List.of(), null, List.of(intel), 0, List.of(), List.of());
+
+        var response = ProjectionRestMapper.toResponse(result);
+
+        assertThat(response.getMyRevealedIntel()).singleElement().satisfies(revealed -> {
+            assertThat(revealed.getKind().getValue()).isEqualTo("PROBABILITY");
+            assertThat(revealed.getObservedInRound()).isEqualTo(2);
+            assertThat(revealed.getEventId()).isEqualTo(eventId);
+            assertThat(revealed.getOutcomes()).singleElement().satisfies(outcome -> {
+                assertThat(outcome.getOutcomeId()).isEqualTo(outcomeId);
+                assertThat(outcome.getProbability()).isEqualTo(60);
+                assertThat(outcome.getIsAnnihilated()).isFalse();
+                assertThat(outcome.getIsSealed()).isTrue();
+            });
+        });
+    }
+
+    @Test
+    void toResponse_noIntelStillMapsAnEmptyList() {
+        var response = ProjectionRestMapper.toResponse(resultWithHand(Phase.ACTION_ROUND_2, 2, List.of()));
+
+        assertThat(response.getMyRevealedIntel()).isEmpty();
     }
 
     private static GetPlayerGameStateUseCase.Result resultWithHand(Phase phase, int eraNumber, List<HandCard> hand) {
