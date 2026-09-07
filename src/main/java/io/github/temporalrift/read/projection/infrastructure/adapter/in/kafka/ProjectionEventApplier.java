@@ -26,6 +26,7 @@ import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.O
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolutionPhaseStartedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolvedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedPayload;
 import io.github.temporalrift.read.projection.domain.model.CarryOverState;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
@@ -36,10 +37,13 @@ import io.github.temporalrift.read.projection.domain.model.PendingHandCard;
 import io.github.temporalrift.read.projection.domain.model.PendingHandSelection;
 import io.github.temporalrift.read.projection.domain.model.Phase;
 import io.github.temporalrift.read.projection.domain.model.PlayerGameState;
+import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
+import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
 import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameProjectionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PlayerGameStateRepository;
+import io.github.temporalrift.read.projection.domain.port.out.RevealedProbabilityIntelRepository;
 
 /**
  * Applies each consumed event to the read models per design.md Decisions 5–7. Package-scoped to
@@ -56,16 +60,19 @@ class ProjectionEventApplier {
     private final GamePlayerRepository gamePlayers;
     private final GameActiveEventRepository gameActiveEvents;
     private final PlayerGameStateRepository playerGameStates;
+    private final RevealedProbabilityIntelRepository revealedProbabilityIntel;
 
     ProjectionEventApplier(
             GameProjectionRepository gameProjections,
             GamePlayerRepository gamePlayers,
             GameActiveEventRepository gameActiveEvents,
-            PlayerGameStateRepository playerGameStates) {
+            PlayerGameStateRepository playerGameStates,
+            RevealedProbabilityIntelRepository revealedProbabilityIntel) {
         this.gameProjections = gameProjections;
         this.gamePlayers = gamePlayers;
         this.gameActiveEvents = gameActiveEvents;
         this.playerGameStates = playerGameStates;
+        this.revealedProbabilityIntel = revealedProbabilityIntel;
     }
 
     // Preserves rather than overwrites: a per-player event can arrive, and find-or-create a row,
@@ -172,6 +179,7 @@ class ProjectionEventApplier {
 
     void applyEraEnded(EraEndedPayload payload) {
         gameProjections.save(new GameProjection(payload.gameId(), payload.eraNumber(), Phase.ERA_END));
+        revealedProbabilityIntel.deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
         // Defensive clear — design.md Decision 6. Every drawn event currently gets an OutcomeApplied (no
         // cascade/paradox handling exists yet), so this is normally a no-op.
         gameActiveEvents.deleteByGameId(payload.gameId());
@@ -262,6 +270,49 @@ class ProjectionEventApplier {
 
     void applyOutcomeApplied(OutcomeAppliedPayload payload) {
         gameActiveEvents.deleteByGameIdAndEventId(payload.gameId(), payload.eventId());
+    }
+
+    void applyProbabilityStateRevealed(ProbabilityStateRevealedPayload payload) {
+        if (isStaleOrEnded(payload)) {
+            return;
+        }
+        revealedProbabilityIntel.upsertLatest(new RevealedProbabilityIntel(
+                payload.gameId(),
+                payload.playerId(),
+                payload.eraNumber(),
+                payload.eventId(),
+                payload.roundNumber(),
+                payload.outcomes().stream()
+                        .map(outcome -> new RevealedProbabilityOutcome(
+                                outcome.outcomeId(),
+                                outcome.probability(),
+                                outcome.isAnnihilated(),
+                                outcome.isSealed()))
+                        .toList()));
+    }
+
+    private boolean isStaleOrEnded(ProbabilityStateRevealedPayload payload) {
+        var gameProjection = gameProjections.findByGameId(payload.gameId());
+        if (gameProjection.isEmpty()) {
+            return false;
+        }
+        var known = gameProjection.get();
+        if (payload.eraNumber() < known.eraNumber()) {
+            log.warn(
+                    "ProbabilityStateRevealed for completed era {} in game {} — skipping",
+                    payload.eraNumber(),
+                    payload.gameId());
+            return true;
+        }
+        if (payload.eraNumber() == known.eraNumber()
+                && (known.phase() == Phase.ERA_END || known.phase() == Phase.GAME_ENDED)) {
+            log.warn(
+                    "ProbabilityStateRevealed for ended era {} in game {} — skipping",
+                    payload.eraNumber(),
+                    payload.gameId());
+            return true;
+        }
+        return false;
     }
 
     void applyParadoxResolutionPhaseStarted(ParadoxResolutionPhaseStartedPayload payload) {
