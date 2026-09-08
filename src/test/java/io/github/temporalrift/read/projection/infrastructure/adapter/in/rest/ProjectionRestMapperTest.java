@@ -112,10 +112,10 @@ class ProjectionRestMapperTest {
     }
 
     @Test
-    void toResponse_nullFactionYieldsNullMySpecialActions() {
+    void toResponse_nullFactionYieldsEmptyMySpecialActions() {
         var response = ProjectionRestMapper.toResponse(resultWithFaction(null));
 
-        assertThat(response.getMySpecialActions()).isNull();
+        assertThat(response.getMySpecialActions()).isEmpty();
     }
 
     private static GetPlayerGameStateUseCase.Result resultWithFaction(String faction) {

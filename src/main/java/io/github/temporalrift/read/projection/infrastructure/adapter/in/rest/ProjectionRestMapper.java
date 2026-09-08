@@ -128,21 +128,18 @@ final class ProjectionRestMapper {
     }
 
     /**
-     * Each faction's fixed set of three special actions. Static only — whether a special is currently usable
-     * (once-per-era budgets, timing windows, jam) is a game-service rule this projection does not represent.
+     * Each faction's fixed set of three special actions, empty before a faction is assigned. Static only —
+     * whether a special is currently usable (once-per-era budgets, timing windows, jam) is a game-service rule
+     * this projection does not represent.
      */
-    @SuppressWarnings("java:S1168") // null is the contract here: distinguishes "no faction yet" from a real list
     private static List<String> toSpecialActions(String faction) {
-        if (faction == null) {
-            return null;
-        }
         return switch (faction) {
             case "ERASERS" -> List.of("ANNIHILATE", "CORRUPT", "CASCADE");
             case "PROPHETS" -> List.of("FORESIGHT", "SEAL", "FULFILLMENT");
             case "REVISIONISTS" -> List.of("REWRITE", "MIMIC", "OBSCURE");
             case "WEAVERS" -> List.of("THREAD", "TAPESTRY", "UNRAVEL");
             case "ACTIVISTS" -> List.of("RALLY", "EXPOSE", "MOMENTUM");
-            default -> null;
+            case null, default -> List.of();
         };
     }
 
