@@ -106,9 +106,9 @@ class NotificationKafkaConsumersIT {
                 .setHeader("version", "1")
                 .setHeader("eventType", eventType)
                 .build();
-        var record = new ProducerRecord<Object, Object>(topic, null, gameId.toString(), event.getPayload());
-        HEADER_MAPPER.fromHeaders(event.getHeaders(), record.headers());
-        kafkaTemplate.send(record);
+        var producerRecord = new ProducerRecord<Object, Object>(topic, null, gameId.toString(), event.getPayload());
+        HEADER_MAPPER.fromHeaders(event.getHeaders(), producerRecord.headers());
+        kafkaTemplate.send(producerRecord);
     }
 
     private void awaitClaim(UUID eventId, String consumer) {

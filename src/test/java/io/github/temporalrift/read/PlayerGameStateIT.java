@@ -857,9 +857,9 @@ class PlayerGameStateIT {
                 .setHeader("version", "1")
                 .setHeader("eventType", eventType)
                 .build();
-        var record = new ProducerRecord<Object, Object>(topic, null, gameId.toString(), event.getPayload());
-        HEADER_MAPPER.fromHeaders(event.getHeaders(), record.headers());
-        return kafkaTemplate.send(record);
+        var producerRecord = new ProducerRecord<Object, Object>(topic, null, gameId.toString(), event.getPayload());
+        HEADER_MAPPER.fromHeaders(event.getHeaders(), producerRecord.headers());
+        return kafkaTemplate.send(producerRecord);
     }
 
     // Proves the consumer actually finished handling this specific message, not just that KafkaTemplate
@@ -936,8 +936,8 @@ class PlayerGameStateIT {
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
             var state =
                     jdbcTemplate.queryForMap("SELECT era_number, phase FROM game_projection WHERE game_id = ?", gameId);
-            assertThat(state.get("era_number")).isEqualTo(eraNumber);
-            assertThat(state.get("phase")).isEqualTo(phase);
+            assertThat(state).containsEntry("era_number", eraNumber);
+            assertThat(state).containsEntry("phase", phase);
         });
     }
 
