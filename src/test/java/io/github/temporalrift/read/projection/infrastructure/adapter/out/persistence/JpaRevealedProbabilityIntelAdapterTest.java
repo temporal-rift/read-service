@@ -92,8 +92,6 @@ class JpaRevealedProbabilityIntelAdapterTest {
 
     @Test
     void deleteByGameIdAndEraNumber_delegatesTheCurrentEraKey() {
-        var gameId = UUID.randomUUID();
-
         adapter.deleteByGameIdAndEraNumber(gameId, 2);
 
         then(repository).should().deleteByGameIdAndEraNumber(gameId, 2);
