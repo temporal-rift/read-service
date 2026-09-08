@@ -2,6 +2,7 @@ package io.github.temporalrift.read.projection.infrastructure.adapter.in.rest;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 
 import io.github.temporalrift.read.projection.application.port.in.GetGameHistoryUseCase;
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
@@ -29,8 +30,8 @@ import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.
  * Maps projection query results to generated response DTOs.
  *
  * <p>Only the current-state slice's "core fields" are populated —
- * {@code mySpecialActions}, {@code myJammedUntilRound}, {@code lastRoundSummary} stay unset (deferred to a
- * later slice, design.md Non-Goals).
+ * {@code myJammedUntilRound}, {@code lastRoundSummary} stay unset (deferred to a later slice, design.md
+ * Non-Goals).
  */
 final class ProjectionRestMapper {
 
@@ -57,6 +58,7 @@ final class ProjectionRestMapper {
                         .map(ProjectionRestMapper::toPlayerInGame)
                         .toList());
         response.setMyFaction(result.myFaction());
+        response.setMySpecialActions(toSpecialActions(result.myFaction()));
         response.setPendingHandSelection(
                 result.pendingHandSelection() == null ? null : toPendingHandSelection(result.pendingHandSelection()));
         return response;
@@ -124,6 +126,21 @@ final class ProjectionRestMapper {
 
     private static boolean isActionRound(Phase phase) {
         return phase == Phase.ACTION_ROUND_1 || phase == Phase.ACTION_ROUND_2 || phase == Phase.ACTION_ROUND_3;
+    }
+
+    /** Static per-faction specials (temporal-rift-gdd.md §2.2) — not availability-aware (design.md Non-Goals). */
+    private static List<String> toSpecialActions(String faction) {
+        if (faction == null) {
+            return null;
+        }
+        return switch (faction) {
+            case "ERASERS" -> List.of("ANNIHILATE", "CORRUPT", "CASCADE");
+            case "PROPHETS" -> List.of("FORESIGHT", "SEAL", "FULFILLMENT");
+            case "REVISIONISTS" -> List.of("REWRITE", "MIMIC", "OBSCURE");
+            case "WEAVERS" -> List.of("THREAD", "TAPESTRY", "UNRAVEL");
+            case "ACTIVISTS" -> List.of("RALLY", "EXPOSE", "MOMENTUM");
+            default -> null;
+        };
     }
 
     private static PendingHandSelection toPendingHandSelection(

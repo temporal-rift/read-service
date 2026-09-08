@@ -94,6 +94,35 @@ class ProjectionRestMapperTest {
         assertThat(response.getMyRevealedIntel()).isEmpty();
     }
 
+    @ParameterizedTest
+    @CsvSource({
+        "ERASERS, ANNIHILATE, CORRUPT, CASCADE",
+        "PROPHETS, FORESIGHT, SEAL, FULFILLMENT",
+        "REVISIONISTS, REWRITE, MIMIC, OBSCURE",
+        "WEAVERS, THREAD, TAPESTRY, UNRAVEL",
+        "ACTIVISTS, RALLY, EXPOSE, MOMENTUM"
+    })
+    void toResponse_setsMySpecialActionsPerFactionPerGddTable(
+            String faction, String first, String second, String third) {
+        var result = resultWithFaction(faction);
+
+        var response = ProjectionRestMapper.toResponse(result);
+
+        assertThat(response.getMySpecialActions()).containsExactly(first, second, third);
+    }
+
+    @Test
+    void toResponse_nullFactionYieldsNullMySpecialActions() {
+        var response = ProjectionRestMapper.toResponse(resultWithFaction(null));
+
+        assertThat(response.getMySpecialActions()).isNull();
+    }
+
+    private static GetPlayerGameStateUseCase.Result resultWithFaction(String faction) {
+        return new GetPlayerGameStateUseCase.Result(
+                GAME_ID, 2, Phase.ACTION_ROUND_1, faction, List.of(), null, List.of(), 0, List.of(), List.of());
+    }
+
     private static GetPlayerGameStateUseCase.Result resultWithHand(Phase phase, int eraNumber, List<HandCard> hand) {
         return new GetPlayerGameStateUseCase.Result(
                 GAME_ID, eraNumber, phase, "ERASERS", hand, null, List.of(), 0, List.of(), List.of());
