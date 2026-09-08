@@ -96,6 +96,6 @@ class ProjectionRestMapperTest {
 
     private static GetPlayerGameStateUseCase.Result resultWithHand(Phase phase, int eraNumber, List<HandCard> hand) {
         return new GetPlayerGameStateUseCase.Result(
-                GAME_ID, eraNumber, phase, "ERASERS", hand, null, 0, List.of(), List.of());
+                GAME_ID, eraNumber, phase, "ERASERS", hand, null, List.of(), 0, List.of(), List.of());
     }
 }

@@ -185,12 +185,15 @@ class ProjectionEventApplier {
         gameActiveEvents.deleteByGameId(payload.gameId());
     }
 
+    // A winner can end the game directly from the final era without an intervening EraEnded for that
+    // era, so this era's scan intel would otherwise never be cleared.
     void applyGameEnded(GameEndedPayload payload) {
         var eraNumber = gameProjections
                 .findByGameId(payload.gameId())
                 .map(GameProjection::eraNumber)
                 .orElse(0);
         gameProjections.save(new GameProjection(payload.gameId(), eraNumber, Phase.GAME_ENDED));
+        revealedProbabilityIntel.deleteByGameIdAndEraNumber(payload.gameId(), eraNumber);
         for (var finalScore : payload.finalScores()) {
             gamePlayers
                     .findByGameIdAndPlayerId(payload.gameId(), finalScore.playerId())
@@ -304,8 +307,7 @@ class ProjectionEventApplier {
                     payload.gameId());
             return true;
         }
-        if (payload.eraNumber() == known.eraNumber()
-                && (known.phase() == Phase.ERA_END || known.phase() == Phase.GAME_ENDED)) {
+        if (payload.eraNumber() == known.eraNumber() && known.phase().isEraOver()) {
             log.warn(
                     "ProbabilityStateRevealed for ended era {} in game {} — skipping",
                     payload.eraNumber(),
