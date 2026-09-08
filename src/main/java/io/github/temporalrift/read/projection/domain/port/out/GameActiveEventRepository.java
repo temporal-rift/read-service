@@ -15,4 +15,10 @@ public interface GameActiveEventRepository {
 
     /** Defensive clear on era end — design.md Decision 6. */
     void deleteByGameId(UUID gameId);
+
+    /** True once {@code OutcomeApplied} has resolved this event, regardless of cross-topic arrival order. */
+    boolean isResolved(UUID gameId, UUID eventId);
+
+    /** Records resolution independently of whether the active-event row exists yet. */
+    void markResolved(UUID gameId, UUID eventId);
 }

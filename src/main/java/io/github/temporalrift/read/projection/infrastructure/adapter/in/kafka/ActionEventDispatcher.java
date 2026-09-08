@@ -2,6 +2,7 @@ package io.github.temporalrift.read.projection.infrastructure.adapter.in.kafka;
 
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundStartedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.Consumer;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.EventHeaders;
 
 /**
@@ -10,7 +11,7 @@ import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.Eve
  * message type falls through to the generated {@code Consumer}'s default no-op — {@code action-event}
  * carries per-card-modifier and expose facts this projection has no read model for.
  */
-class ActionEventDispatcher implements io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.Consumer {
+class ActionEventDispatcher implements Consumer {
 
     private final ProjectionEventApplier applier;
 

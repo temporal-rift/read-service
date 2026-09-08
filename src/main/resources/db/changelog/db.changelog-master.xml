@@ -16,5 +16,6 @@
     <include file="db/changelog/projection/005-create-game-history-projection.xml"/>
     <include file="db/changelog/projection/006-add-hand-selection-state.xml"/>
     <include file="db/changelog/projection/007-create-revealed-probability-intel.xml"/>
+    <include file="db/changelog/projection/008-create-game-resolved-event.xml"/>
 
 </databaseChangeLog>

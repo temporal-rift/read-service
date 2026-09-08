@@ -12,9 +12,12 @@ import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRep
 class JpaGameActiveEventAdapter implements GameActiveEventRepository {
 
     private final GameActiveEventJpaRepository repository;
+    private final GameResolvedEventJpaRepository resolvedRepository;
 
-    JpaGameActiveEventAdapter(GameActiveEventJpaRepository repository) {
+    JpaGameActiveEventAdapter(
+            GameActiveEventJpaRepository repository, GameResolvedEventJpaRepository resolvedRepository) {
         this.repository = repository;
+        this.resolvedRepository = resolvedRepository;
     }
 
     @Override
@@ -41,5 +44,15 @@ class JpaGameActiveEventAdapter implements GameActiveEventRepository {
     @Override
     public void deleteByGameId(UUID gameId) {
         repository.deleteByGameId(gameId);
+    }
+
+    @Override
+    public boolean isResolved(UUID gameId, UUID eventId) {
+        return resolvedRepository.existsByGameIdAndEventId(gameId, eventId);
+    }
+
+    @Override
+    public void markResolved(UUID gameId, UUID eventId) {
+        resolvedRepository.insertIfAbsent(UUID.randomUUID(), gameId, eventId);
     }
 }

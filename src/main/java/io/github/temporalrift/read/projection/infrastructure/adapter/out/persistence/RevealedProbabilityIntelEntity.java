@@ -8,7 +8,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import jakarta.persistence.Version;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import tools.jackson.databind.ObjectMapper;
@@ -47,10 +46,6 @@ class RevealedProbabilityIntelEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "outcomes", nullable = false, columnDefinition = "jsonb")
     private String outcomes;
-
-    @Version
-    @Column(name = "version", nullable = false)
-    private long version;
 
     protected RevealedProbabilityIntelEntity() {}
 

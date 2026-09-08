@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardGrade;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardType;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CarryOverState;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EraEndedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EventsDrawnFutureEvent;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EventsDrawnOutcome;
@@ -25,6 +26,7 @@ import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.O
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedProbabilityState;
 import io.github.temporalrift.read.projection.domain.model.CarryForwardProbability;
+import io.github.temporalrift.read.projection.domain.model.DealtCard;
 import io.github.temporalrift.read.projection.domain.model.GameHistoryProjection;
 import io.github.temporalrift.read.projection.domain.port.out.GameHistoryRepository;
 
@@ -92,9 +94,7 @@ class GameHistoryEventApplierTest {
                 HandSelectionOrigin.PLAYER,
                 List.of(new HandDealtCardInstance(cardInstanceId, CardType.PUSH, CardGrade.II, 1))));
 
-        assertThat(history().myHand(playerId))
-                .containsExactly(new io.github.temporalrift.read.projection.domain.model.DealtCard(
-                        cardInstanceId, "PUSH", "II", 1));
+        assertThat(history().myHand(playerId)).containsExactly(new DealtCard(cardInstanceId, "PUSH", "II", 1));
     }
 
     @Test
@@ -121,7 +121,7 @@ class GameHistoryEventApplierTest {
                         eventId,
                         "Event",
                         List.of(new EventsDrawnOutcome(outcomeId, "Outcome", 100)),
-                        io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CarryOverState.FRESH)));
+                        CarryOverState.FRESH)));
     }
 
     private OutcomeAppliedPayload outcomeApplied() {

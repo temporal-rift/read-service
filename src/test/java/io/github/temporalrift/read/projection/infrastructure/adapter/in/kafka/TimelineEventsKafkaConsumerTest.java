@@ -4,6 +4,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -54,7 +55,7 @@ class TimelineEventsKafkaConsumerTest {
     void handle_probabilityStateRevealed_dispatchesTheGeneratedPayload() {
         var eventId = UUID.randomUUID();
         var payload = new ProbabilityStateRevealedPayload(
-                UUID.randomUUID(), 2, 1, UUID.randomUUID(), UUID.randomUUID(), java.util.List.of());
+                UUID.randomUUID(), 2, 1, UUID.randomUUID(), UUID.randomUUID(), List.of());
         var message = MessageBuilder.withPayload((Object) payload)
                 .setHeader("eventId", eventId.toString())
                 .setHeader("eventType", "ProbabilityStateRevealed")

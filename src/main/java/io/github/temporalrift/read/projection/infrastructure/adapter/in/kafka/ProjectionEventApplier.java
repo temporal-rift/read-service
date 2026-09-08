@@ -80,9 +80,7 @@ class ProjectionEventApplier {
     // stomp that already-correct data back to defaults the instant GameStarted is finally applied,
     // silently undoing the out-of-order handling below rather than complementing it.
     void applyGameStarted(GameStartedPayload payload) {
-        if (gameProjections.findByGameId(payload.gameId()).isEmpty()) {
-            gameProjections.save(new GameProjection(payload.gameId(), 0, Phase.LOBBY));
-        }
+        lockGame(payload.gameId());
         for (var playerId : payload.playerIds()) {
             gamePlayers.save(payload.gameId(), findOrCreateGamePlayer(payload.gameId(), playerId));
             playerGameStates.save(findOrCreatePlayerGameState(payload.gameId(), playerId));
@@ -104,11 +102,31 @@ class ProjectionEventApplier {
     }
 
     void applyEraStarted(EraStartedPayload payload) {
+        var existing = lockGame(payload.gameId());
+        if (isSupersededOrGameEnded(payload.eraNumber(), existing)
+                || regressesPhaseWithinEra(existing, payload.eraNumber(), Phase.ERA_START)) {
+            log.warn(
+                    "EraStarted for past/ended/already-started era {} in game {} — skipping",
+                    payload.eraNumber(),
+                    payload.gameId());
+            return;
+        }
         gameProjections.save(new GameProjection(payload.gameId(), payload.eraNumber(), Phase.ERA_START));
     }
 
     void applyEventsDrawn(EventsDrawnPayload payload) {
+        var existing = lockGame(payload.gameId());
+        if (isSupersededOrGameEnded(payload.eraNumber(), existing)) {
+            log.warn("EventsDrawn for past/ended era {} in game {} — skipping", payload.eraNumber(), payload.gameId());
+            return;
+        }
+        if (payload.eraNumber() > existing.eraNumber()) {
+            gameProjections.save(new GameProjection(payload.gameId(), payload.eraNumber(), Phase.ERA_START));
+        }
         for (var event : payload.events()) {
+            if (gameActiveEvents.isResolved(payload.gameId(), event.eventId())) {
+                continue;
+            }
             var outcomes = event.outcomes().stream()
                     .map(o -> new EventOutcome(o.outcomeId(), o.description()))
                     .toList();
@@ -178,6 +196,11 @@ class ProjectionEventApplier {
     }
 
     void applyEraEnded(EraEndedPayload payload) {
+        var existing = lockGame(payload.gameId());
+        if (isSupersededOrGameEnded(payload.eraNumber(), existing)) {
+            log.warn("EraEnded for past/ended era {} in game {} — skipping", payload.eraNumber(), payload.gameId());
+            return;
+        }
         gameProjections.save(new GameProjection(payload.gameId(), payload.eraNumber(), Phase.ERA_END));
         revealedProbabilityIntel.deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
         // Defensive clear — design.md Decision 6. Every drawn event currently gets an OutcomeApplied (no
@@ -186,24 +209,27 @@ class ProjectionEventApplier {
     }
 
     // A winner can end the game directly from the final era without an intervening EraEnded for that
-    // era, so this era's scan intel would otherwise never be cleared.
+    // era, so this era's scan intel and active events would otherwise never be cleared.
     void applyGameEnded(GameEndedPayload payload) {
-        var eraNumber = gameProjections
-                .findByGameId(payload.gameId())
-                .map(GameProjection::eraNumber)
-                .orElse(0);
+        var existing = lockGame(payload.gameId());
+        if (existing.phase() == Phase.GAME_ENDED) {
+            log.warn("GameEnded already applied for game {} — skipping", payload.gameId());
+            return;
+        }
+        var eraNumber = existing.eraNumber();
         gameProjections.save(new GameProjection(payload.gameId(), eraNumber, Phase.GAME_ENDED));
         revealedProbabilityIntel.deleteByGameIdAndEraNumber(payload.gameId(), eraNumber);
+        gameActiveEvents.deleteByGameId(payload.gameId());
         for (var finalScore : payload.finalScores()) {
             gamePlayers
                     .findByGameIdAndPlayerId(payload.gameId(), finalScore.playerId())
-                    .ifPresent(existing -> gamePlayers.save(
+                    .ifPresent(existingPlayer -> gamePlayers.save(
                             payload.gameId(),
                             new GamePlayer(
-                                    existing.playerId(),
+                                    existingPlayer.playerId(),
                                     finalScore.score(),
-                                    existing.isConnected(),
-                                    existing.faction())));
+                                    existingPlayer.isConnected(),
+                                    existingPlayer.faction())));
         }
     }
 
@@ -222,7 +248,17 @@ class ProjectionEventApplier {
     }
 
     void applyResolutionStarted(ResolutionStartedPayload payload) {
-        gameProjections.save(new GameProjection(payload.gameId(), payload.eraNumber(), Phase.RESOLUTION));
+        var existing = lockGame(payload.gameId());
+        if (isSupersededOrGameEnded(payload.eraNumber(), existing)
+                || regressesPhaseWithinEra(existing, payload.eraNumber(), Phase.RESOLUTION)) {
+            log.warn(
+                    "ResolutionStarted for past/ended/already-resolved era {} in game {} — skipping",
+                    payload.eraNumber(),
+                    payload.gameId());
+            return;
+        }
+        gameProjections.save(new GameProjection(
+                payload.gameId(), payload.eraNumber(), Phase.RESOLUTION, existing.pendingParadoxIds()));
     }
 
     void applyActionRoundStarted(ActionRoundStartedPayload payload) {
@@ -233,7 +269,17 @@ class ProjectionEventApplier {
                     case 3 -> Phase.ACTION_ROUND_3;
                     default -> throw new IllegalArgumentException("Unsupported roundNumber " + payload.roundNumber());
                 };
-        gameProjections.save(new GameProjection(payload.gameId(), payload.eraNumber(), phase));
+        var existing = lockGame(payload.gameId());
+        if (isSupersededOrGameEnded(payload.eraNumber(), existing)
+                || regressesPhaseWithinEra(existing, payload.eraNumber(), phase)) {
+            log.warn(
+                    "ActionRoundStarted for past/ended/already-passed era {} in game {} — skipping",
+                    payload.eraNumber(),
+                    payload.gameId());
+            return;
+        }
+        gameProjections.save(
+                new GameProjection(payload.gameId(), payload.eraNumber(), phase, existing.pendingParadoxIds()));
     }
 
     void applyCardPlayed(CardPlayedPayload payload) {
@@ -272,6 +318,8 @@ class ProjectionEventApplier {
     }
 
     void applyOutcomeApplied(OutcomeAppliedPayload payload) {
+        lockGame(payload.gameId());
+        gameActiveEvents.markResolved(payload.gameId(), payload.eventId());
         gameActiveEvents.deleteByGameIdAndEventId(payload.gameId(), payload.eventId());
     }
 
@@ -295,21 +343,10 @@ class ProjectionEventApplier {
     }
 
     private boolean isStaleOrEnded(ProbabilityStateRevealedPayload payload) {
-        var gameProjection = gameProjections.findByGameId(payload.gameId());
-        if (gameProjection.isEmpty()) {
-            return false;
-        }
-        var known = gameProjection.get();
-        if (payload.eraNumber() < known.eraNumber()) {
+        var known = lockGame(payload.gameId());
+        if (isSupersededOrGameEnded(payload.eraNumber(), known)) {
             log.warn(
-                    "ProbabilityStateRevealed for completed era {} in game {} — skipping",
-                    payload.eraNumber(),
-                    payload.gameId());
-            return true;
-        }
-        if (payload.eraNumber() == known.eraNumber() && known.phase().isEraOver()) {
-            log.warn(
-                    "ProbabilityStateRevealed for ended era {} in game {} — skipping",
+                    "ProbabilityStateRevealed for past/ended era {} in game {} — skipping",
                     payload.eraNumber(),
                     payload.gameId());
             return true;
@@ -318,42 +355,74 @@ class ProjectionEventApplier {
     }
 
     void applyParadoxResolutionPhaseStarted(ParadoxResolutionPhaseStartedPayload payload) {
-        gameProjections
-                .findByGameId(payload.gameId())
-                .ifPresentOrElse(
-                        existing -> gameProjections.save(new GameProjection(
-                                existing.gameId(),
-                                existing.eraNumber(),
-                                Phase.PARADOX_RESOLUTION,
-                                payload.paradoxIds())),
-                        () -> log.warn(
-                                "ParadoxResolutionPhaseStarted for unknown game {} — skipping", payload.gameId()));
+        var existing = lockGame(payload.gameId());
+        if (isSupersededOrGameEnded(payload.eraNumber(), existing)) {
+            log.warn(
+                    "ParadoxResolutionPhaseStarted for past/ended era {} in game {} — skipping",
+                    payload.eraNumber(),
+                    payload.gameId());
+            return;
+        }
+        gameProjections.save(new GameProjection(
+                existing.gameId(), payload.eraNumber(), Phase.PARADOX_RESOLUTION, payload.paradoxIds()));
     }
 
     void applyParadoxResolved(ParadoxResolvedPayload payload) {
-        closeParadoxId(payload.gameId(), payload.paradoxId());
+        closeParadoxId(payload.gameId(), payload.eraNumber(), payload.paradoxId());
     }
 
     void applyParadoxCascaded(ParadoxCascadedPayload payload) {
-        closeParadoxId(payload.gameId(), payload.paradoxId());
+        closeParadoxId(payload.gameId(), payload.eraNumber(), payload.paradoxId());
     }
 
-    private void closeParadoxId(UUID gameId, UUID paradoxId) {
-        gameProjections
-                .findByGameId(gameId)
-                .ifPresentOrElse(
-                        existing -> {
-                            if (!existing.pendingParadoxIds().contains(paradoxId)) {
-                                log.warn("Paradox {} not pending for game {} — skipping", paradoxId, gameId);
-                                return;
-                            }
-                            var stillPending = existing.pendingParadoxIds().stream()
-                                    .filter(pending -> !pending.equals(paradoxId))
-                                    .toList();
-                            var phase = stillPending.isEmpty() ? Phase.RESOLUTION : Phase.PARADOX_RESOLUTION;
-                            gameProjections.save(
-                                    new GameProjection(existing.gameId(), existing.eraNumber(), phase, stillPending));
-                        },
-                        () -> log.warn("Paradox resolution for unknown game {} — skipping", gameId));
+    private void closeParadoxId(UUID gameId, int eraNumber, UUID paradoxId) {
+        var existing = lockGame(gameId);
+        if (isSupersededOrGameEnded(eraNumber, existing)) {
+            log.warn("Paradox resolution for past/ended era {} in game {} — skipping", eraNumber, gameId);
+            return;
+        }
+        if (!existing.pendingParadoxIds().contains(paradoxId)) {
+            log.warn("Paradox {} not pending for game {} — skipping", paradoxId, gameId);
+            return;
+        }
+        var stillPending = existing.pendingParadoxIds().stream()
+                .filter(pending -> !pending.equals(paradoxId))
+                .toList();
+        var phase = stillPending.isEmpty() ? Phase.RESOLUTION : Phase.PARADOX_RESOLUTION;
+        gameProjections.save(new GameProjection(existing.gameId(), eraNumber, phase, stillPending));
+    }
+
+    private GameProjection lockGame(UUID gameId) {
+        return gameProjections
+                .findByGameIdForUpdate(gameId)
+                .orElseThrow(() -> new IllegalStateException("Game projection anchor was not created for " + gameId));
+    }
+
+    private boolean isSupersededOrGameEnded(int payloadEraNumber, GameProjection known) {
+        return known.phase() == Phase.GAME_ENDED
+                || payloadEraNumber < known.eraNumber()
+                || (payloadEraNumber == known.eraNumber() && known.phase().isEraOver());
+    }
+
+    // isSupersededOrGameEnded only catches an era that has fully ended. A same-era message that targets a
+    // phase the projection already passed (e.g. a redelivered EraStarted arriving during ACTION_ROUND_3, or
+    // ResolutionStarted arriving during PARADOX_RESOLUTION) would otherwise silently roll phase backward.
+    // PARADOX_RESOLUTION and RESOLUTION share a rank because closeParadoxId's own PARADOX_RESOLUTION ->
+    // RESOLUTION transition is the legitimate forward move out of paradox handling, not a regression.
+    private boolean regressesPhaseWithinEra(GameProjection known, int payloadEraNumber, Phase target) {
+        return payloadEraNumber == known.eraNumber() && phaseRank(known.phase()) >= phaseRank(target);
+    }
+
+    private int phaseRank(Phase phase) {
+        return switch (phase) {
+            case LOBBY -> 0;
+            case ERA_START -> 1;
+            case ACTION_ROUND_1 -> 2;
+            case ACTION_ROUND_2 -> 3;
+            case ACTION_ROUND_3 -> 4;
+            case RESOLUTION, PARADOX_RESOLUTION -> 5;
+            case ERA_END -> 6;
+            case GAME_ENDED -> 7;
+        };
     }
 }

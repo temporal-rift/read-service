@@ -3,9 +3,11 @@ package io.github.temporalrift.read.projection.infrastructure.adapter.in.kafka;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 
 import java.time.Instant;
@@ -13,6 +15,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -21,6 +24,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundStartedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
+import io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.ScoreUpdate;
 import io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.ScoresUpdatedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardGrade;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardType;
@@ -49,6 +53,7 @@ import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.P
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedOutcomeState;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedPayload;
 import io.github.temporalrift.read.projection.domain.model.CarryOverState;
+import io.github.temporalrift.read.projection.domain.model.EventOutcome;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.GameProjection;
@@ -87,14 +92,17 @@ class ProjectionEventApplierTest {
 
     private final UUID gameId = UUID.randomUUID();
 
-    @org.junit.jupiter.api.BeforeEach
+    @BeforeEach
     void setUp() {
+        lenient()
+                .when(gameProjections.findByGameIdForUpdate(gameId))
+                .thenReturn(Optional.of(new GameProjection(gameId, 0, Phase.LOBBY)));
         applier = new ProjectionEventApplier(
                 gameProjections, gamePlayers, gameActiveEvents, playerGameStates, revealedProbabilityIntel);
     }
 
     @Test
-    void applyGameStarted_createsGameProjectionAndOneRowPerPlayer() {
+    void applyGameStarted_usesEnsuredProjectionAnchorAndCreatesOneRowPerPlayer() {
         var player1 = UUID.randomUUID();
         var player2 = UUID.randomUUID();
         given(gamePlayers.findByGameIdAndPlayerId(eq(gameId), any())).willReturn(Optional.empty());
@@ -102,7 +110,7 @@ class ProjectionEventApplierTest {
 
         applier.applyGameStarted(new GameStartedPayload(gameId, UUID.randomUUID(), List.of(player1, player2), 3, 30));
 
-        then(gameProjections).should().save(new GameProjection(gameId, 0, Phase.LOBBY));
+        then(gameProjections).should(never()).save(any());
         then(gamePlayers).should().save(gameId, new GamePlayer(player1, 0, true, null));
         then(gamePlayers).should().save(gameId, new GamePlayer(player2, 0, true, null));
         then(playerGameStates).should().save(new PlayerGameState(gameId, player1, null, List.of()));
@@ -119,7 +127,7 @@ class ProjectionEventApplierTest {
                 Instant.parse("2030-01-01T00:00:00Z"));
         var existingPlayerState = new PlayerGameState(gameId, playerId, "ERASERS", hand, pendingHand);
         var existingPlayer = new GamePlayer(playerId, 7, false, "ERASERS");
-        given(gameProjections.findByGameId(gameId)).willReturn(Optional.of(existingProjection));
+        given(gameProjections.findByGameIdForUpdate(gameId)).willReturn(Optional.of(existingProjection));
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.of(existingPlayerState));
         given(gamePlayers.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.of(existingPlayer));
 
@@ -199,6 +207,45 @@ class ProjectionEventApplierTest {
     }
 
     @Test
+    void applyEraStarted_redeliveredForAnAlreadySupersededEra_isSkipped() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 3, Phase.ACTION_ROUND_1)));
+
+        applier.applyEraStarted(new EraStartedPayload(gameId, 2, List.of(), List.of(UUID.randomUUID())));
+
+        then(gameProjections).should(never()).save(any());
+    }
+
+    @Test
+    void applyEraStarted_redeliveredMidWayThroughTheSameEra_doesNotRollPhaseBackward() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_3)));
+
+        applier.applyEraStarted(new EraStartedPayload(gameId, 2, List.of(), List.of(UUID.randomUUID())));
+
+        then(gameProjections).should(never()).save(any());
+    }
+
+    @Test
+    void applyEventsDrawn_forAnEraAlreadyClearedByEraEnded_doesNotRepopulateActiveEvents() {
+        var eventId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ERA_END)));
+        var payload = new EventsDrawnPayload(
+                gameId,
+                1,
+                List.of(new EventsDrawnFutureEvent(
+                        eventId,
+                        "Title",
+                        List.of(),
+                        io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CarryOverState.FRESH)));
+
+        applier.applyEventsDrawn(payload);
+
+        then(gameActiveEvents).should(never()).save(any(), any());
+    }
+
+    @Test
     void applyEventsDrawn_savesOneActiveEventPerDrawnEvent() {
         var eventId = UUID.randomUUID();
         var outcomeId = UUID.randomUUID();
@@ -217,9 +264,7 @@ class ProjectionEventApplierTest {
         then(gameActiveEvents).should().save(eq(gameId), captor.capture());
         assertThat(captor.getValue().eventId()).isEqualTo(eventId);
         assertThat(captor.getValue().carryOverState()).isEqualTo(CarryOverState.FRESH);
-        assertThat(captor.getValue().outcomes())
-                .containsExactly(
-                        new io.github.temporalrift.read.projection.domain.model.EventOutcome(outcomeId, "desc"));
+        assertThat(captor.getValue().outcomes()).containsExactly(new EventOutcome(outcomeId, "desc"));
     }
 
     @Test
@@ -346,11 +391,32 @@ class ProjectionEventApplierTest {
     }
 
     @Test
-    void applyProbabilityStateRevealed_withoutGameProjection_retainsPrivateIntel() {
+    void applyEraEnded_redeliveredForAnAlreadySupersededEra_isSkipped() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));
+
+        applier.applyEraEnded(new EraEndedPayload(gameId, 1, 0, 2));
+
+        then(gameProjections).should(never()).save(any());
+        then(revealedProbabilityIntel).should(never()).deleteByGameIdAndEraNumber(any(), anyInt());
+        then(gameActiveEvents).should(never()).deleteByGameId(any());
+    }
+
+    @Test
+    void applyEraEnded_afterGameAlreadyEnded_isSkipped() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.GAME_ENDED)));
+
+        applier.applyEraEnded(new EraEndedPayload(gameId, 1, 0, 2));
+
+        then(gameProjections).should(never()).save(any());
+    }
+
+    @Test
+    void applyProbabilityStateRevealed_beforeGameStarted_retainsPrivateIntelAgainstAnchor() {
         var viewerId = UUID.randomUUID();
         var eventId = UUID.randomUUID();
         var outcomeId = UUID.randomUUID();
-        given(gameProjections.findByGameId(gameId)).willReturn(Optional.empty());
         var payload = new ProbabilityStateRevealedPayload(
                 gameId,
                 2,
@@ -374,7 +440,7 @@ class ProjectionEventApplierTest {
 
     @Test
     void applyProbabilityStateRevealed_forPriorEra_skipsIt() {
-        given(gameProjections.findByGameId(gameId))
+        given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));
 
         applier.applyProbabilityStateRevealed(
@@ -385,7 +451,7 @@ class ProjectionEventApplierTest {
 
     @Test
     void applyProbabilityStateRevealed_afterEraEnd_skipsIt() {
-        given(gameProjections.findByGameId(gameId))
+        given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ERA_END)));
 
         applier.applyProbabilityStateRevealed(
@@ -397,7 +463,7 @@ class ProjectionEventApplierTest {
     @Test
     void applyGameEnded_preservesEraNumberAndUpdatesScores() {
         var playerId = UUID.randomUUID();
-        given(gameProjections.findByGameId(gameId))
+        given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 3, Phase.RESOLUTION)));
         given(gamePlayers.findByGameIdAndPlayerId(gameId, playerId))
                 .willReturn(Optional.of(new GamePlayer(playerId, 10, true, "ERASERS")));
@@ -408,6 +474,18 @@ class ProjectionEventApplierTest {
         then(gameProjections).should().save(new GameProjection(gameId, 3, Phase.GAME_ENDED));
         then(gamePlayers).should().save(gameId, new GamePlayer(playerId, 20, true, "ERASERS"));
         then(revealedProbabilityIntel).should().deleteByGameIdAndEraNumber(gameId, 3);
+        then(gameActiveEvents).should().deleteByGameId(gameId);
+    }
+
+    @Test
+    void applyGameEnded_alreadyApplied_isSkipped() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 3, Phase.GAME_ENDED)));
+
+        applier.applyGameEnded(new GameEndedPayload(gameId, "SCORE_THRESHOLD", List.of()));
+
+        then(gameProjections).should(never()).save(any());
+        then(gameActiveEvents).should(never()).deleteByGameId(any());
     }
 
     @Test
@@ -424,16 +502,66 @@ class ProjectionEventApplierTest {
 
     @Test
     void applyResolutionStarted_setsPhase() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_3)));
+
         applier.applyResolutionStarted(new ResolutionStartedPayload(gameId, 1));
 
         then(gameProjections).should().save(new GameProjection(gameId, 1, Phase.RESOLUTION));
     }
 
     @Test
+    void applyResolutionStarted_forPastEra_isSkipped() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));
+
+        applier.applyResolutionStarted(new ResolutionStartedPayload(gameId, 1));
+
+        then(gameProjections).should(never()).save(any());
+    }
+
+    // A redelivered/duplicate ResolutionStarted arriving once paradox resolution has already begun for the
+    // same era must not silently flip the phase back to RESOLUTION — that would desync it from the
+    // still-non-empty pendingParadoxIds it was preserving.
+    @Test
+    void applyResolutionStarted_arrivingDuringParadoxResolution_doesNotRollPhaseBackward() {
+        var paradoxId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradoxId))));
+
+        applier.applyResolutionStarted(new ResolutionStartedPayload(gameId, 1));
+
+        then(gameProjections).should(never()).save(any());
+    }
+
+    @Test
     void applyActionRoundStarted_mapsRoundNumberToPhase() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
+
         applier.applyActionRoundStarted(new ActionRoundStartedPayload(gameId, 1, 2, 45, List.of()));
 
         then(gameProjections).should().save(new GameProjection(gameId, 1, Phase.ACTION_ROUND_2));
+    }
+
+    @Test
+    void applyActionRoundStarted_arrivingAfterGameEnded_isSkipped() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.GAME_ENDED)));
+
+        applier.applyActionRoundStarted(new ActionRoundStartedPayload(gameId, 2, 1, 45, List.of()));
+
+        then(gameProjections).should(never()).save(any());
+    }
+
+    @Test
+    void applyActionRoundStarted_arrivingAfterResolutionStarted_doesNotRollPhaseBackward() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.RESOLUTION)));
+
+        applier.applyActionRoundStarted(new ActionRoundStartedPayload(gameId, 1, 1, 45, List.of()));
+
+        then(gameProjections).should(never()).save(any());
     }
 
     @Test
@@ -479,7 +607,7 @@ class ProjectionEventApplierTest {
         applier.applyScoresUpdated(new ScoresUpdatedPayload(
                 gameId,
                 1,
-                List.of(new io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.ScoreUpdate(
+                List.of(new ScoreUpdate(
                         playerId,
                         io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.Faction.PROPHETS,
                         4,
@@ -495,14 +623,36 @@ class ProjectionEventApplierTest {
 
         applier.applyOutcomeApplied(new OutcomeAppliedPayload(gameId, 1, eventId, UUID.randomUUID(), List.of()));
 
+        then(gameActiveEvents).should().markResolved(gameId, eventId);
         then(gameActiveEvents).should().deleteByGameIdAndEventId(gameId, eventId);
+    }
+
+    @Test
+    void applyEventsDrawn_arrivingAfterOutcomeAppliedOnTheOtherTopic_doesNotResurrectTheResolvedEvent() {
+        var eventId = UUID.randomUUID();
+
+        // Cross-topic reordering: timeline.events' OutcomeApplied is processed first.
+        applier.applyOutcomeApplied(new OutcomeAppliedPayload(gameId, 1, eventId, UUID.randomUUID(), List.of()));
+        given(gameActiveEvents.isResolved(gameId, eventId)).willReturn(true);
+
+        // The late game.events' EventsDrawn for the same event arrives afterward.
+        applier.applyEventsDrawn(new EventsDrawnPayload(
+                gameId,
+                1,
+                List.of(new EventsDrawnFutureEvent(
+                        eventId,
+                        "Title",
+                        List.of(),
+                        io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CarryOverState.FRESH))));
+
+        then(gameActiveEvents).should(never()).save(eq(gameId), any());
     }
 
     @Test
     void applyParadoxResolutionPhaseStarted_opensPhaseWithPendingParadoxIds() {
         var paradox1 = UUID.randomUUID();
         var paradox2 = UUID.randomUUID();
-        given(gameProjections.findByGameId(gameId))
+        given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.RESOLUTION)));
 
         applier.applyParadoxResolutionPhaseStarted(
@@ -517,7 +667,7 @@ class ProjectionEventApplierTest {
     void applyParadoxResolved_oneOfTwoPending_keepsPhaseOpen() {
         var paradox1 = UUID.randomUUID();
         var paradox2 = UUID.randomUUID();
-        given(gameProjections.findByGameId(gameId))
+        given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(
                         new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradox1, paradox2))));
 
@@ -529,7 +679,7 @@ class ProjectionEventApplierTest {
     @Test
     void applyParadoxCascaded_lastPending_closesPhaseBackToResolution() {
         var paradoxId = UUID.randomUUID();
-        given(gameProjections.findByGameId(gameId))
+        given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradoxId))));
 
         applier.applyParadoxCascaded(
@@ -542,13 +692,13 @@ class ProjectionEventApplierTest {
     void applyParadoxResolved_mixedWithCascade_closesOnceBothTerminal() {
         var paradox1 = UUID.randomUUID();
         var paradox2 = UUID.randomUUID();
-        given(gameProjections.findByGameId(gameId))
+        given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(
                         new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradox1, paradox2))));
 
         applier.applyParadoxResolved(new ParadoxResolvedPayload(gameId, 1, paradox1, UUID.randomUUID()));
 
-        given(gameProjections.findByGameId(gameId))
+        given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradox2))));
 
         applier.applyParadoxCascaded(
@@ -560,7 +710,7 @@ class ProjectionEventApplierTest {
     @Test
     void applyParadoxResolved_notPending_isNoOp() {
         var paradoxId = UUID.randomUUID();
-        given(gameProjections.findByGameId(gameId))
+        given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.RESOLUTION, List.of())));
 
         applier.applyParadoxResolved(new ParadoxResolvedPayload(gameId, 1, paradoxId, UUID.randomUUID()));
@@ -569,11 +719,102 @@ class ProjectionEventApplierTest {
     }
 
     @Test
-    void applyParadoxResolutionPhaseStarted_unknownGame_skipsWithoutSaving() {
-        given(gameProjections.findByGameId(gameId)).willReturn(Optional.empty());
+    void applyParadoxResolutionPhaseStarted_beforeGameStarted_appliesAgainstEnsuredAnchor() {
+        var paradoxId = UUID.randomUUID();
+
+        applier.applyParadoxResolutionPhaseStarted(
+                new ParadoxResolutionPhaseStartedPayload(gameId, 1, List.of(paradoxId), 60));
+
+        then(gameProjections)
+                .should()
+                .save(new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradoxId)));
+    }
+
+    @Test
+    void applyParadoxResolved_beforeGameStarted_closesAgainstEnsuredAnchorWithoutRetry() {
+        var paradoxId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradoxId))));
+
+        applier.applyParadoxResolved(new ParadoxResolvedPayload(gameId, 1, paradoxId, UUID.randomUUID()));
+
+        then(gameProjections).should().save(new GameProjection(gameId, 1, Phase.RESOLUTION, List.of()));
+    }
+
+    @Test
+    void applyEventsDrawn_forFutureEra_advancesProjectionBeforeExposingActiveEvents() {
+        var eventId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ERA_END)));
+
+        applier.applyEventsDrawn(new EventsDrawnPayload(
+                gameId,
+                2,
+                List.of(new EventsDrawnFutureEvent(
+                        eventId,
+                        "Next-era event",
+                        List.of(),
+                        io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CarryOverState.FRESH))));
+
+        then(gameProjections).should().save(new GameProjection(gameId, 2, Phase.ERA_START));
+        then(gameActiveEvents).should().save(eq(gameId), any());
+    }
+
+    @Test
+    void applyParadoxResolutionPhaseStarted_forAFutureEra_savesThatFutureEraNumber() {
+        var paradoxId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
+
+        applier.applyParadoxResolutionPhaseStarted(
+                new ParadoxResolutionPhaseStartedPayload(gameId, 2, List.of(paradoxId), 60));
+
+        then(gameProjections)
+                .should()
+                .save(new GameProjection(gameId, 2, Phase.PARADOX_RESOLUTION, List.of(paradoxId)));
+    }
+
+    @Test
+    void applyParadoxResolutionPhaseStarted_arrivingAfterEraEnd_doesNotReopenTerminalPhase() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ERA_END)));
 
         applier.applyParadoxResolutionPhaseStarted(
                 new ParadoxResolutionPhaseStartedPayload(gameId, 1, List.of(UUID.randomUUID()), 60));
+
+        then(gameProjections).should(never()).save(any());
+    }
+
+    @Test
+    void applyParadoxResolutionPhaseStarted_forPastEra_isSkipped() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));
+
+        applier.applyParadoxResolutionPhaseStarted(
+                new ParadoxResolutionPhaseStartedPayload(gameId, 1, List.of(UUID.randomUUID()), 60));
+
+        then(gameProjections).should(never()).save(any());
+    }
+
+    @Test
+    void applyParadoxResolved_delayedPastGameEnded_doesNotReopenTerminalPhase() {
+        var paradoxId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.GAME_ENDED, List.of(paradoxId))));
+
+        applier.applyParadoxResolved(new ParadoxResolvedPayload(gameId, 1, paradoxId, UUID.randomUUID()));
+
+        then(gameProjections).should(never()).save(any());
+    }
+
+    @Test
+    void applyParadoxCascaded_delayedPastEraEnd_doesNotReopenTerminalPhase() {
+        var paradoxId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ERA_END, List.of(paradoxId))));
+
+        applier.applyParadoxCascaded(
+                new ParadoxCascadedPayload(gameId, 1, paradoxId, UUID.randomUUID(), List.of(), null));
 
         then(gameProjections).should(never()).save(any());
     }
