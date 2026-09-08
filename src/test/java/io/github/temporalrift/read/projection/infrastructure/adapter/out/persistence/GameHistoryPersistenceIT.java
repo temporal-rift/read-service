@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.UUID;
 
 import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.OptimisticLockException;
 import jakarta.persistence.RollbackException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -131,7 +132,7 @@ class GameHistoryPersistenceIT {
 
             assertThatThrownBy(() -> secondManager.getTransaction().commit())
                     .isInstanceOf(RollbackException.class)
-                    .hasCauseInstanceOf(jakarta.persistence.OptimisticLockException.class);
+                    .hasCauseInstanceOf(OptimisticLockException.class);
         } finally {
             if (firstManager.getTransaction().isActive()) {
                 firstManager.getTransaction().rollback();

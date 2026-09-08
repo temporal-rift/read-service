@@ -1,5 +1,6 @@
 package io.github.temporalrift.read;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -225,7 +226,7 @@ class GameHistoryIT {
 
     private void awaitJsonArraySize(UUID gameId, int eraNumber, String column, int expectedSize) {
         await().atMost(Duration.ofSeconds(30))
-                .untilAsserted(() -> org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                .untilAsserted(() -> assertThat(jdbcTemplate.queryForObject(
                                 "SELECT COALESCE(MAX(jsonb_array_length(" + column
                                         + ")), -1) FROM game_history_projection WHERE game_id = ? AND era_number = ?",
                                 Integer.class,
@@ -236,7 +237,7 @@ class GameHistoryIT {
 
     private void awaitClosedEraCount(UUID gameId, int expectedCount) {
         await().atMost(Duration.ofSeconds(30))
-                .untilAsserted(() -> org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                .untilAsserted(() -> assertThat(jdbcTemplate.queryForObject(
                                 "SELECT COUNT(*) FROM game_history_projection WHERE game_id = ? AND closed",
                                 Integer.class,
                                 gameId))
@@ -251,7 +252,7 @@ class GameHistoryIT {
                     FROM game_history_projection
                     WHERE game_id = ? AND era_number = ?
                     """, gameId, eraNumber);
-            org.assertj.core.api.Assertions.assertThat(state)
+            assertThat(state)
                     .containsEntry("outcome_id", outcomeId.toString())
                     .containsEntry("probability", Integer.toString(probability));
         });

@@ -1,5 +1,6 @@
 package io.github.temporalrift.read.projection.infrastructure.adapter.in.kafka;
 
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Consumer;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EraEndedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EraStartedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EventHeaders;
@@ -20,8 +21,7 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Re
  * message type falls through to the generated {@code Consumer}'s default no-op — {@code session-event}
  * carries lobby/win-condition/chain facts this projection has no read model for.
  */
-class SessionEventDispatcher
-        implements io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Consumer {
+class SessionEventDispatcher implements Consumer {
 
     private final ProjectionEventApplier applier;
 

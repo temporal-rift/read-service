@@ -5,6 +5,9 @@ import java.time.ZoneOffset;
 
 import io.github.temporalrift.read.projection.application.port.in.GetGameHistoryUseCase;
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
+import io.github.temporalrift.read.projection.domain.model.DealtCard;
+import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
+import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.Phase;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActiveEvent;
@@ -96,7 +99,7 @@ final class ProjectionRestMapper {
         return response;
     }
 
-    private static DealtHandCard toDealtHandCard(io.github.temporalrift.read.projection.domain.model.DealtCard domain) {
+    private static DealtHandCard toDealtHandCard(DealtCard domain) {
         return new DealtHandCard(
                 domain.cardInstanceId(), domain.cardType(), toCardGrade(domain.grade()), domain.dealSlot());
     }
@@ -139,8 +142,7 @@ final class ProjectionRestMapper {
         return CardGrade.valueOf(grade);
     }
 
-    private static ActiveEvent toActiveEvent(
-            io.github.temporalrift.read.projection.domain.model.GameActiveEvent domain) {
+    private static ActiveEvent toActiveEvent(GameActiveEvent domain) {
         var outcomes = domain.outcomes().stream()
                 .map(o -> new EventOutcome(o.outcomeId(), o.description()))
                 .toList();
@@ -151,7 +153,7 @@ final class ProjectionRestMapper {
                 outcomes);
     }
 
-    private static PlayerInGame toPlayerInGame(io.github.temporalrift.read.projection.domain.model.GamePlayer domain) {
+    private static PlayerInGame toPlayerInGame(GamePlayer domain) {
         var playerInGame = new PlayerInGame(domain.playerId(), domain.score(), domain.isConnected());
         playerInGame.setFaction(domain.faction());
         return playerInGame;

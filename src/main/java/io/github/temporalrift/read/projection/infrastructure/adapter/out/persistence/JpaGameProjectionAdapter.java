@@ -23,6 +23,12 @@ class JpaGameProjectionAdapter implements GameProjectionRepository {
     }
 
     @Override
+    public Optional<GameProjection> findByGameIdForUpdate(UUID gameId) {
+        repository.insertAnchorIfAbsent(gameId);
+        return repository.lockByGameId(gameId).map(GameProjectionEntity::toDomain);
+    }
+
+    @Override
     public void save(GameProjection gameProjection) {
         var existing = repository.findById(gameProjection.gameId());
         if (existing.isPresent()) {

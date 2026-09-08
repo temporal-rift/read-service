@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+  <!-- One tombstone row per (game_id, event_id) ever resolved by OutcomeApplied. Kept for the life of the
+       game so a game.events/timeline.events delivery race can never let a late EventsDrawn resurrect an
+       event that timeline.events already resolved. -->
+  <changeSet id="008-create-game-resolved-event" author="read-service">
+    <createTable tableName="game_resolved_event">
+      <column name="id" type="UUID">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="game_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="event_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
+
+    <addUniqueConstraint
+        tableName="game_resolved_event"
+        columnNames="game_id, event_id"
+        constraintName="uq_game_resolved_event_game_id_event_id"/>
+  </changeSet>
+
+</databaseChangeLog>

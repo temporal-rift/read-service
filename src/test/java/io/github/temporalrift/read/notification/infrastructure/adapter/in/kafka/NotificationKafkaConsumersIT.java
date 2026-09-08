@@ -6,6 +6,7 @@ import static org.awaitility.Awaitility.await;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -92,7 +93,7 @@ class NotificationKafkaConsumersIT {
     }
 
     private void publish(String topic, UUID eventId) {
-        publish(topic, UUID.randomUUID(), eventId, "Ignored", java.util.Map.of());
+        publish(topic, UUID.randomUUID(), eventId, "Ignored", Map.of());
     }
 
     private void publish(String topic, UUID gameId, UUID eventId, String eventType, Object payload) {
