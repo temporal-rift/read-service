@@ -29,9 +29,8 @@ import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.
 /**
  * Maps projection query results to generated response DTOs.
  *
- * <p>Only the current-state slice's "core fields" are populated —
- * {@code myJammedUntilRound}, {@code lastRoundSummary} stay unset (deferred to a later slice, design.md
- * Non-Goals).
+ * <p>{@code myJammedUntilRound} and {@code lastRoundSummary} stay unset — {@code myJammedUntilRound} needs
+ * jam tracking that game-service does not yet expose, and {@code lastRoundSummary} is unimplemented.
  */
 final class ProjectionRestMapper {
 
@@ -128,7 +127,10 @@ final class ProjectionRestMapper {
         return phase == Phase.ACTION_ROUND_1 || phase == Phase.ACTION_ROUND_2 || phase == Phase.ACTION_ROUND_3;
     }
 
-    /** Static per-faction specials (temporal-rift-gdd.md §2.2) — not availability-aware (design.md Non-Goals). */
+    /**
+     * Each faction's fixed set of three special actions. Static only — whether a special is currently usable
+     * (once-per-era budgets, timing windows, jam) is a game-service rule this projection does not represent.
+     */
     private static List<String> toSpecialActions(String faction) {
         if (faction == null) {
             return null;
