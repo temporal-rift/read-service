@@ -6,6 +6,7 @@ import java.time.ZoneOffset;
 import io.github.temporalrift.read.projection.application.port.in.GetGameHistoryUseCase;
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
 import io.github.temporalrift.read.projection.domain.model.Phase;
+import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActiveEvent;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CardGrade;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CascadedEvent;
@@ -58,8 +59,7 @@ final class ProjectionRestMapper {
         return response;
     }
 
-    private static RevealedIntel toRevealedIntel(
-            io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel domain) {
+    private static RevealedIntel toRevealedIntel(RevealedProbabilityIntel domain) {
         var response =
                 new RevealedIntel(RevealedIntel.KindEnum.PROBABILITY, domain.observedInRound(), domain.eventId());
         response.setOutcomes(domain.outcomes().stream()

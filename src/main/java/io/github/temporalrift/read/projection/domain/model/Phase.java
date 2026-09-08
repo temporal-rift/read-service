@@ -10,5 +10,10 @@ public enum Phase {
     PARADOX_RESOLUTION,
     RESOLUTION,
     ERA_END,
-    GAME_ENDED
+    GAME_ENDED;
+
+    /** Whether era-scoped state (e.g. Scan intel) from this phase's era is no longer live. */
+    public boolean isEraOver() {
+        return this == ERA_END || this == GAME_ENDED;
+    }
 }

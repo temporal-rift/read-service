@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.PlayerNotInGameException;
+import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
 import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameProjectionRepository;
@@ -51,13 +52,10 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                 .findFirst()
                 .map(GamePlayer::score)
                 .orElse(0);
-        var myRevealedIntel =
-                gameProjection.phase() == io.github.temporalrift.read.projection.domain.model.Phase.ERA_END
-                                || gameProjection.phase()
-                                        == io.github.temporalrift.read.projection.domain.model.Phase.GAME_ENDED
-                        ? List.<io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel>of()
-                        : revealedProbabilityIntel.findByGameIdAndPlayerIdAndEraNumber(
-                                gameId, playerId, gameProjection.eraNumber());
+        var myRevealedIntel = gameProjection.phase().isEraOver()
+                ? List.<RevealedProbabilityIntel>of()
+                : revealedProbabilityIntel.findByGameIdAndPlayerIdAndEraNumber(
+                        gameId, playerId, gameProjection.eraNumber());
 
         return new Result(
                 gameId,

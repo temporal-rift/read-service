@@ -25,29 +25,5 @@ public interface GetPlayerGameStateUseCase {
             List<RevealedProbabilityIntel> myRevealedIntel,
             int myScore,
             List<GamePlayer> players,
-            List<GameActiveEvent> activeEvents) {
-
-        public Result(
-                UUID gameId,
-                int eraNumber,
-                Phase phase,
-                String myFaction,
-                List<HandCard> myHand,
-                PendingHandSelection pendingHandSelection,
-                int myScore,
-                List<GamePlayer> players,
-                List<GameActiveEvent> activeEvents) {
-            this(
-                    gameId,
-                    eraNumber,
-                    phase,
-                    myFaction,
-                    myHand,
-                    pendingHandSelection,
-                    List.of(),
-                    myScore,
-                    players,
-                    activeEvents);
-        }
-    }
+            List<GameActiveEvent> activeEvents) {}
 }

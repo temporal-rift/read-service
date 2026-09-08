@@ -407,6 +407,7 @@ class ProjectionEventApplierTest {
 
         then(gameProjections).should().save(new GameProjection(gameId, 3, Phase.GAME_ENDED));
         then(gamePlayers).should().save(gameId, new GamePlayer(playerId, 20, true, "ERASERS"));
+        then(revealedProbabilityIntel).should().deleteByGameIdAndEraNumber(gameId, 3);
     }
 
     @Test
