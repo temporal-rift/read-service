@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundStartedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.PlayerJammedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.RoundSummaryPublishedPayload;
 import io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.ScoresUpdatedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EraEndedPayload;
@@ -101,7 +102,23 @@ class ProjectionEventApplier {
                 existing.playerId(),
                 payload.faction().name(),
                 existing.myHand(),
-                existing.pendingHandSelection()));
+                existing.pendingHandSelection(),
+                existing.jammedEraNumber(),
+                existing.jammedUntilRound()));
+    }
+
+    // The suppressed player's private reveal (design.md "Store the raw jam fact; compute 'is it still active'
+    // at read time") — find-or-create matches applyFactionAssigned's precedent for the same out-of-order race.
+    void applyPlayerJammed(PlayerJammedPayload payload) {
+        var existing = findOrCreatePlayerGameState(payload.gameId(), payload.playerId());
+        playerGameStates.save(new PlayerGameState(
+                existing.gameId(),
+                existing.playerId(),
+                existing.myFaction(),
+                existing.myHand(),
+                existing.pendingHandSelection(),
+                payload.eraNumber(),
+                payload.jammedUntilRound()));
     }
 
     void applyEraStarted(EraStartedPayload payload) {
@@ -160,7 +177,9 @@ class ProjectionEventApplier {
                 existing.playerId(),
                 existing.myFaction(),
                 existing.myHand(),
-                new PendingHandSelection(pendingCards, payload.selectionExpiresAt())));
+                new PendingHandSelection(pendingCards, payload.selectionExpiresAt()),
+                existing.jammedEraNumber(),
+                existing.jammedUntilRound()));
     }
 
     void applyHandSelected(HandSelectedPayload payload) {
@@ -171,8 +190,14 @@ class ProjectionEventApplier {
                         card.cardType().name(),
                         card.grade().name()))
                 .toList();
-        playerGameStates.save(
-                new PlayerGameState(existing.gameId(), existing.playerId(), existing.myFaction(), hand, null));
+        playerGameStates.save(new PlayerGameState(
+                existing.gameId(),
+                existing.playerId(),
+                existing.myFaction(),
+                hand,
+                null,
+                existing.jammedEraNumber(),
+                existing.jammedUntilRound()));
     }
 
     private PlayerGameState findOrCreatePlayerGameState(UUID gameId, UUID playerId) {
@@ -310,7 +335,9 @@ class ProjectionEventApplier {
                                     existing.playerId(),
                                     existing.myFaction(),
                                     hand,
-                                    existing.pendingHandSelection()));
+                                    existing.pendingHandSelection(),
+                                    existing.jammedEraNumber(),
+                                    existing.jammedUntilRound()));
                         },
                         () -> log.warn(
                                 "CardPlayed for unknown player {} in game {} — skipping",

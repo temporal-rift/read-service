@@ -27,7 +27,8 @@ public interface GetPlayerGameStateUseCase {
             int myScore,
             List<GamePlayer> players,
             List<GameActiveEvent> activeEvents,
-            LastRoundSummary lastRoundSummary) {
+            LastRoundSummary lastRoundSummary,
+            Integer myJammedUntilRound) {
 
         public Result(
                 UUID gameId,
@@ -51,6 +52,7 @@ public interface GetPlayerGameStateUseCase {
                     myScore,
                     players,
                     activeEvents,
+                    null,
                     null);
         }
     }

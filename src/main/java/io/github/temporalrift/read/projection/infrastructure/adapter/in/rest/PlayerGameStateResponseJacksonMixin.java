@@ -11,4 +11,7 @@ abstract class PlayerGameStateResponseJacksonMixin {
 
     @JsonInclude(JsonInclude.Include.ALWAYS)
     abstract RoundSummary getLastRoundSummary();
+
+    @JsonInclude(JsonInclude.Include.ALWAYS)
+    abstract Integer getMyJammedUntilRound();
 }

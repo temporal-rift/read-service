@@ -49,6 +49,12 @@ class PlayerGameStateEntity {
     @OrderColumn(name = "card_position")
     private List<PlayerGameStatePendingHandCardValue> pendingHandSelectionCards;
 
+    @Column(name = "jammed_era_number")
+    private Integer jammedEraNumber;
+
+    @Column(name = "jammed_until_round")
+    private Integer jammedUntilRound;
+
     protected PlayerGameStateEntity() {}
 
     PlayerGameStateEntity(
@@ -58,7 +64,9 @@ class PlayerGameStateEntity {
             String myFaction,
             List<PlayerGameStateHandCardValue> hand,
             Instant pendingHandSelectionExpiresAt,
-            List<PlayerGameStatePendingHandCardValue> pendingHandSelectionCards) {
+            List<PlayerGameStatePendingHandCardValue> pendingHandSelectionCards,
+            Integer jammedEraNumber,
+            Integer jammedUntilRound) {
         this.id = id;
         this.gameId = gameId;
         this.playerId = playerId;
@@ -66,6 +74,8 @@ class PlayerGameStateEntity {
         this.hand = hand;
         this.pendingHandSelectionExpiresAt = pendingHandSelectionExpiresAt;
         this.pendingHandSelectionCards = pendingHandSelectionCards;
+        this.jammedEraNumber = jammedEraNumber;
+        this.jammedUntilRound = jammedUntilRound;
     }
 
     static PlayerGameStateEntity fromDomain(UUID id, PlayerGameState domain) {
@@ -84,7 +94,9 @@ class PlayerGameStateEntity {
                         ? List.of()
                         : domain.pendingHandSelection().cards().stream()
                                 .map(PlayerGameStatePendingHandCardValue::fromDomain)
-                                .toList());
+                                .toList(),
+                domain.jammedEraNumber(),
+                domain.jammedUntilRound());
     }
 
     PlayerGameState toDomain() {
@@ -99,7 +111,9 @@ class PlayerGameStateEntity {
                                 pendingHandSelectionCards.stream()
                                         .map(PlayerGameStatePendingHandCardValue::toDomain)
                                         .toList(),
-                                pendingHandSelectionExpiresAt));
+                                pendingHandSelectionExpiresAt),
+                jammedEraNumber,
+                jammedUntilRound);
     }
 
     UUID getGameId() {
@@ -125,5 +139,13 @@ class PlayerGameStateEntity {
                 : pendingHandSelection.cards().stream()
                         .map(PlayerGameStatePendingHandCardValue::fromDomain)
                         .toList();
+    }
+
+    void setJammedEraNumber(Integer jammedEraNumber) {
+        this.jammedEraNumber = jammedEraNumber;
+    }
+
+    void setJammedUntilRound(Integer jammedUntilRound) {
+        this.jammedUntilRound = jammedUntilRound;
     }
 }
