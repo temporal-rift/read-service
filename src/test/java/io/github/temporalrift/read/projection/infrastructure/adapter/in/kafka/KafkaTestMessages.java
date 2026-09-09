@@ -1,5 +1,6 @@
 package io.github.temporalrift.read.projection.infrastructure.adapter.in.kafka;
 
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 import org.springframework.messaging.Message;
@@ -22,6 +23,17 @@ final class KafkaTestMessages {
     static Message<Object> withRawEventId(String rawEventId) {
         return MessageBuilder.withPayload((Object) new byte[0])
                 .setHeader("eventId", rawEventId)
+                .build();
+    }
+
+    /**
+     * Mirrors a header arriving as the raw {@code byte[]} record value — what a non-Spring producer (e.g. a
+     * bare {@code KafkaProducer}, bypassing {@code DefaultKafkaHeaderMapper}'s JSON encoding) puts on the
+     * wire, as opposed to the already-decoded {@code String} {@link #withEventId} builds.
+     */
+    static Message<Object> withEventIdBytes(UUID eventId) {
+        return MessageBuilder.withPayload((Object) new byte[0])
+                .setHeader("eventId", eventId.toString().getBytes(StandardCharsets.UTF_8))
                 .build();
     }
 
