@@ -7,6 +7,7 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -109,5 +110,39 @@ class GameEventsKafkaConsumerTest {
         assertThat(payloadCaptor.getValue().targetEventId()).isNull();
         assertThat(payloadCaptor.getValue().targetPlayerId()).isEqualTo(targetPlayerId);
         assertThat(payloadCaptor.getValue().cardInstanceId()).isEqualTo(cardInstanceId);
+    }
+
+    @Test
+    void handle_multiTargetCardPlayed_dispatchesToApplier() {
+        var eventId = UUID.randomUUID();
+        var gameId = UUID.randomUUID();
+        var playerId = UUID.randomUUID();
+        var cardInstanceId = UUID.randomUUID();
+        var targetEventIds = List.of(UUID.randomUUID(), UUID.randomUUID());
+        var payload =
+                """
+                {
+                  "gameId": "%s",
+                  "eraNumber": 1,
+                  "roundNumber": 2,
+                  "playerId": "%s",
+                  "cardInstanceId": "%s",
+                  "cardType": "SCAN",
+                  "grade": "II",
+                  "targetEventIds": ["%s", "%s"]
+                }
+                """.formatted(gameId, playerId, cardInstanceId, targetEventIds.getFirst(), targetEventIds.getLast());
+        var message = MessageBuilder.withPayload((Object) payload.getBytes(StandardCharsets.UTF_8))
+                .setHeader("eventId", eventId.toString())
+                .setHeader("eventType", "CardPlayed")
+                .build();
+        given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
+
+        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper()).handle(message);
+
+        var payloadCaptor = ArgumentCaptor.forClass(CardPlayedPayload.class);
+        then(applier).should().applyCardPlayed(payloadCaptor.capture());
+        assertThat(payloadCaptor.getValue().targetEventIds()).containsExactlyElementsOf(targetEventIds);
+        assertThat(payloadCaptor.getValue().targetEventId()).isNull();
     }
 }

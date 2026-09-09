@@ -572,10 +572,11 @@ class ProjectionEventApplierTest {
     }
 
     @Test
-    void applyCardPlayed_removesPlayedCardFromHand() {
+    void applyCardPlayed_removesPlayedMultiTargetCardFromHandWithoutPersistingTargets() {
         var playerId = UUID.randomUUID();
-        var playedCard = new HandCard(UUID.randomUUID(), "PUSH");
-        var otherCard = new HandCard(UUID.randomUUID(), "SCAN");
+        var playedCard = new HandCard(UUID.randomUUID(), "SCAN");
+        var otherCard = new HandCard(UUID.randomUUID(), "PUSH");
+        var targetEventIds = List.of(UUID.randomUUID(), UUID.randomUUID());
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
                 .willReturn(
                         Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of(playedCard, otherCard))));
@@ -586,16 +587,17 @@ class ProjectionEventApplierTest {
                 1,
                 playerId,
                 playedCard.cardInstanceId(),
-                io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardType.PUSH,
+                io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardType.SCAN,
                 io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardGrade.II,
-                UUID.randomUUID(),
+                null,
+                targetEventIds,
                 null,
                 null,
-                UUID.randomUUID()));
+                null));
 
         var captor = ArgumentCaptor.forClass(PlayerGameState.class);
         then(playerGameStates).should().save(captor.capture());
-        assertThat(captor.getValue().myHand()).containsExactly(otherCard);
+        assertThat(captor.getValue()).isEqualTo(new PlayerGameState(gameId, playerId, "ERASERS", List.of(otherCard)));
     }
 
     @Test
