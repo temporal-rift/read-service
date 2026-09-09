@@ -56,6 +56,7 @@ final class ProjectionRestMapper {
                         .toList());
         response.setMyFaction(result.myFaction());
         response.setMySpecialActions(toSpecialActions(result.myFaction()));
+        response.setMyJammedUntilRound(result.myJammedUntilRound());
         response.setPendingHandSelection(
                 result.pendingHandSelection() == null ? null : toPendingHandSelection(result.pendingHandSelection()));
         response.setLastRoundSummary(

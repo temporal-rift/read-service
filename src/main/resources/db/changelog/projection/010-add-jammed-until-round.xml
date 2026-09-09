@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+  <changeSet id="010-add-jammed-until-round" author="read-service">
+    <addColumn tableName="player_game_state">
+      <column name="jammed_era_number" type="INT"/>
+      <column name="jammed_until_round" type="INT"/>
+    </addColumn>
+  </changeSet>
+
+</databaseChangeLog>

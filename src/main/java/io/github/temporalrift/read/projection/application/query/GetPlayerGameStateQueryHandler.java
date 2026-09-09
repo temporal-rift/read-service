@@ -56,6 +56,8 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                 ? List.<RevealedProbabilityIntel>of()
                 : revealedProbabilityIntel.findByGameIdAndPlayerIdAndEraNumber(
                         gameId, playerId, gameProjection.eraNumber());
+        var myJammedUntilRound =
+                playerGameState.effectiveJammedUntilRound(gameProjection.eraNumber(), gameProjection.phase());
 
         return new Result(
                 gameId,
@@ -68,6 +70,7 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                 myScore,
                 players,
                 gameActiveEvents.findByGameId(gameId),
-                gameProjection.lastRoundSummary());
+                gameProjection.lastRoundSummary(),
+                myJammedUntilRound);
     }
 }
