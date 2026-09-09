@@ -20,8 +20,6 @@
       <column name="player_id" type="UUID">
         <constraints nullable="false"/>
       </column>
-      <!-- Nullable: a skipped player played no card, so the RoundSummaryPublished contract legitimately
-           omits actionCategory/actionFamily for that entry (only playerId/skipped are required there). -->
       <column name="action_category" type="VARCHAR(100)"/>
       <column name="action_family" type="VARCHAR(100)"/>
       <column name="skipped" type="BOOLEAN">
