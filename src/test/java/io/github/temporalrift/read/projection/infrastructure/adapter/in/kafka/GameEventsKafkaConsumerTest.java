@@ -19,6 +19,7 @@ import org.springframework.messaging.support.MessageBuilder;
 import tools.jackson.databind.ObjectMapper;
 
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.RoundSummaryPublishedPayload;
 import io.github.temporalrift.read.shared.ProcessedEventPort;
 
 @ExtendWith(MockitoExtension.class)
@@ -144,5 +145,42 @@ class GameEventsKafkaConsumerTest {
         then(applier).should().applyCardPlayed(payloadCaptor.capture());
         assertThat(payloadCaptor.getValue().targetEventIds()).containsExactlyElementsOf(targetEventIds);
         assertThat(payloadCaptor.getValue().targetEventId()).isNull();
+    }
+
+    @Test
+    void handle_roundSummaryPublished_dispatchesOnlyItsPublicPayloadToTheApplier() {
+        var eventId = UUID.randomUUID();
+        var gameId = UUID.randomUUID();
+        var playerId = UUID.randomUUID();
+        var payload = """
+                {
+                  "gameId": "%s",
+                  "eraNumber": 1,
+                  "roundNumber": 2,
+                  "actionSummaries": [{
+                    "playerId": "%s",
+                    "actionCategory": "INFORMATION",
+                    "actionFamily": "CARD",
+                    "skipped": false
+                  }]
+                }
+                """.formatted(gameId, playerId);
+        var message = MessageBuilder.withPayload((Object) payload.getBytes(StandardCharsets.UTF_8))
+                .setHeader("eventId", eventId.toString())
+                .setHeader("eventType", "RoundSummaryPublished")
+                .build();
+        given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
+
+        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper()).handle(message);
+
+        var payloadCaptor = ArgumentCaptor.forClass(RoundSummaryPublishedPayload.class);
+        then(applier).should().applyRoundSummaryPublished(payloadCaptor.capture());
+        assertThat(payloadCaptor.getValue().roundNumber()).isEqualTo(2);
+        assertThat(payloadCaptor.getValue().actionSummaries()).singleElement().satisfies(summary -> {
+            assertThat(summary.playerId()).isEqualTo(playerId);
+            assertThat(summary.actionCategory()).isEqualTo("INFORMATION");
+            assertThat(summary.actionFamily()).isEqualTo("CARD");
+            assertThat(summary.skipped()).isFalse();
+        });
     }
 }

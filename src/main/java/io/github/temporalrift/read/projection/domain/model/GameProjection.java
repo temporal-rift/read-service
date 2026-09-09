@@ -7,13 +7,18 @@ import java.util.UUID;
  * Game-scoped, shared-across-players state (design.md Decision 1). {@code pendingParadoxIds} is the set of
  * paradoxes still open in the game's current {@code PARADOX_RESOLUTION} phase, if any — empty otherwise.
  */
-public record GameProjection(UUID gameId, int eraNumber, Phase phase, List<UUID> pendingParadoxIds) {
+public record GameProjection(
+        UUID gameId, int eraNumber, Phase phase, List<UUID> pendingParadoxIds, LastRoundSummary lastRoundSummary) {
 
     public GameProjection {
         pendingParadoxIds = List.copyOf(pendingParadoxIds);
     }
 
     public GameProjection(UUID gameId, int eraNumber, Phase phase) {
-        this(gameId, eraNumber, phase, List.of());
+        this(gameId, eraNumber, phase, List.of(), null);
+    }
+
+    public GameProjection(UUID gameId, int eraNumber, Phase phase, List<UUID> pendingParadoxIds) {
+        this(gameId, eraNumber, phase, pendingParadoxIds, null);
     }
 }

@@ -11,9 +11,11 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
 import io.github.temporalrift.read.projection.domain.model.HandCard;
+import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
 import io.github.temporalrift.read.projection.domain.model.Phase;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
+import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
 
 class ProjectionRestMapperTest {
 
@@ -116,6 +118,35 @@ class ProjectionRestMapperTest {
         var response = ProjectionRestMapper.toResponse(resultWithFaction(null));
 
         assertThat(response.getMySpecialActions()).isEmpty();
+    }
+
+    @Test
+    void toResponse_mapsThePublicLastRoundSummary() {
+        var playerId = UUID.randomUUID();
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID,
+                2,
+                Phase.ACTION_ROUND_2,
+                "ERASERS",
+                List.of(),
+                null,
+                List.of(),
+                0,
+                List.of(),
+                List.of(),
+                new LastRoundSummary(2, List.of(new RoundActionSummary(playerId, "INFORMATION", "CARD", false))));
+
+        var response = ProjectionRestMapper.toResponse(result);
+
+        assertThat(response.getLastRoundSummary()).satisfies(summary -> {
+            assertThat(summary.getRoundNumber()).isEqualTo(2);
+            assertThat(summary.getActionSummaries()).singleElement().satisfies(action -> {
+                assertThat(action.getPlayerId()).isEqualTo(playerId);
+                assertThat(action.getActionCategory()).isEqualTo("INFORMATION");
+                assertThat(action.getActionFamily()).isEqualTo("CARD");
+                assertThat(action.getSkipped()).isFalse();
+            });
+        });
     }
 
     private static GetPlayerGameStateUseCase.Result resultWithFaction(String faction) {

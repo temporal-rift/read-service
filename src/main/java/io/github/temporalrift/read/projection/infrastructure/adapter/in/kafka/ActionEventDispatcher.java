@@ -4,6 +4,7 @@ import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.Act
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.Consumer;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.EventHeaders;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.RoundSummaryPublishedPayload;
 
 /**
  * The {@code action-event} slice of {@code game.events} that {@link ProjectionEventApplier} actually
@@ -27,5 +28,10 @@ class ActionEventDispatcher implements Consumer {
     @Override
     public void onCardPlayed(CardPlayedPayload payload, EventHeaders headers) {
         applier.applyCardPlayed(payload);
+    }
+
+    @Override
+    public void onRoundSummaryPublished(RoundSummaryPublishedPayload payload, EventHeaders headers) {
+        applier.applyRoundSummaryPublished(payload);
     }
 }

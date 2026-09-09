@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundStartedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.RoundSummaryPublishedPayload;
 import io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.ScoresUpdatedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EraEndedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EraStartedPayload;
@@ -33,12 +34,14 @@ import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.GameProjection;
 import io.github.temporalrift.read.projection.domain.model.HandCard;
+import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
 import io.github.temporalrift.read.projection.domain.model.PendingHandCard;
 import io.github.temporalrift.read.projection.domain.model.PendingHandSelection;
 import io.github.temporalrift.read.projection.domain.model.Phase;
 import io.github.temporalrift.read.projection.domain.model.PlayerGameState;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
+import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
 import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameProjectionRepository;
@@ -111,7 +114,8 @@ class ProjectionEventApplier {
                     payload.gameId());
             return;
         }
-        gameProjections.save(new GameProjection(payload.gameId(), payload.eraNumber(), Phase.ERA_START));
+        gameProjections.save(new GameProjection(
+                payload.gameId(), payload.eraNumber(), Phase.ERA_START, List.of(), existing.lastRoundSummary()));
     }
 
     void applyEventsDrawn(EventsDrawnPayload payload) {
@@ -121,7 +125,8 @@ class ProjectionEventApplier {
             return;
         }
         if (payload.eraNumber() > existing.eraNumber()) {
-            gameProjections.save(new GameProjection(payload.gameId(), payload.eraNumber(), Phase.ERA_START));
+            gameProjections.save(new GameProjection(
+                    payload.gameId(), payload.eraNumber(), Phase.ERA_START, List.of(), existing.lastRoundSummary()));
         }
         for (var event : payload.events()) {
             if (gameActiveEvents.isResolved(payload.gameId(), event.eventId())) {
@@ -201,7 +206,8 @@ class ProjectionEventApplier {
             log.warn("EraEnded for past/ended era {} in game {} — skipping", payload.eraNumber(), payload.gameId());
             return;
         }
-        gameProjections.save(new GameProjection(payload.gameId(), payload.eraNumber(), Phase.ERA_END));
+        gameProjections.save(new GameProjection(
+                payload.gameId(), payload.eraNumber(), Phase.ERA_END, List.of(), existing.lastRoundSummary()));
         revealedProbabilityIntel.deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
         // Defensive clear — design.md Decision 6. Every drawn event currently gets an OutcomeApplied (no
         // cascade/paradox handling exists yet), so this is normally a no-op.
@@ -217,7 +223,8 @@ class ProjectionEventApplier {
             return;
         }
         var eraNumber = existing.eraNumber();
-        gameProjections.save(new GameProjection(payload.gameId(), eraNumber, Phase.GAME_ENDED));
+        gameProjections.save(new GameProjection(
+                payload.gameId(), eraNumber, Phase.GAME_ENDED, List.of(), existing.lastRoundSummary()));
         revealedProbabilityIntel.deleteByGameIdAndEraNumber(payload.gameId(), eraNumber);
         gameActiveEvents.deleteByGameId(payload.gameId());
         for (var finalScore : payload.finalScores()) {
@@ -258,7 +265,11 @@ class ProjectionEventApplier {
             return;
         }
         gameProjections.save(new GameProjection(
-                payload.gameId(), payload.eraNumber(), Phase.RESOLUTION, existing.pendingParadoxIds()));
+                payload.gameId(),
+                payload.eraNumber(),
+                Phase.RESOLUTION,
+                existing.pendingParadoxIds(),
+                existing.lastRoundSummary()));
     }
 
     void applyActionRoundStarted(ActionRoundStartedPayload payload) {
@@ -278,8 +289,12 @@ class ProjectionEventApplier {
                     payload.gameId());
             return;
         }
-        gameProjections.save(
-                new GameProjection(payload.gameId(), payload.eraNumber(), phase, existing.pendingParadoxIds()));
+        gameProjections.save(new GameProjection(
+                payload.gameId(),
+                payload.eraNumber(),
+                phase,
+                existing.pendingParadoxIds(),
+                existing.lastRoundSummary()));
     }
 
     void applyCardPlayed(CardPlayedPayload payload) {
@@ -301,6 +316,18 @@ class ProjectionEventApplier {
                                 "CardPlayed for unknown player {} in game {} — skipping",
                                 payload.playerId(),
                                 payload.gameId()));
+    }
+
+    void applyRoundSummaryPublished(RoundSummaryPublishedPayload payload) {
+        var existing = lockGame(payload.gameId());
+        var summary = new LastRoundSummary(
+                payload.roundNumber(),
+                payload.actionSummaries().stream()
+                        .map(action -> new RoundActionSummary(
+                                action.playerId(), action.actionCategory(), action.actionFamily(), action.skipped()))
+                        .toList());
+        gameProjections.save(new GameProjection(
+                existing.gameId(), existing.eraNumber(), existing.phase(), existing.pendingParadoxIds(), summary));
     }
 
     void applyScoresUpdated(ScoresUpdatedPayload payload) {
@@ -364,7 +391,11 @@ class ProjectionEventApplier {
             return;
         }
         gameProjections.save(new GameProjection(
-                existing.gameId(), payload.eraNumber(), Phase.PARADOX_RESOLUTION, payload.paradoxIds()));
+                existing.gameId(),
+                payload.eraNumber(),
+                Phase.PARADOX_RESOLUTION,
+                payload.paradoxIds(),
+                existing.lastRoundSummary()));
     }
 
     void applyParadoxResolved(ParadoxResolvedPayload payload) {
@@ -389,7 +420,8 @@ class ProjectionEventApplier {
                 .filter(pending -> !pending.equals(paradoxId))
                 .toList();
         var phase = stillPending.isEmpty() ? Phase.RESOLUTION : Phase.PARADOX_RESOLUTION;
-        gameProjections.save(new GameProjection(existing.gameId(), eraNumber, phase, stillPending));
+        gameProjections.save(
+                new GameProjection(existing.gameId(), eraNumber, phase, stillPending, existing.lastRoundSummary()));
     }
 
     private GameProjection lockGame(UUID gameId) {

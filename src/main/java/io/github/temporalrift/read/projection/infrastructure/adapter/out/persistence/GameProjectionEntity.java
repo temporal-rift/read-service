@@ -13,6 +13,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 
 import io.github.temporalrift.read.projection.domain.model.GameProjection;
+import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
 import io.github.temporalrift.read.projection.domain.model.Phase;
 
 @Entity
@@ -34,22 +35,46 @@ class GameProjectionEntity {
     @Column(name = "paradox_id", nullable = false)
     private List<UUID> pendingParadoxIds;
 
+    @Column(name = "last_round_summary_round_number")
+    private Integer lastRoundSummaryRoundNumber;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "game_projection_last_round_summary_action", joinColumns = @JoinColumn(name = "game_id"))
+    private List<LastRoundSummaryActionValue> lastRoundSummaryActions;
+
     protected GameProjectionEntity() {}
 
-    GameProjectionEntity(UUID gameId, int eraNumber, Phase phase, List<UUID> pendingParadoxIds) {
+    GameProjectionEntity(
+            UUID gameId, int eraNumber, Phase phase, List<UUID> pendingParadoxIds, LastRoundSummary lastRoundSummary) {
         this.gameId = gameId;
         this.eraNumber = eraNumber;
         this.phase = phase.name();
         this.pendingParadoxIds = pendingParadoxIds;
+        setLastRoundSummary(lastRoundSummary);
     }
 
     static GameProjectionEntity fromDomain(GameProjection domain) {
         return new GameProjectionEntity(
-                domain.gameId(), domain.eraNumber(), domain.phase(), domain.pendingParadoxIds());
+                domain.gameId(),
+                domain.eraNumber(),
+                domain.phase(),
+                domain.pendingParadoxIds(),
+                domain.lastRoundSummary());
     }
 
     GameProjection toDomain() {
-        return new GameProjection(gameId, eraNumber, Phase.valueOf(phase), pendingParadoxIds);
+        return new GameProjection(
+                gameId,
+                eraNumber,
+                Phase.valueOf(phase),
+                pendingParadoxIds,
+                lastRoundSummaryRoundNumber == null
+                        ? null
+                        : new LastRoundSummary(
+                                lastRoundSummaryRoundNumber,
+                                lastRoundSummaryActions.stream()
+                                        .map(LastRoundSummaryActionValue::toDomain)
+                                        .toList()));
     }
 
     UUID getGameId() {
@@ -66,5 +91,14 @@ class GameProjectionEntity {
 
     void setPendingParadoxIds(List<UUID> pendingParadoxIds) {
         this.pendingParadoxIds = pendingParadoxIds;
+    }
+
+    void setLastRoundSummary(LastRoundSummary lastRoundSummary) {
+        lastRoundSummaryRoundNumber = lastRoundSummary == null ? null : lastRoundSummary.roundNumber();
+        lastRoundSummaryActions = lastRoundSummary == null
+                ? List.of()
+                : lastRoundSummary.actionSummaries().stream()
+                        .map(LastRoundSummaryActionValue::fromDomain)
+                        .toList();
     }
 }

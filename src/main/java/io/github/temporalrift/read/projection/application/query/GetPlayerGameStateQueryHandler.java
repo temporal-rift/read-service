@@ -67,6 +67,7 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                 myRevealedIntel,
                 myScore,
                 players,
-                gameActiveEvents.findByGameId(gameId));
+                gameActiveEvents.findByGameId(gameId),
+                gameProjection.lastRoundSummary());
     }
 }

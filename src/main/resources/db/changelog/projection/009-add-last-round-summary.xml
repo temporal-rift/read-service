@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+  <changeSet id="009-add-last-round-summary" author="read-service">
+    <addColumn tableName="game_projection">
+      <column name="last_round_summary_round_number" type="INT"/>
+    </addColumn>
+    <createTable tableName="game_projection_last_round_summary_action">
+      <column name="game_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="player_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="action_category" type="VARCHAR(100)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="action_family" type="VARCHAR(100)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="skipped" type="BOOLEAN">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
+    <addForeignKeyConstraint
+        baseTableName="game_projection_last_round_summary_action"
+        baseColumnNames="game_id"
+        referencedTableName="game_projection"
+        referencedColumnNames="game_id"
+        constraintName="fk_round_summary_action_game_projection"
+        onDelete="CASCADE"/>
+  </changeSet>
+
+</databaseChangeLog>

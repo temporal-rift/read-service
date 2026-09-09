@@ -24,6 +24,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundStartedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.RoundSummaryPublishedPayload;
 import io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.ScoreUpdate;
 import io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.ScoresUpdatedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardGrade;
@@ -58,12 +59,14 @@ import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.GameProjection;
 import io.github.temporalrift.read.projection.domain.model.HandCard;
+import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
 import io.github.temporalrift.read.projection.domain.model.PendingHandCard;
 import io.github.temporalrift.read.projection.domain.model.PendingHandSelection;
 import io.github.temporalrift.read.projection.domain.model.Phase;
 import io.github.temporalrift.read.projection.domain.model.PlayerGameState;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
+import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
 import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameProjectionRepository;
@@ -598,6 +601,45 @@ class ProjectionEventApplierTest {
         var captor = ArgumentCaptor.forClass(PlayerGameState.class);
         then(playerGameStates).should().save(captor.capture());
         assertThat(captor.getValue()).isEqualTo(new PlayerGameState(gameId, playerId, "ERASERS", List.of(otherCard)));
+    }
+
+    @Test
+    void applyRoundSummaryPublished_replacesThePriorGameWideSummaryWithPublicFieldsOnly() {
+        var playerId = UUID.randomUUID();
+        var previous = new LastRoundSummary(
+                1, List.of(new RoundActionSummary(playerId, "PROBABILITY_SHIFTER", "CARD", false)));
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_2, List.of(), previous)));
+        var payload = new RoundSummaryPublishedPayload(
+                gameId,
+                1,
+                2,
+                List.of(new io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionSummary(
+                        playerId, "INFORMATION", "CARD", true)));
+
+        applier.applyRoundSummaryPublished(payload);
+
+        then(gameProjections)
+                .should()
+                .save(new GameProjection(
+                        gameId,
+                        1,
+                        Phase.ACTION_ROUND_2,
+                        List.of(),
+                        new LastRoundSummary(
+                                2, List.of(new RoundActionSummary(playerId, "INFORMATION", "CARD", true)))));
+    }
+
+    @Test
+    void applyActionRoundStarted_preservesTheLastRoundSummary() {
+        var summary = new LastRoundSummary(
+                1, List.of(new RoundActionSummary(UUID.randomUUID(), "INFORMATION", "CARD", false)));
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1, List.of(), summary)));
+
+        applier.applyActionRoundStarted(new ActionRoundStartedPayload(gameId, 1, 2, 45, List.of()));
+
+        then(gameProjections).should().save(new GameProjection(gameId, 1, Phase.ACTION_ROUND_2, List.of(), summary));
     }
 
     @Test
