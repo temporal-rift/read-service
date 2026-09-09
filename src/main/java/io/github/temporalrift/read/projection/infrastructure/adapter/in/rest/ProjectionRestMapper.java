@@ -9,8 +9,10 @@ import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameS
 import io.github.temporalrift.read.projection.domain.model.DealtCard;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
+import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
 import io.github.temporalrift.read.projection.domain.model.Phase;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActionSummary;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActiveEvent;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CardGrade;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CascadedEvent;
@@ -25,13 +27,9 @@ import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ResolvedOutcome;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.RevealedIntel;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.RevealedProbabilityOutcome;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.RoundSummary;
 
-/**
- * Maps projection query results to generated response DTOs.
- *
- * <p>{@code myJammedUntilRound} and {@code lastRoundSummary} stay unset — {@code myJammedUntilRound} needs
- * jam tracking that game-service does not yet expose, and {@code lastRoundSummary} is unimplemented.
- */
+/** Maps projection query results to generated response DTOs. */
 final class ProjectionRestMapper {
 
     private ProjectionRestMapper() {}
@@ -60,7 +58,18 @@ final class ProjectionRestMapper {
         response.setMySpecialActions(toSpecialActions(result.myFaction()));
         response.setPendingHandSelection(
                 result.pendingHandSelection() == null ? null : toPendingHandSelection(result.pendingHandSelection()));
+        response.setLastRoundSummary(
+                result.lastRoundSummary() == null ? null : toRoundSummary(result.lastRoundSummary()));
         return response;
+    }
+
+    private static RoundSummary toRoundSummary(LastRoundSummary summary) {
+        return new RoundSummary(
+                summary.roundNumber(),
+                summary.actionSummaries().stream()
+                        .map(action -> new ActionSummary(
+                                action.playerId(), action.actionCategory(), action.actionFamily(), action.skipped()))
+                        .toList());
     }
 
     private static RevealedIntel toRevealedIntel(RevealedProbabilityIntel domain) {

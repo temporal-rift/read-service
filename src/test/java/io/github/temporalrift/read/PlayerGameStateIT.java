@@ -66,6 +66,116 @@ class PlayerGameStateIT {
     ObjectMapper objectMapper;
 
     @Test
+    void roundSummaryPublished_replacesTheSharedLastRoundSummaryWithoutExposingPrivateActionDetails() throws Exception {
+        var gameId = UUID.randomUUID();
+        var player1 = UUID.randomUUID();
+        var player2 = UUID.randomUUID();
+        publish(
+                GAME_EVENTS_TOPIC,
+                "GameStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "lobbyId",
+                        UUID.randomUUID(),
+                        "playerIds",
+                        List.of(player1, player2),
+                        "totalFactions",
+                        3,
+                        "deckSize",
+                        30));
+        awaitPlayerGameStateRowExists(gameId, player1);
+        awaitPlayerGameStateRowExists(gameId, player2);
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(player1)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lastRoundSummary").doesNotExist());
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "RoundSummaryPublished",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "roundNumber",
+                        1,
+                        "actionSummaries",
+                        List.of(Map.of(
+                                "playerId",
+                                player1,
+                                "actionCategory",
+                                "PROBABILITY_SHIFTER",
+                                "actionFamily",
+                                "CARD",
+                                "skipped",
+                                false))));
+        awaitLastRoundSummary(gameId, 1);
+        publish(
+                GAME_EVENTS_TOPIC,
+                "RoundSummaryPublished",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "roundNumber",
+                        2,
+                        "actionSummaries",
+                        List.of(Map.of(
+                                "playerId",
+                                player2,
+                                "actionCategory",
+                                "INFORMATION",
+                                "actionFamily",
+                                "CARD",
+                                "skipped",
+                                true))));
+        awaitLastRoundSummary(gameId, 2);
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "ActionRoundStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "roundNumber",
+                        3,
+                        "timerSeconds",
+                        30,
+                        "pendingPlayerIds",
+                        List.of(player1, player2)));
+        awaitLastRoundSummary(gameId, 2);
+
+        for (var playerId : List.of(player1, player2)) {
+            mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                            .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(playerId)))))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.lastRoundSummary.roundNumber").value(2))
+                    .andExpect(jsonPath("$.lastRoundSummary.actionSummaries[0].playerId")
+                            .value(player2.toString()))
+                    .andExpect(jsonPath("$.lastRoundSummary.actionSummaries[0].actionCategory")
+                            .value("INFORMATION"))
+                    .andExpect(jsonPath("$.lastRoundSummary.actionSummaries[0].actionFamily")
+                            .value("CARD"))
+                    .andExpect(jsonPath("$.lastRoundSummary.actionSummaries[0].skipped")
+                            .value(true))
+                    .andExpect(jsonPath("$.lastRoundSummary.actionSummaries[0].cardType")
+                            .doesNotExist())
+                    .andExpect(jsonPath("$.lastRoundSummary.actionSummaries[0].targetEventId")
+                            .doesNotExist());
+        }
+    }
+
+    @Test
     void fullEventSequence_reflectsInGetState_andHidesFactionUntilRevealed() throws Exception {
         var gameId = UUID.randomUUID();
         var player1 = UUID.randomUUID();
@@ -912,6 +1022,15 @@ class PlayerGameStateIT {
                                 gameId,
                                 playerId))
                         .isEqualTo(faction));
+    }
+
+    private void awaitLastRoundSummary(UUID gameId, int roundNumber) {
+        await().atMost(Duration.ofSeconds(30))
+                .untilAsserted(() -> assertThat(jdbcTemplate.queryForObject(
+                                "SELECT last_round_summary_round_number FROM game_projection WHERE game_id = ?",
+                                Integer.class,
+                                gameId))
+                        .isEqualTo(roundNumber));
     }
 
     private void awaitMyHandSize(UUID gameId, UUID playerId, int size) {

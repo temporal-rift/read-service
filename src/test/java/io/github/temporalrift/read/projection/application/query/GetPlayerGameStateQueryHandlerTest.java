@@ -19,11 +19,13 @@ import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.GameProjection;
 import io.github.temporalrift.read.projection.domain.model.HandCard;
+import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
 import io.github.temporalrift.read.projection.domain.model.Phase;
 import io.github.temporalrift.read.projection.domain.model.PlayerGameState;
 import io.github.temporalrift.read.projection.domain.model.PlayerNotInGameException;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
+import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
 import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameProjectionRepository;
@@ -81,6 +83,24 @@ class GetPlayerGameStateQueryHandlerTest {
         assertThat(result.myScore()).isEqualTo(7);
         assertThat(result.players()).isEqualTo(players);
         assertThat(result.activeEvents()).isEqualTo(activeEvents);
+        assertThat(result.lastRoundSummary()).isNull();
+    }
+
+    @Test
+    void get_participantIncludesTheGameWideLastRoundSummary() {
+        var summary = new LastRoundSummary(2, List.of(new RoundActionSummary(playerId, "INFORMATION", "CARD", false)));
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, null, List.of())));
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_2, List.of(), summary)));
+        given(gamePlayers.findByGameId(gameId)).willReturn(List.of());
+        given(gameActiveEvents.findByGameId(gameId)).willReturn(List.of());
+        given(revealedProbabilityIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(List.of());
+
+        var result = handler.get(gameId, playerId);
+
+        assertThat(result.lastRoundSummary()).isEqualTo(summary);
     }
 
     @Test
