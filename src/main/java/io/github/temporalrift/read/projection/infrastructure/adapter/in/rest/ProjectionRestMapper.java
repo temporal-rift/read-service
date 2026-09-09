@@ -67,8 +67,9 @@ final class ProjectionRestMapper {
         return new RoundSummary(
                 summary.roundNumber(),
                 summary.actionSummaries().stream()
-                        .map(action -> new ActionSummary(
-                                action.playerId(), action.actionCategory(), action.actionFamily(), action.skipped()))
+                        .map(action -> new ActionSummary(action.playerId(), action.skipped())
+                                .actionCategory(action.actionCategory())
+                                .actionFamily(action.actionFamily()))
                         .toList());
     }
 
