@@ -88,7 +88,8 @@ class GetPlayerGameStateQueryHandlerTest {
 
     @Test
     void get_participantIncludesTheGameWideLastRoundSummary() {
-        var summary = new LastRoundSummary(2, List.of(new RoundActionSummary(playerId, "INFORMATION", "CARD", false)));
+        var summary =
+                new LastRoundSummary(2, 2, List.of(new RoundActionSummary(playerId, "INFORMATION", "CARD", false)));
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
                 .willReturn(Optional.of(new PlayerGameState(gameId, playerId, null, List.of())));
         given(gameProjections.findByGameId(gameId))

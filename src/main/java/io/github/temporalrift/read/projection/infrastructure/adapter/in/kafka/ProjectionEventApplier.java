@@ -320,7 +320,17 @@ class ProjectionEventApplier {
 
     void applyRoundSummaryPublished(RoundSummaryPublishedPayload payload) {
         var existing = lockGame(payload.gameId());
+        if (isSupersededOrGameEnded(payload.eraNumber(), existing)
+                || isStaleRoundSummary(payload, existing.lastRoundSummary())) {
+            log.warn(
+                    "RoundSummaryPublished for stale or ended era {} round {} in game {} — skipping",
+                    payload.eraNumber(),
+                    payload.roundNumber(),
+                    payload.gameId());
+            return;
+        }
         var summary = new LastRoundSummary(
+                payload.eraNumber(),
                 payload.roundNumber(),
                 payload.actionSummaries().stream()
                         .map(action -> new RoundActionSummary(
@@ -434,6 +444,12 @@ class ProjectionEventApplier {
         return known.phase() == Phase.GAME_ENDED
                 || payloadEraNumber < known.eraNumber()
                 || (payloadEraNumber == known.eraNumber() && known.phase().isEraOver());
+    }
+
+    private boolean isStaleRoundSummary(RoundSummaryPublishedPayload payload, LastRoundSummary known) {
+        return known != null
+                && (payload.eraNumber() < known.eraNumber()
+                        || (payload.eraNumber() == known.eraNumber() && payload.roundNumber() <= known.roundNumber()));
     }
 
     // isSupersededOrGameEnded only catches an era that has fully ended. A same-era message that targets a

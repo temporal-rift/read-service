@@ -607,7 +607,7 @@ class ProjectionEventApplierTest {
     void applyRoundSummaryPublished_replacesThePriorGameWideSummaryWithPublicFieldsOnly() {
         var playerId = UUID.randomUUID();
         var previous = new LastRoundSummary(
-                1, List.of(new RoundActionSummary(playerId, "PROBABILITY_SHIFTER", "CARD", false)));
+                1, 1, List.of(new RoundActionSummary(playerId, "PROBABILITY_SHIFTER", "CARD", false)));
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_2, List.of(), previous)));
         var payload = new RoundSummaryPublishedPayload(
@@ -627,13 +627,49 @@ class ProjectionEventApplierTest {
                         Phase.ACTION_ROUND_2,
                         List.of(),
                         new LastRoundSummary(
-                                2, List.of(new RoundActionSummary(playerId, "INFORMATION", "CARD", true)))));
+                                1, 2, List.of(new RoundActionSummary(playerId, "INFORMATION", "CARD", true)))));
+    }
+
+    @Test
+    void applyRoundSummaryPublished_doesNotReplaceANewerSummary() {
+        var playerId = UUID.randomUUID();
+        var current =
+                new LastRoundSummary(2, 1, List.of(new RoundActionSummary(playerId, "INFORMATION", "CARD", false)));
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_2, List.of(), current)));
+
+        applier.applyRoundSummaryPublished(new RoundSummaryPublishedPayload(
+                gameId,
+                1,
+                3,
+                List.of(new io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionSummary(
+                        playerId, "PROBABILITY_SHIFTER", "CARD", false))));
+
+        then(gameProjections).should(never()).save(any());
+    }
+
+    @Test
+    void applyRoundSummaryPublished_doesNotUpdateAnEndedGame() {
+        var playerId = UUID.randomUUID();
+        var current =
+                new LastRoundSummary(1, 3, List.of(new RoundActionSummary(playerId, "INFORMATION", "CARD", false)));
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.GAME_ENDED, List.of(), current)));
+
+        applier.applyRoundSummaryPublished(new RoundSummaryPublishedPayload(
+                gameId,
+                1,
+                3,
+                List.of(new io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionSummary(
+                        playerId, "INFORMATION", "CARD", false))));
+
+        then(gameProjections).should(never()).save(any());
     }
 
     @Test
     void applyActionRoundStarted_preservesTheLastRoundSummary() {
         var summary = new LastRoundSummary(
-                1, List.of(new RoundActionSummary(UUID.randomUUID(), "INFORMATION", "CARD", false)));
+                1, 1, List.of(new RoundActionSummary(UUID.randomUUID(), "INFORMATION", "CARD", false)));
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1, List.of(), summary)));
 
