@@ -230,13 +230,18 @@ class PlayerGameStateIT {
         awaitPhase(gameId, "ACTION_ROUND_1");
 
         for (var selectedCardInstanceId : selectedCardInstanceIds) {
-            publish(
-                    GAME_EVENTS_TOPIC,
-                    "CardPlayed",
-                    gameId,
-                    cardPlayedPayload(gameId, player1, selectedCardInstanceId, eventId, outcomeId));
+            var cardPlayedPayload = selectedCardInstanceId.equals(selectedCardInstanceIds.get(1))
+                    ? multiTargetCardPlayedPayload(
+                            gameId, player1, selectedCardInstanceId, List.of(eventId, UUID.randomUUID()))
+                    : cardPlayedPayload(gameId, player1, selectedCardInstanceId, eventId, outcomeId);
+            publish(GAME_EVENTS_TOPIC, "CardPlayed", gameId, cardPlayedPayload);
         }
         awaitMyHandSize(gameId, player1, 0);
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(player1)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$..targetEventIds").doesNotExist());
 
         publish(GAME_EVENTS_TOPIC, "ResolutionStarted", gameId, Map.of("gameId", gameId, "eraNumber", 1));
         awaitPhase(gameId, "RESOLUTION");
@@ -829,6 +834,20 @@ class PlayerGameStateIT {
         payload.put("targetEventId", targetEventId);
         payload.put("sourceOutcomeId", null);
         payload.put("targetOutcomeId", targetOutcomeId);
+        return payload;
+    }
+
+    private static Map<String, Object> multiTargetCardPlayedPayload(
+            UUID gameId, UUID playerId, UUID cardInstanceId, List<UUID> targetEventIds) {
+        var payload = new HashMap<String, Object>();
+        payload.put("gameId", gameId);
+        payload.put("eraNumber", 1);
+        payload.put("roundNumber", 1);
+        payload.put("playerId", playerId);
+        payload.put("cardInstanceId", cardInstanceId);
+        payload.put("cardType", "SCAN");
+        payload.put("grade", "I");
+        payload.put("targetEventIds", targetEventIds);
         return payload;
     }
 
