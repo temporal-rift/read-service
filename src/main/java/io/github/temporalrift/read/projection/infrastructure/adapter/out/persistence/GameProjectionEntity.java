@@ -10,6 +10,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
 
 import io.github.temporalrift.read.projection.domain.model.GameProjection;
@@ -38,8 +39,12 @@ class GameProjectionEntity {
     @Column(name = "last_round_summary_round_number")
     private Integer lastRoundSummaryRoundNumber;
 
+    @Column(name = "last_round_summary_era_number")
+    private Integer lastRoundSummaryEraNumber;
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "game_projection_last_round_summary_action", joinColumns = @JoinColumn(name = "game_id"))
+    @OrderColumn(name = "action_position")
     private List<LastRoundSummaryActionValue> lastRoundSummaryActions;
 
     protected GameProjectionEntity() {}
@@ -71,6 +76,7 @@ class GameProjectionEntity {
                 lastRoundSummaryRoundNumber == null
                         ? null
                         : new LastRoundSummary(
+                                lastRoundSummaryEraNumber,
                                 lastRoundSummaryRoundNumber,
                                 lastRoundSummaryActions.stream()
                                         .map(LastRoundSummaryActionValue::toDomain)
@@ -94,6 +100,7 @@ class GameProjectionEntity {
     }
 
     void setLastRoundSummary(LastRoundSummary lastRoundSummary) {
+        lastRoundSummaryEraNumber = lastRoundSummary == null ? null : lastRoundSummary.eraNumber();
         lastRoundSummaryRoundNumber = lastRoundSummary == null ? null : lastRoundSummary.roundNumber();
         lastRoundSummaryActions = lastRoundSummary == null
                 ? List.of()

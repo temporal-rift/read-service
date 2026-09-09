@@ -7,10 +7,14 @@
 
   <changeSet id="009-add-last-round-summary" author="read-service">
     <addColumn tableName="game_projection">
+      <column name="last_round_summary_era_number" type="INT"/>
       <column name="last_round_summary_round_number" type="INT"/>
     </addColumn>
     <createTable tableName="game_projection_last_round_summary_action">
       <column name="game_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="action_position" type="INT">
         <constraints nullable="false"/>
       </column>
       <column name="player_id" type="UUID">

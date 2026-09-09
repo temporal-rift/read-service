@@ -3,6 +3,7 @@ package io.github.temporalrift.read;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -91,7 +92,7 @@ class PlayerGameStateIT {
         mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
                         .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(player1)))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.lastRoundSummary").doesNotExist());
+                .andExpect(jsonPath("$.lastRoundSummary").value(nullValue()));
 
         publish(
                 GAME_EVENTS_TOPIC,
@@ -127,15 +128,25 @@ class PlayerGameStateIT {
                         "roundNumber",
                         2,
                         "actionSummaries",
-                        List.of(Map.of(
-                                "playerId",
-                                player2,
-                                "actionCategory",
-                                "INFORMATION",
-                                "actionFamily",
-                                "CARD",
-                                "skipped",
-                                true))));
+                        List.of(
+                                Map.of(
+                                        "playerId",
+                                        player2,
+                                        "actionCategory",
+                                        "INFORMATION",
+                                        "actionFamily",
+                                        "CARD",
+                                        "skipped",
+                                        true),
+                                Map.of(
+                                        "playerId",
+                                        player1,
+                                        "actionCategory",
+                                        "PROBABILITY_SHIFTER",
+                                        "actionFamily",
+                                        "CARD",
+                                        "skipped",
+                                        false))));
         awaitLastRoundSummary(gameId, 2);
 
         publish(
@@ -171,7 +182,11 @@ class PlayerGameStateIT {
                     .andExpect(jsonPath("$.lastRoundSummary.actionSummaries[0].cardType")
                             .doesNotExist())
                     .andExpect(jsonPath("$.lastRoundSummary.actionSummaries[0].targetEventId")
-                            .doesNotExist());
+                            .doesNotExist())
+                    .andExpect(jsonPath("$.lastRoundSummary.actionSummaries[1].playerId")
+                            .value(player1.toString()))
+                    .andExpect(jsonPath("$.lastRoundSummary.actionSummaries[1].actionCategory")
+                            .value("PROBABILITY_SHIFTER"));
         }
     }
 
