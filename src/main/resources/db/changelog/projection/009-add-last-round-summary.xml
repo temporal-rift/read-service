@@ -20,12 +20,8 @@
       <column name="player_id" type="UUID">
         <constraints nullable="false"/>
       </column>
-      <column name="action_category" type="VARCHAR(100)">
-        <constraints nullable="false"/>
-      </column>
-      <column name="action_family" type="VARCHAR(100)">
-        <constraints nullable="false"/>
-      </column>
+      <column name="action_category" type="VARCHAR(100)"/>
+      <column name="action_family" type="VARCHAR(100)"/>
       <column name="skipped" type="BOOLEAN">
         <constraints nullable="false"/>
       </column>

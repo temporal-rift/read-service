@@ -71,6 +71,7 @@ class PlayerGameStateIT {
         var gameId = UUID.randomUUID();
         var player1 = UUID.randomUUID();
         var player2 = UUID.randomUUID();
+        var player3 = UUID.randomUUID();
         publish(
                 GAME_EVENTS_TOPIC,
                 "GameStarted",
@@ -146,7 +147,11 @@ class PlayerGameStateIT {
                                         "actionFamily",
                                         "CARD",
                                         "skipped",
-                                        false))));
+                                        false),
+                                // A player who played no card at all: actionCategory/actionFamily are
+                                // legitimately absent (not just false-skipped-with-a-category), per the
+                                // event contract's ActionSummary schema, which only requires playerId/skipped.
+                                Map.of("playerId", player3, "skipped", true))));
         awaitLastRoundSummary(gameId, 2);
 
         publish(
@@ -186,8 +191,24 @@ class PlayerGameStateIT {
                     .andExpect(jsonPath("$.lastRoundSummary.actionSummaries[1].playerId")
                             .value(player1.toString()))
                     .andExpect(jsonPath("$.lastRoundSummary.actionSummaries[1].actionCategory")
-                            .value("PROBABILITY_SHIFTER"));
+                            .value("PROBABILITY_SHIFTER"))
+                    .andExpect(jsonPath("$.lastRoundSummary.actionSummaries[2].playerId")
+                            .value(player3.toString()))
+                    .andExpect(jsonPath("$.lastRoundSummary.actionSummaries[2].skipped")
+                            .value(true))
+                    .andExpect(jsonPath("$.lastRoundSummary.actionSummaries[2].actionCategory")
+                            .doesNotExist())
+                    .andExpect(jsonPath("$.lastRoundSummary.actionSummaries[2].actionFamily")
+                            .doesNotExist());
         }
+
+        assertThat(jdbcTemplate.queryForObject(
+                        "SELECT action_category FROM game_projection_last_round_summary_action "
+                                + "WHERE game_id = ? AND player_id = ?",
+                        String.class,
+                        gameId,
+                        player3))
+                .isNull();
     }
 
     @Test
