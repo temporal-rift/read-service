@@ -10,8 +10,10 @@ import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
 @Embeddable
 record LastRoundSummaryActionValue(
         @Column(name = "player_id", nullable = false) UUID playerId,
-        @Column(name = "action_category", nullable = false) String actionCategory,
-        @Column(name = "action_family", nullable = false) String actionFamily,
+        // Nullable: a skipped player played no card, so RoundSummaryPublished legitimately omits these for
+        // that entry (only playerId/skipped are required in the event contract).
+        @Column(name = "action_category") String actionCategory,
+        @Column(name = "action_family") String actionFamily,
         @Column(name = "skipped", nullable = false) boolean skipped) {
 
     static LastRoundSummaryActionValue fromDomain(RoundActionSummary summary) {
