@@ -64,4 +64,15 @@ class InboundEventClaimTest {
 
         assertThat(result).isEmpty();
     }
+
+    @Test
+    void accept_eventIdHeaderAsRawBytes_claimsAndReturnsEventId() {
+        var eventId = UUID.randomUUID();
+        var message = KafkaTestMessages.withEventIdBytes(eventId);
+        given(processedEvents.claim(eventId, "test-consumer")).willReturn(true);
+
+        var result = InboundEventClaim.accept(message, "test-consumer", processedEvents);
+
+        assertThat(result).contains(eventId);
+    }
 }

@@ -13,6 +13,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import io.github.temporalrift.read.shared.ProcessedEventPort;
 import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.InboundEventClaim;
+import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.MessageHeaders;
 
 /**
  * Consumes {@code game.events} — session/action/scoring facts from game-service, spread across three

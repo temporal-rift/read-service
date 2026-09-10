@@ -30,7 +30,7 @@ public final class InboundEventClaim {
     }
 
     private static UUID eventIdOf(Message<?> message) {
-        var raw = message.getHeaders().get("eventId", String.class);
+        var raw = MessageHeaders.asString(message, "eventId");
         if (raw == null) {
             return null;
         }

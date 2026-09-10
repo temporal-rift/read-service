@@ -17,6 +17,7 @@ import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.O
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
 import io.github.temporalrift.read.shared.ProcessedEventPort;
 import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.InboundEventClaim;
+import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.MessageHeaders;
 
 /**
  * Replays history facts from both source topics under one stable logical consumer identity.
