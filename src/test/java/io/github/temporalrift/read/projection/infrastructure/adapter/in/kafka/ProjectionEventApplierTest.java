@@ -24,6 +24,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundStartedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.PlayerJammedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.RoundSummaryPublishedPayload;
 import io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.ScoreUpdate;
 import io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.ScoresUpdatedPayload;
@@ -200,6 +201,62 @@ class ProjectionEventApplierTest {
         applier.applyFactionAssigned(new FactionAssignedPayload(gameId, playerId, Faction.ERASERS));
 
         then(playerGameStates).should().save(new PlayerGameState(gameId, playerId, "ERASERS", List.of()));
+    }
+
+    @Test
+    void applyPlayerJammed_setsJamFieldsFromPayload() {
+        var playerId = UUID.randomUUID();
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of())));
+
+        applier.applyPlayerJammed(new PlayerJammedPayload(gameId, 2, playerId, 3));
+
+        var captor = ArgumentCaptor.forClass(PlayerGameState.class);
+        then(playerGameStates).should().save(captor.capture());
+        assertThat(captor.getValue().jammedEraNumber()).isEqualTo(2);
+        assertThat(captor.getValue().jammedUntilRound()).isEqualTo(3);
+    }
+
+    @Test
+    void applyPlayerJammed_arrivesBeforeGameStarted_createsRowRatherThanDropping() {
+        var playerId = UUID.randomUUID();
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
+
+        applier.applyPlayerJammed(new PlayerJammedPayload(gameId, 1, playerId, 2));
+
+        var captor = ArgumentCaptor.forClass(PlayerGameState.class);
+        then(playerGameStates).should().save(captor.capture());
+        assertThat(captor.getValue().jammedEraNumber()).isEqualTo(1);
+        assertThat(captor.getValue().jammedUntilRound()).isEqualTo(2);
+    }
+
+    // An unrelated per-player event (e.g. a card played the same round) must not silently wipe a jam that
+    // hasn't been read yet — every reconstruction site must pass the existing jam fields through.
+    @Test
+    void applyCardPlayed_preservesAnAlreadyRecordedJam() {
+        var playerId = UUID.randomUUID();
+        var playedCard = new HandCard(UUID.randomUUID(), "PUSH");
+        var existing = new PlayerGameState(gameId, playerId, "ERASERS", List.of(playedCard), null, 1, 2);
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.of(existing));
+
+        applier.applyCardPlayed(new CardPlayedPayload(
+                gameId,
+                1,
+                1,
+                playerId,
+                playedCard.cardInstanceId(),
+                io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardType.PUSH,
+                io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardGrade.II,
+                null,
+                List.of(),
+                null,
+                null,
+                null));
+
+        var captor = ArgumentCaptor.forClass(PlayerGameState.class);
+        then(playerGameStates).should().save(captor.capture());
+        assertThat(captor.getValue().jammedEraNumber()).isEqualTo(1);
+        assertThat(captor.getValue().jammedUntilRound()).isEqualTo(2);
     }
 
     @Test

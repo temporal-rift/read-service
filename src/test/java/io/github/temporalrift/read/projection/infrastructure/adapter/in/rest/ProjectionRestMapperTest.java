@@ -134,7 +134,8 @@ class ProjectionRestMapperTest {
                 0,
                 List.of(),
                 List.of(),
-                new LastRoundSummary(2, 2, List.of(new RoundActionSummary(playerId, "INFORMATION", "CARD", false))));
+                new LastRoundSummary(2, 2, List.of(new RoundActionSummary(playerId, "INFORMATION", "CARD", false))),
+                null);
 
         var response = ProjectionRestMapper.toResponse(result);
 
@@ -147,6 +148,34 @@ class ProjectionRestMapperTest {
                 assertThat(action.getSkipped()).isFalse();
             });
         });
+    }
+
+    @Test
+    void toResponse_mapsMyJammedUntilRound() {
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID,
+                2,
+                Phase.ACTION_ROUND_2,
+                "ERASERS",
+                List.of(),
+                null,
+                List.of(),
+                0,
+                List.of(),
+                List.of(),
+                null,
+                3);
+
+        var response = ProjectionRestMapper.toResponse(result);
+
+        assertThat(response.getMyJammedUntilRound()).isEqualTo(3);
+    }
+
+    @Test
+    void toResponse_nullJammedUntilRoundMapsToNull() {
+        var response = ProjectionRestMapper.toResponse(resultWithHand(Phase.ACTION_ROUND_2, 2, List.of()));
+
+        assertThat(response.getMyJammedUntilRound()).isNull();
     }
 
     private static GetPlayerGameStateUseCase.Result resultWithFaction(String faction) {
