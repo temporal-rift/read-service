@@ -21,6 +21,14 @@ spring:
     properties:
       security.protocol: PLAINTEXT
 
+notification:
+  websocket:
+    # Self-contained copy so the test suite never depends on a live Config Server.
+    allowed-origins: http://localhost:*
+    send-time-limit: 10s
+    send-buffer-size: 512KB
+    max-pending-messages: 256
+
 logging:
   level:
     io.github.temporalrift: DEBUG
