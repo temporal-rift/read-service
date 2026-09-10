@@ -11,15 +11,11 @@ import jakarta.persistence.OptimisticLockException;
 import jakarta.persistence.RollbackException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.ObjectMapper;
 
-import io.github.temporalrift.read.TestSecurityConfig;
-import io.github.temporalrift.read.TestcontainersConfiguration;
+import io.github.temporalrift.read.ReadServiceIntegrationTest;
 import io.github.temporalrift.read.projection.domain.model.CarryForwardProbability;
 import io.github.temporalrift.read.projection.domain.model.DealtCard;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
@@ -27,9 +23,7 @@ import io.github.temporalrift.read.projection.domain.model.GameHistoryProjection
 import io.github.temporalrift.read.projection.domain.model.HistoryEventDefinition;
 import io.github.temporalrift.read.projection.domain.port.out.GameHistoryRepository;
 
-@SpringBootTest
-@ActiveProfiles("test")
-@Import({TestcontainersConfiguration.class, TestSecurityConfig.class})
+@ReadServiceIntegrationTest
 class GameHistoryPersistenceIT {
 
     @Autowired

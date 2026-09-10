@@ -13,10 +13,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -24,8 +21,7 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Ca
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EventsDrawnFutureEvent;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EventsDrawnPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.OutcomeAppliedPayload;
-import io.github.temporalrift.read.TestSecurityConfig;
-import io.github.temporalrift.read.TestcontainersConfiguration;
+import io.github.temporalrift.read.ReadServiceIntegrationTest;
 
 /**
  * Real transactional proof that the {@code game_projection} lock closes the
@@ -35,9 +31,7 @@ import io.github.temporalrift.read.TestcontainersConfiguration;
  * Postgres whether eventsDrawn's own backend PID is specifically in a lock-wait state, not by a fixed sleep
  * or an unscoped query that any unrelated session could satisfy.
  */
-@SpringBootTest
-@ActiveProfiles("test")
-@Import({TestcontainersConfiguration.class, TestSecurityConfig.class})
+@ReadServiceIntegrationTest
 class GameActiveEventConcurrencyIT {
 
     @Autowired

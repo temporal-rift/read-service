@@ -10,13 +10,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
-import org.springframework.test.context.ActiveProfiles;
 
-import io.github.temporalrift.read.TestcontainersConfiguration;
+import io.github.temporalrift.read.ReadServiceIntegrationTest;
 import io.github.temporalrift.read.notification.application.port.in.FanOutNotificationUseCase;
 import io.github.temporalrift.read.notification.domain.model.NotificationMessage;
 import io.github.temporalrift.read.notification.domain.model.NotificationRecipient;
@@ -24,9 +21,7 @@ import io.github.temporalrift.read.notification.domain.model.NotificationSession
 import io.github.temporalrift.read.notification.domain.model.NotificationSessionRegistry;
 import io.github.temporalrift.read.notification.domain.port.out.NotificationDeliveryPort;
 
-@SpringBootTest
-@ActiveProfiles("test")
-@Import(TestcontainersConfiguration.class)
+@ReadServiceIntegrationTest
 class NotificationFanOutIT {
 
     @Autowired

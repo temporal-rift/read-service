@@ -8,24 +8,19 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
-import org.springframework.test.context.ActiveProfiles;
 
-import io.github.temporalrift.read.TestcontainersConfiguration;
+import io.github.temporalrift.read.ReadServiceIntegrationTest;
 
 /**
  * Proves both consumer groups actually receive and idempotently claim real Kafka messages — the core acceptance
  * criterion of read-service issue #7 ("Both consumer groups receive test events in an IT").
  */
-@SpringBootTest
-@ActiveProfiles("test")
-@Import(TestcontainersConfiguration.class)
+@ReadServiceIntegrationTest
 class ProjectionKafkaConsumersIT {
 
     @Autowired
