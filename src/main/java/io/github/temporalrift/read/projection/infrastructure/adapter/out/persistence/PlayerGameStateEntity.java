@@ -57,46 +57,26 @@ class PlayerGameStateEntity {
 
     protected PlayerGameStateEntity() {}
 
-    PlayerGameStateEntity(
-            UUID id,
-            UUID gameId,
-            UUID playerId,
-            String myFaction,
-            List<PlayerGameStateHandCardValue> hand,
-            Instant pendingHandSelectionExpiresAt,
-            List<PlayerGameStatePendingHandCardValue> pendingHandSelectionCards,
-            Integer jammedEraNumber,
-            Integer jammedUntilRound) {
-        this.id = id;
-        this.gameId = gameId;
-        this.playerId = playerId;
-        this.myFaction = myFaction;
-        this.hand = hand;
-        this.pendingHandSelectionExpiresAt = pendingHandSelectionExpiresAt;
-        this.pendingHandSelectionCards = pendingHandSelectionCards;
-        this.jammedEraNumber = jammedEraNumber;
-        this.jammedUntilRound = jammedUntilRound;
-    }
-
     static PlayerGameStateEntity fromDomain(UUID id, PlayerGameState domain) {
-        return new PlayerGameStateEntity(
-                id,
-                domain.gameId(),
-                domain.playerId(),
-                domain.myFaction(),
-                domain.myHand().stream()
-                        .map(PlayerGameStateHandCardValue::fromDomain)
-                        .toList(),
-                domain.pendingHandSelection() == null
-                        ? null
-                        : domain.pendingHandSelection().expiresAt(),
-                domain.pendingHandSelection() == null
-                        ? List.of()
-                        : domain.pendingHandSelection().cards().stream()
-                                .map(PlayerGameStatePendingHandCardValue::fromDomain)
-                                .toList(),
-                domain.jammedEraNumber(),
-                domain.jammedUntilRound());
+        var entity = new PlayerGameStateEntity();
+        entity.id = id;
+        entity.gameId = domain.gameId();
+        entity.playerId = domain.playerId();
+        entity.myFaction = domain.myFaction();
+        entity.hand = domain.myHand().stream()
+                .map(PlayerGameStateHandCardValue::fromDomain)
+                .toList();
+        entity.pendingHandSelectionExpiresAt = domain.pendingHandSelection() == null
+                ? null
+                : domain.pendingHandSelection().expiresAt();
+        entity.pendingHandSelectionCards = domain.pendingHandSelection() == null
+                ? List.of()
+                : domain.pendingHandSelection().cards().stream()
+                        .map(PlayerGameStatePendingHandCardValue::fromDomain)
+                        .toList();
+        entity.jammedEraNumber = domain.jammedEraNumber();
+        entity.jammedUntilRound = domain.jammedUntilRound();
+        return entity;
     }
 
     PlayerGameState toDomain() {
