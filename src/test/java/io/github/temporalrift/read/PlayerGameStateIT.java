@@ -710,6 +710,98 @@ class PlayerGameStateIT {
     }
 
     @Test
+    void playerJammed_isVisibleOnlyToTheSuppressedPlayerAndClearsAfterTheNamedRoundOrEra() throws Exception {
+        var gameId = UUID.randomUUID();
+        var suppressedPlayer = UUID.randomUUID();
+        var otherPlayer = UUID.randomUUID();
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "GameStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "lobbyId",
+                        UUID.randomUUID(),
+                        "playerIds",
+                        List.of(suppressedPlayer, otherPlayer),
+                        "totalFactions",
+                        3,
+                        "deckSize",
+                        30));
+        awaitPlayerGameStateRowExists(gameId, suppressedPlayer);
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "EraStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "carryOverEventIds",
+                        List.of(),
+                        "playerIds",
+                        List.of(suppressedPlayer, otherPlayer)));
+        publish(
+                GAME_EVENTS_TOPIC,
+                "ActionRoundStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "roundNumber",
+                        1,
+                        "timerSeconds",
+                        60,
+                        "pendingPlayerIds",
+                        List.of(suppressedPlayer, otherPlayer)));
+        awaitPhase(gameId, "ACTION_ROUND_1");
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "PlayerJammed",
+                gameId,
+                Map.of("gameId", gameId, "eraNumber", 1, "playerId", suppressedPlayer, "jammedUntilRound", 2));
+        awaitJammedUntilRound(gameId, suppressedPlayer, 2);
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(suppressedPlayer)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.myJammedUntilRound").value(2));
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(otherPlayer)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.myJammedUntilRound").value(nullValue()));
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "ActionRoundStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "roundNumber",
+                        3,
+                        "timerSeconds",
+                        30,
+                        "pendingPlayerIds",
+                        List.of(suppressedPlayer, otherPlayer)));
+        awaitPhase(gameId, "ACTION_ROUND_3");
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(suppressedPlayer)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.myJammedUntilRound").value(nullValue()));
+    }
+
+    @Test
     void nonParticipant_getState_returns404() throws Exception {
         var gameId = UUID.randomUUID();
         var participant = UUID.randomUUID();
@@ -1058,6 +1150,16 @@ class PlayerGameStateIT {
                                 gameId,
                                 playerId))
                         .isEqualTo(faction));
+    }
+
+    private void awaitJammedUntilRound(UUID gameId, UUID playerId, int jammedUntilRound) {
+        await().atMost(Duration.ofSeconds(30))
+                .untilAsserted(() -> assertThat(jdbcTemplate.queryForObject(
+                                "SELECT jammed_until_round FROM player_game_state WHERE game_id = ? AND player_id = ?",
+                                Integer.class,
+                                gameId,
+                                playerId))
+                        .isEqualTo(jammedUntilRound));
     }
 
     private void awaitLastRoundSummary(UUID gameId, int roundNumber) {

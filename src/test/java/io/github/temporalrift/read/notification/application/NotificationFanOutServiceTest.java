@@ -78,6 +78,26 @@ class NotificationFanOutServiceTest {
     }
 
     @Test
+    void targetsPlayerJammedToTheSuppressedPlayerOnly() {
+        var gameId = UUID.randomUUID();
+        var suppressedPlayerId = UUID.randomUUID();
+        var suppressed = mock(NotificationDeliveryPort.class);
+        var otherOne = mock(NotificationDeliveryPort.class);
+        var otherTwo = mock(NotificationDeliveryPort.class);
+        var registry = new NotificationSessionRegistry();
+        registry.register(activeSession("suppressed", gameId, suppressedPlayerId, suppressed));
+        registry.register(activeSession("other-one", gameId, UUID.randomUUID(), otherOne));
+        registry.register(activeSession("other-two", gameId, UUID.randomUUID(), otherTwo));
+        var service = new NotificationFanOutService(new NotificationPolicy(), registry, new ObjectMapper());
+
+        service.fanOut(message(gameId, "PlayerJammed", "{\"playerId\":\"" + suppressedPlayerId + "\"}"));
+
+        verify(suppressed).send(any());
+        verify(otherOne, never()).send(any());
+        verify(otherTwo, never()).send(any());
+    }
+
+    @Test
     void dropsTargetedEventWithoutPlayerId() {
         var gameId = UUID.randomUUID();
         var recipient = mock(NotificationDeliveryPort.class);

@@ -143,6 +143,38 @@ class GetPlayerGameStateQueryHandlerTest {
     }
 
     @Test
+    void get_playerCurrentlyJammed_includesTheirJammedUntilRound() {
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of(), null, 2, 3)));
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_2)));
+        given(gamePlayers.findByGameId(gameId)).willReturn(List.of());
+        given(gameActiveEvents.findByGameId(gameId)).willReturn(List.of());
+        given(revealedProbabilityIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(List.of());
+
+        var result = handler.get(gameId, playerId);
+
+        assertThat(result.myJammedUntilRound()).isEqualTo(3);
+    }
+
+    @Test
+    void get_jamFromAPastRound_isNull() {
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of(), null, 2, 1)));
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_3)));
+        given(gamePlayers.findByGameId(gameId)).willReturn(List.of());
+        given(gameActiveEvents.findByGameId(gameId)).willReturn(List.of());
+        given(revealedProbabilityIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(List.of());
+
+        var result = handler.get(gameId, playerId);
+
+        assertThat(result.myJammedUntilRound()).isNull();
+    }
+
+    @Test
     void get_nonParticipant_throwsPlayerNotInGame() {
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
 
