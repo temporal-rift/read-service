@@ -1,6 +1,8 @@
 spring:
   application:
     name: read-service
+  config:
+    import: "optional:configserver:${CONFIG_SERVER_URI:http://config-server:8888}"
   jackson:
     default-property-inclusion: non_null
   threads:
@@ -78,10 +80,3 @@ logging:
 server:
   address: 0.0.0.0
   port: ${PORT:8080}
-
-notification:
-  websocket:
-    allowed-origins: ${NOTIFICATION_WEBSOCKET_ALLOWED_ORIGINS:http://localhost:*}
-    send-time-limit: 10s
-    send-buffer-size: 512KB
-    max-pending-messages: 256
