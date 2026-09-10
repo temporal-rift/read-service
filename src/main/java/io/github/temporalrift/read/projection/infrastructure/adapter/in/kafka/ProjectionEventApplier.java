@@ -109,8 +109,14 @@ class ProjectionEventApplier {
 
     // The suppressed player's private reveal (design.md "Store the raw jam fact; compute 'is it still active'
     // at read time") — find-or-create matches applyFactionAssigned's precedent for the same out-of-order race.
+    // Eras never move backward within a game, so a payload older than the last-recorded jam era can only be a
+    // delayed resubmission of a stale event; applying it would wrongly revert an already-superseded jam.
     void applyPlayerJammed(PlayerJammedPayload payload) {
         var existing = findOrCreatePlayerGameState(payload.gameId(), payload.playerId());
+        if (existing.jammedEraNumber() != null && payload.eraNumber() < existing.jammedEraNumber()) {
+            log.warn("PlayerJammed for past era {} in game {} — skipping", payload.eraNumber(), payload.gameId());
+            return;
+        }
         playerGameStates.save(new PlayerGameState(
                 existing.gameId(),
                 existing.playerId(),

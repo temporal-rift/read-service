@@ -217,6 +217,20 @@ class ProjectionEventApplierTest {
         assertThat(captor.getValue().jammedUntilRound()).isEqualTo(3);
     }
 
+    // IncompleteEventPublicationResubmitter can resubmit a failed send out of original order, so a stale
+    // era-1 PlayerJammed arriving after an era-2 one was already recorded is a real possibility — it must not
+    // revert the player's already-superseded jam back to the earlier era's values.
+    @Test
+    void applyPlayerJammed_arrivingAfterANewerEraJam_isIgnored() {
+        var playerId = UUID.randomUUID();
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of(), null, 2, 3)));
+
+        applier.applyPlayerJammed(new PlayerJammedPayload(gameId, 1, playerId, 2));
+
+        then(playerGameStates).should(never()).save(any());
+    }
+
     @Test
     void applyPlayerJammed_arrivesBeforeGameStarted_createsRowRatherThanDropping() {
         var playerId = UUID.randomUUID();
