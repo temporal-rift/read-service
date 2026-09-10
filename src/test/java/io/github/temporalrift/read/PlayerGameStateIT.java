@@ -20,16 +20,12 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.JsonKafkaHeaderMapper;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
@@ -44,10 +40,7 @@ import io.github.temporalrift.read.shared.infrastructure.config.PlayerAuthentica
  * advances", "own faction private / other factions hidden until reveal", and "non-participant is rejected"
  * scenarios.
  */
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-@Import({TestcontainersConfiguration.class, TestSecurityConfig.class})
+@ReadServiceIntegrationTest
 class PlayerGameStateIT {
 
     private static final String GAME_EVENTS_TOPIC = "game.events";
