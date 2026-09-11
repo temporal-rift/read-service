@@ -685,10 +685,28 @@ class ProjectionEventApplierTest {
 
         then(gameProjections).should().save(new GameProjection(gameId, 3, Phase.GAME_ENDED));
         then(gamePlayers).should().save(gameId, new GamePlayer(playerId, 20, true, "ERASERS"));
-        then(revealedProbabilityIntel).should().deleteByGameIdAndEraNumber(gameId, 3);
-        then(revealedInfluenceIntel).should().deleteByGameIdAndEraNumber(gameId, 3);
-        then(revealedHandCardIntel).should().deleteByGameIdAndEraNumber(gameId, 3);
+        then(revealedProbabilityIntel).should().deleteByGameId(gameId);
+        then(revealedInfluenceIntel).should().deleteByGameId(gameId);
+        then(revealedHandCardIntel).should().deleteByGameId(gameId);
         then(gameActiveEvents).should().deleteByGameId(gameId);
+    }
+
+    @Test
+    void applyGameEnded_withLaggingProjection_clearsIntelFromAllErasNotJustTheKnownOne() {
+        // An out-of-order future-era reveal can be persisted while the projection still
+        // lags on an earlier era; the terminal clear must not orphan that row.
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
+
+        applier.applyGameEnded(new GameEndedPayload(gameId, "SCORE_THRESHOLD", List.of()));
+
+        then(gameProjections).should().save(new GameProjection(gameId, 1, Phase.GAME_ENDED));
+        then(revealedProbabilityIntel).should().deleteByGameId(gameId);
+        then(revealedInfluenceIntel).should().deleteByGameId(gameId);
+        then(revealedHandCardIntel).should().deleteByGameId(gameId);
+        then(revealedProbabilityIntel).should(never()).deleteByGameIdAndEraNumber(any(), anyInt());
+        then(revealedInfluenceIntel).should(never()).deleteByGameIdAndEraNumber(any(), anyInt());
+        then(revealedHandCardIntel).should(never()).deleteByGameIdAndEraNumber(any(), anyInt());
     }
 
     @Test
@@ -699,6 +717,9 @@ class ProjectionEventApplierTest {
         applier.applyGameEnded(new GameEndedPayload(gameId, "SCORE_THRESHOLD", List.of()));
 
         then(gameProjections).should(never()).save(any());
+        then(revealedProbabilityIntel).should(never()).deleteByGameId(any());
+        then(revealedInfluenceIntel).should(never()).deleteByGameId(any());
+        then(revealedHandCardIntel).should(never()).deleteByGameId(any());
         then(gameActiveEvents).should(never()).deleteByGameId(any());
     }
 

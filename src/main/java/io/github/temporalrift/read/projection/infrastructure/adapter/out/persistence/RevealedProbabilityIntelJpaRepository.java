@@ -17,4 +17,7 @@ interface RevealedProbabilityIntelJpaRepository extends JpaRepository<RevealedPr
 
     @Transactional
     void deleteByGameIdAndEraNumber(UUID gameId, int eraNumber);
+
+    @Transactional
+    void deleteByGameId(UUID gameId);
 }

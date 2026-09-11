@@ -13,4 +13,10 @@ public interface RevealedIntelRepository<D extends RevealedIntelEntry> {
     void upsertLatest(D intel);
 
     void deleteByGameIdAndEraNumber(UUID gameId, int eraNumber);
+
+    /**
+     * Removes every row for the game across all eras. Only the terminal game end may use
+     * this: era ends clear only their own era, since intel for other eras must survive.
+     */
+    void deleteByGameId(UUID gameId);
 }

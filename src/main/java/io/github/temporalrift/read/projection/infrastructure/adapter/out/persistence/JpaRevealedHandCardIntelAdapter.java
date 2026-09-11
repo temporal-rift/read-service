@@ -41,4 +41,9 @@ class JpaRevealedHandCardIntelAdapter implements RevealedHandCardIntelRepository
     public void deleteByGameIdAndEraNumber(UUID gameId, int eraNumber) {
         repository.deleteByGameIdAndEraNumber(gameId, eraNumber);
     }
+
+    @Override
+    public void deleteByGameId(UUID gameId) {
+        repository.deleteByGameId(gameId);
+    }
 }

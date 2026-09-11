@@ -17,4 +17,7 @@ interface RevealedHandCardIntelJpaRepository extends JpaRepository<RevealedHandC
 
     @Transactional
     void deleteByGameIdAndEraNumber(UUID gameId, int eraNumber);
+
+    @Transactional
+    void deleteByGameId(UUID gameId);
 }

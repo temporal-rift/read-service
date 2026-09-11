@@ -115,6 +115,13 @@ class JpaRevealedHandCardIntelAdapterTest {
         then(repository).should().deleteByGameIdAndEraNumber(gameId, 2);
     }
 
+    @Test
+    void deleteByGameId_delegatesTheWholeGameKey() {
+        adapter.deleteByGameId(gameId);
+
+        then(repository).should().deleteByGameId(gameId);
+    }
+
     private RevealedHandCardIntel intel(int observedInRound, List<RevealedHandCard> cards) {
         return new RevealedHandCardIntel(gameId, playerId, 2, targetPlayerId, observedInRound, cards);
     }
