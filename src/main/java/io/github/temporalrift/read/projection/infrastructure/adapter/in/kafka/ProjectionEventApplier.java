@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundStartedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.HandCardInterceptedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.InfluenceTracedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.PlayerJammedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.RoundSummaryPublishedPayload;
@@ -41,6 +42,8 @@ import io.github.temporalrift.read.projection.domain.model.PendingHandCard;
 import io.github.temporalrift.read.projection.domain.model.PendingHandSelection;
 import io.github.temporalrift.read.projection.domain.model.Phase;
 import io.github.temporalrift.read.projection.domain.model.PlayerGameState;
+import io.github.temporalrift.read.projection.domain.model.RevealedHandCard;
+import io.github.temporalrift.read.projection.domain.model.RevealedHandCardIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedInfluenceIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
@@ -49,6 +52,7 @@ import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRep
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameProjectionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PlayerGameStateRepository;
+import io.github.temporalrift.read.projection.domain.port.out.RevealedHandCardIntelRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedInfluenceIntelRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedProbabilityIntelRepository;
 
@@ -69,6 +73,7 @@ class ProjectionEventApplier {
     private final PlayerGameStateRepository playerGameStates;
     private final RevealedProbabilityIntelRepository revealedProbabilityIntel;
     private final RevealedInfluenceIntelRepository revealedInfluenceIntel;
+    private final RevealedHandCardIntelRepository revealedHandCardIntel;
 
     ProjectionEventApplier(
             GameProjectionRepository gameProjections,
@@ -76,13 +81,15 @@ class ProjectionEventApplier {
             GameActiveEventRepository gameActiveEvents,
             PlayerGameStateRepository playerGameStates,
             RevealedProbabilityIntelRepository revealedProbabilityIntel,
-            RevealedInfluenceIntelRepository revealedInfluenceIntel) {
+            RevealedInfluenceIntelRepository revealedInfluenceIntel,
+            RevealedHandCardIntelRepository revealedHandCardIntel) {
         this.gameProjections = gameProjections;
         this.gamePlayers = gamePlayers;
         this.gameActiveEvents = gameActiveEvents;
         this.playerGameStates = playerGameStates;
         this.revealedProbabilityIntel = revealedProbabilityIntel;
         this.revealedInfluenceIntel = revealedInfluenceIntel;
+        this.revealedHandCardIntel = revealedHandCardIntel;
     }
 
     // Preserves rather than overwrites: a per-player event can arrive, and find-or-create a row,
@@ -247,6 +254,7 @@ class ProjectionEventApplier {
                 payload.gameId(), payload.eraNumber(), Phase.ERA_END, List.of(), existing.lastRoundSummary()));
         revealedProbabilityIntel.deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
         revealedInfluenceIntel.deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
+        revealedHandCardIntel.deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
         // Defensive clear — design.md Decision 6. Every drawn event currently gets an OutcomeApplied (no
         // cascade/paradox handling exists yet), so this is normally a no-op.
         gameActiveEvents.deleteByGameId(payload.gameId());
@@ -265,6 +273,7 @@ class ProjectionEventApplier {
                 payload.gameId(), eraNumber, Phase.GAME_ENDED, List.of(), existing.lastRoundSummary()));
         revealedProbabilityIntel.deleteByGameIdAndEraNumber(payload.gameId(), eraNumber);
         revealedInfluenceIntel.deleteByGameIdAndEraNumber(payload.gameId(), eraNumber);
+        revealedHandCardIntel.deleteByGameIdAndEraNumber(payload.gameId(), eraNumber);
         gameActiveEvents.deleteByGameId(payload.gameId());
         for (var finalScore : payload.finalScores()) {
             gamePlayers
@@ -440,6 +449,29 @@ class ProjectionEventApplier {
                 payload.targetEventId(),
                 payload.roundNumber(),
                 payload.influencerPlayerIds() == null ? List.of() : payload.influencerPlayerIds()));
+    }
+
+    // Intercept is observe-only: the target's hand is never mutated here — only CardPlayed
+    // removes cards. The intel identity's eventId carries the observed target player.
+    void applyHandCardIntercepted(HandCardInterceptedPayload payload) {
+        if (isStaleEra(payload.gameId(), payload.eraNumber(), "HandCardIntercepted")) {
+            return;
+        }
+        var cards = payload.revealedCards() == null
+                ? List.<RevealedHandCard>of()
+                : payload.revealedCards().stream()
+                        .map(card -> new RevealedHandCard(
+                                card.cardInstanceId(),
+                                card.cardType().name(),
+                                card.grade().name()))
+                        .toList();
+        revealedHandCardIntel.upsertLatest(new RevealedHandCardIntel(
+                payload.gameId(),
+                payload.playerId(),
+                payload.eraNumber(),
+                payload.targetPlayerId(),
+                payload.roundNumber(),
+                cards));
     }
 
     void applyParadoxResolutionPhaseStarted(ParadoxResolutionPhaseStartedPayload payload) {

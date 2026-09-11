@@ -10,6 +10,7 @@ public final class NotificationPolicy {
             "HandSelected",
             "ProbabilityStateRevealed",
             "InfluenceTraced",
+            "HandCardIntercepted",
             "PlayerJammed");
     private static final Set<String> NEVER = Set.of(
             "CardPlayed",

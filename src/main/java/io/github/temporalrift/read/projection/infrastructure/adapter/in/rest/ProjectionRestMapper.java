@@ -11,6 +11,7 @@ import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
 import io.github.temporalrift.read.projection.domain.model.Phase;
+import io.github.temporalrift.read.projection.domain.model.RevealedHandCardIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedInfluenceIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedIntelEntry;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
@@ -27,6 +28,7 @@ import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerGameStateResponse;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerInGame;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ResolvedOutcome;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.RevealedHandCard;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.RevealedIntel;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.RevealedProbabilityOutcome;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.RoundSummary;
@@ -80,6 +82,7 @@ final class ProjectionRestMapper {
         return switch (domain) {
             case RevealedProbabilityIntel probability -> toProbabilityIntel(probability);
             case RevealedInfluenceIntel influence -> toInfluenceIntel(influence);
+            case RevealedHandCardIntel handCard -> toHandCardIntel(handCard);
         };
     }
 
@@ -96,6 +99,15 @@ final class ProjectionRestMapper {
     private static RevealedIntel toInfluenceIntel(RevealedInfluenceIntel domain) {
         var response = new RevealedIntel(RevealedIntel.KindEnum.INFLUENCE, domain.observedInRound(), domain.eventId());
         response.setInfluencerPlayerIds(List.copyOf(domain.influencerPlayerIds()));
+        return response;
+    }
+
+    private static RevealedIntel toHandCardIntel(RevealedHandCardIntel domain) {
+        var response = new RevealedIntel(RevealedIntel.KindEnum.HAND_CARD, domain.observedInRound(), domain.eventId());
+        response.setTargetPlayerId(domain.targetPlayerId());
+        response.setRevealedCards(domain.revealedCards().stream()
+                .map(card -> new RevealedHandCard(card.cardInstanceId(), card.cardType(), toCardGrade(card.grade())))
+                .toList());
         return response;
     }
 

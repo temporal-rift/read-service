@@ -118,6 +118,26 @@ class NotificationFanOutServiceTest {
     }
 
     @Test
+    void targetsHandCardInterceptedToTheInterceptingPlayerOnly() {
+        var gameId = UUID.randomUUID();
+        var viewerId = UUID.randomUUID();
+        var viewer = mock(NotificationDeliveryPort.class);
+        var otherOne = mock(NotificationDeliveryPort.class);
+        var otherTwo = mock(NotificationDeliveryPort.class);
+        var registry = new NotificationSessionRegistry();
+        registry.register(activeSession("viewer", gameId, viewerId, viewer));
+        registry.register(activeSession("other-one", gameId, UUID.randomUUID(), otherOne));
+        registry.register(activeSession("other-two", gameId, UUID.randomUUID(), otherTwo));
+        var service = new NotificationFanOutService(new NotificationPolicy(), registry, new ObjectMapper());
+
+        service.fanOut(message(gameId, "HandCardIntercepted", "{\"playerId\":\"" + viewerId + "\"}"));
+
+        verify(viewer).send(any());
+        verify(otherOne, never()).send(any());
+        verify(otherTwo, never()).send(any());
+    }
+
+    @Test
     void dropsTargetedEventWithoutPlayerId() {
         var gameId = UUID.randomUUID();
         var recipient = mock(NotificationDeliveryPort.class);

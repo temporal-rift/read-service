@@ -19,6 +19,7 @@ import org.springframework.messaging.support.MessageBuilder;
 import tools.jackson.databind.ObjectMapper;
 
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.HandCardInterceptedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.InfluenceTracedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.RoundSummaryPublishedPayload;
 import io.github.temporalrift.read.shared.ProcessedEventPort;
@@ -244,5 +245,45 @@ class GameEventsKafkaConsumerTest {
         var payloadCaptor = ArgumentCaptor.forClass(InfluenceTracedPayload.class);
         then(applier).should().applyInfluenceTraced(payloadCaptor.capture());
         assertThat(payloadCaptor.getValue().influencerPlayerIds()).isEmpty();
+    }
+
+    @Test
+    void handle_handCardIntercepted_dispatchesToApplier() {
+        var eventId = UUID.randomUUID();
+        var gameId = UUID.randomUUID();
+        var viewerId = UUID.randomUUID();
+        var targetPlayerId = UUID.randomUUID();
+        var cardInstanceId = UUID.randomUUID();
+        var payload = """
+                {
+                  "gameId": "%s",
+                  "eraNumber": 1,
+                  "roundNumber": 2,
+                  "playerId": "%s",
+                  "targetPlayerId": "%s",
+                  "revealedCards": [{
+                    "cardInstanceId": "%s",
+                    "cardType": "SWING",
+                    "grade": "III"
+                  }]
+                }
+                """.formatted(gameId, viewerId, targetPlayerId, cardInstanceId);
+        var message = MessageBuilder.withPayload((Object) payload.getBytes(StandardCharsets.UTF_8))
+                .setHeader("eventId", eventId.toString())
+                .setHeader("eventType", "HandCardIntercepted")
+                .build();
+        given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
+
+        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper()).handle(message);
+
+        var payloadCaptor = ArgumentCaptor.forClass(HandCardInterceptedPayload.class);
+        then(applier).should().applyHandCardIntercepted(payloadCaptor.capture());
+        assertThat(payloadCaptor.getValue().playerId()).isEqualTo(viewerId);
+        assertThat(payloadCaptor.getValue().targetPlayerId()).isEqualTo(targetPlayerId);
+        assertThat(payloadCaptor.getValue().revealedCards()).singleElement().satisfies(card -> {
+            assertThat(card.cardInstanceId()).isEqualTo(cardInstanceId);
+            assertThat(card.cardType().name()).isEqualTo("SWING");
+            assertThat(card.grade().name()).isEqualTo("III");
+        });
     }
 }
