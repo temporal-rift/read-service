@@ -29,7 +29,11 @@ import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardGrade;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardType;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.HandCardInterceptedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.InfluenceTracedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.InterceptedHandCard;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedOutcomeState;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedPayload;
 import io.github.temporalrift.read.shared.PlayerPrincipal;
@@ -1057,6 +1061,145 @@ class PlayerGameStateIT {
                 .andExpect(jsonPath("$.myRevealedIntel").isEmpty());
     }
 
+    @Test
+    void interceptedHandCard_survivesReconnectWithoutLeakingClearsAtEraEndAndLeavesTargetHandIntact() throws Exception {
+        var gameId = UUID.randomUUID();
+        var interceptingPlayerId = UUID.randomUUID();
+        var targetPlayerId = UUID.randomUUID();
+        var otherPlayerId = UUID.randomUUID();
+        var revealedCardInstanceId = UUID.randomUUID();
+        var targetCardOne = UUID.randomUUID();
+        var targetCardTwo = UUID.randomUUID();
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "GameStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "lobbyId",
+                        UUID.randomUUID(),
+                        "playerIds",
+                        List.of(interceptingPlayerId, targetPlayerId, otherPlayerId),
+                        "totalFactions",
+                        3,
+                        "deckSize",
+                        30));
+        awaitPlayerGameStateRowExists(gameId, interceptingPlayerId);
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "EraStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "carryOverEventIds",
+                        List.of(),
+                        "playerIds",
+                        List.of(interceptingPlayerId, targetPlayerId, otherPlayerId)));
+        awaitPhase(gameId, "ERA_START");
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "HandSelected",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "playerId",
+                        targetPlayerId,
+                        "selectionOrigin",
+                        "PLAYER",
+                        "cards",
+                        List.of(
+                                dealtCard(targetCardOne, "PUSH", "II", 1),
+                                dealtCard(targetCardTwo, "SWING", "III", 2),
+                                dealtCard(UUID.randomUUID(), "SCAN", "I", 3),
+                                dealtCard(UUID.randomUUID(), "TRACE", "I", 4),
+                                dealtCard(UUID.randomUUID(), "JAM", "I", 5))));
+        awaitMyHandSize(gameId, targetPlayerId, 5);
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "HandCardIntercepted",
+                gameId,
+                new HandCardInterceptedPayload(
+                        gameId,
+                        1,
+                        1,
+                        interceptingPlayerId,
+                        targetPlayerId,
+                        List.of(new InterceptedHandCard(revealedCardInstanceId, CardType.SWING, CardGrade.III))));
+        awaitHandCardIntelCount(gameId, interceptingPlayerId, 1, 1);
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(interceptingPlayerId)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.myRevealedIntel.length()").value(1))
+                .andExpect(jsonPath("$.myRevealedIntel[0].kind").value("HAND_CARD"))
+                .andExpect(jsonPath("$.myRevealedIntel[0].observedInRound").value(1))
+                .andExpect(jsonPath("$.myRevealedIntel[0].eventId").value(targetPlayerId.toString()))
+                .andExpect(jsonPath("$.myRevealedIntel[0].targetPlayerId").value(targetPlayerId.toString()))
+                .andExpect(
+                        jsonPath("$.myRevealedIntel[0].revealedCards.length()").value(1))
+                .andExpect(jsonPath("$.myRevealedIntel[0].revealedCards[0].cardInstanceId")
+                        .value(revealedCardInstanceId.toString()))
+                .andExpect(jsonPath("$.myRevealedIntel[0].revealedCards[0].cardType")
+                        .value("SWING"))
+                .andExpect(
+                        jsonPath("$.myRevealedIntel[0].revealedCards[0].grade").value("III"));
+
+        assertThatHandCardIntelCardCount(gameId, interceptingPlayerId, 1, targetPlayerId, 1);
+
+        // The observed hand is never mutated by the reveal, and no other session learns anything.
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(targetPlayerId)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.myRevealedIntel").isEmpty())
+                .andExpect(jsonPath("$.myHand.length()").value(5));
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(otherPlayerId)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.myRevealedIntel").isEmpty());
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "EraEnded",
+                gameId,
+                Map.of("gameId", gameId, "eraNumber", 1, "cascadedParadoxCount", 0, "nextEraNumber", 2));
+        awaitPhase(gameId, "ERA_END");
+        awaitHandCardIntelCount(gameId, interceptingPlayerId, 1, 0);
+
+        var lateRevealEventId = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "HandCardIntercepted",
+                        gameId,
+                        new HandCardInterceptedPayload(
+                                gameId,
+                                1,
+                                1,
+                                interceptingPlayerId,
+                                targetPlayerId,
+                                List.of(new InterceptedHandCard(UUID.randomUUID(), CardType.PUSH, CardGrade.II))),
+                        lateRevealEventId)
+                .join();
+        awaitProcessed(lateRevealEventId, "projection.game-events");
+        assertThatHandCardIntelCount(gameId, interceptingPlayerId, 1, 0);
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(interceptingPlayerId)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.myRevealedIntel").isEmpty());
+    }
+
     // game.events and timeline.events are independent consumer groups with no ordering guarantee between
     // them, so EraEnded and a same-era ProbabilityStateRevealed genuinely race on separate threads here —
     // this isn't simulated. Repeated across fresh games to actually exercise both interleavings rather than
@@ -1381,6 +1524,35 @@ class PlayerGameStateIT {
                         playerId,
                         eraNumber))
                 .isEqualTo(expected);
+    }
+
+    private void awaitHandCardIntelCount(UUID gameId, UUID playerId, int eraNumber, int expected) {
+        await().atMost(Duration.ofSeconds(30))
+                .untilAsserted(() -> assertThatHandCardIntelCount(gameId, playerId, eraNumber, expected));
+    }
+
+    private void assertThatHandCardIntelCount(UUID gameId, UUID playerId, int eraNumber, int expected) {
+        assertThat(jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM revealed_hand_card_intel "
+                                + "WHERE game_id = ? AND player_id = ? AND era_number = ?",
+                        Integer.class,
+                        gameId,
+                        playerId,
+                        eraNumber))
+                .isEqualTo(expected);
+    }
+
+    private void assertThatHandCardIntelCardCount(
+            UUID gameId, UUID playerId, int eraNumber, UUID targetPlayerId, int expectedCount) {
+        assertThat(jdbcTemplate.queryForObject(
+                        "SELECT jsonb_array_length(revealed_cards) FROM revealed_hand_card_intel "
+                                + "WHERE game_id = ? AND player_id = ? AND era_number = ? AND event_id = ?",
+                        Integer.class,
+                        gameId,
+                        playerId,
+                        eraNumber,
+                        targetPlayerId))
+                .isEqualTo(expectedCount);
     }
 
     private void assertThatInfluenceIntelInfluencers(

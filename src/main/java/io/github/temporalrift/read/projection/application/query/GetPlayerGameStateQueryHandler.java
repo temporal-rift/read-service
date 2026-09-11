@@ -16,6 +16,7 @@ import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRep
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameProjectionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PlayerGameStateRepository;
+import io.github.temporalrift.read.projection.domain.port.out.RevealedHandCardIntelRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedInfluenceIntelRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedProbabilityIntelRepository;
 
@@ -28,6 +29,7 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
     private final PlayerGameStateRepository playerGameStates;
     private final RevealedProbabilityIntelRepository revealedProbabilityIntel;
     private final RevealedInfluenceIntelRepository revealedInfluenceIntel;
+    private final RevealedHandCardIntelRepository revealedHandCardIntel;
 
     GetPlayerGameStateQueryHandler(
             GameProjectionRepository gameProjections,
@@ -35,13 +37,15 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
             GameActiveEventRepository gameActiveEvents,
             PlayerGameStateRepository playerGameStates,
             RevealedProbabilityIntelRepository revealedProbabilityIntel,
-            RevealedInfluenceIntelRepository revealedInfluenceIntel) {
+            RevealedInfluenceIntelRepository revealedInfluenceIntel,
+            RevealedHandCardIntelRepository revealedHandCardIntel) {
         this.gameProjections = gameProjections;
         this.gamePlayers = gamePlayers;
         this.gameActiveEvents = gameActiveEvents;
         this.playerGameStates = playerGameStates;
         this.revealedProbabilityIntel = revealedProbabilityIntel;
         this.revealedInfluenceIntel = revealedInfluenceIntel;
+        this.revealedHandCardIntel = revealedHandCardIntel;
     }
 
     @Override
@@ -83,6 +87,7 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
         var intel = new ArrayList<RevealedIntelEntry>(
                 revealedProbabilityIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, eraNumber));
         intel.addAll(revealedInfluenceIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, eraNumber));
+        intel.addAll(revealedHandCardIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, eraNumber));
         intel.sort(Comparator.comparing(RevealedIntelEntry::eventId));
         return List.copyOf(intel);
     }

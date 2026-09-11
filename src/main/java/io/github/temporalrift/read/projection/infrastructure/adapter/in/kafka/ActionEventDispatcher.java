@@ -4,6 +4,7 @@ import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.Act
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.Consumer;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.EventHeaders;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.HandCardInterceptedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.InfluenceTracedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.PlayerJammedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.RoundSummaryPublishedPayload;
@@ -45,5 +46,10 @@ class ActionEventDispatcher implements Consumer {
     @Override
     public void onInfluenceTraced(InfluenceTracedPayload payload, EventHeaders headers) {
         applier.applyInfluenceTraced(payload);
+    }
+
+    @Override
+    public void onHandCardIntercepted(HandCardInterceptedPayload payload, EventHeaders headers) {
+        applier.applyHandCardIntercepted(payload);
     }
 }

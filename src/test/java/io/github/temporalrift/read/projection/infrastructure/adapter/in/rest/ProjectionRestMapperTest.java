@@ -13,6 +13,8 @@ import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameS
 import io.github.temporalrift.read.projection.domain.model.HandCard;
 import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
 import io.github.temporalrift.read.projection.domain.model.Phase;
+import io.github.temporalrift.read.projection.domain.model.RevealedHandCard;
+import io.github.temporalrift.read.projection.domain.model.RevealedHandCardIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedInfluenceIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
@@ -114,6 +116,50 @@ class ProjectionRestMapperTest {
             assertThat(revealed.getObservedInRound()).isEqualTo(2);
             assertThat(revealed.getEventId()).isEqualTo(eventId);
             assertThat(revealed.getInfluencerPlayerIds()).containsExactlyInAnyOrder(influencerOne, influencerTwo);
+        });
+    }
+
+    @Test
+    void toResponse_mapsHandCardIntelWithItsTargetAndCards() {
+        var targetPlayerId = UUID.randomUUID();
+        var cardInstanceId = UUID.randomUUID();
+        var intel = new RevealedHandCardIntel(
+                GAME_ID,
+                UUID.randomUUID(),
+                2,
+                targetPlayerId,
+                1,
+                List.of(new RevealedHandCard(cardInstanceId, "SWING", "III")));
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID, 2, Phase.ACTION_ROUND_2, "ERASERS", List.of(), null, List.of(intel), 0, List.of(), List.of());
+
+        var response = ProjectionRestMapper.toResponse(result);
+
+        assertThat(response.getMyRevealedIntel()).singleElement().satisfies(revealed -> {
+            assertThat(revealed.getKind().getValue()).isEqualTo("HAND_CARD");
+            assertThat(revealed.getObservedInRound()).isEqualTo(1);
+            assertThat(revealed.getEventId()).isEqualTo(targetPlayerId);
+            assertThat(revealed.getTargetPlayerId()).isEqualTo(targetPlayerId);
+            assertThat(revealed.getRevealedCards()).singleElement().satisfies(card -> {
+                assertThat(card.getCardInstanceId()).isEqualTo(cardInstanceId);
+                assertThat(card.getCardType()).isEqualTo("SWING");
+                assertThat(card.getGrade().getValue()).isEqualTo("III");
+            });
+        });
+    }
+
+    @Test
+    void toResponse_mapsEmptyHandCardIntelAsEmptyList() {
+        var targetPlayerId = UUID.randomUUID();
+        var intel = new RevealedHandCardIntel(GAME_ID, UUID.randomUUID(), 2, targetPlayerId, 1, List.of());
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID, 2, Phase.ACTION_ROUND_2, "ERASERS", List.of(), null, List.of(intel), 0, List.of(), List.of());
+
+        var response = ProjectionRestMapper.toResponse(result);
+
+        assertThat(response.getMyRevealedIntel()).singleElement().satisfies(revealed -> {
+            assertThat(revealed.getKind().getValue()).isEqualTo("HAND_CARD");
+            assertThat(revealed.getRevealedCards()).isEmpty();
         });
     }
 

@@ -23,6 +23,8 @@ import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
 import io.github.temporalrift.read.projection.domain.model.Phase;
 import io.github.temporalrift.read.projection.domain.model.PlayerGameState;
 import io.github.temporalrift.read.projection.domain.model.PlayerNotInGameException;
+import io.github.temporalrift.read.projection.domain.model.RevealedHandCard;
+import io.github.temporalrift.read.projection.domain.model.RevealedHandCardIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedInfluenceIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
@@ -31,6 +33,7 @@ import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRep
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameProjectionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PlayerGameStateRepository;
+import io.github.temporalrift.read.projection.domain.port.out.RevealedHandCardIntelRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedInfluenceIntelRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedProbabilityIntelRepository;
 
@@ -55,6 +58,9 @@ class GetPlayerGameStateQueryHandlerTest {
     @Mock
     RevealedInfluenceIntelRepository revealedInfluenceIntel;
 
+    @Mock
+    RevealedHandCardIntelRepository revealedHandCardIntel;
+
     private GetPlayerGameStateQueryHandler handler;
 
     private final UUID gameId = UUID.randomUUID();
@@ -68,7 +74,8 @@ class GetPlayerGameStateQueryHandlerTest {
                 gameActiveEvents,
                 playerGameStates,
                 revealedProbabilityIntel,
-                revealedInfluenceIntel);
+                revealedInfluenceIntel,
+                revealedHandCardIntel);
     }
 
     @Test
@@ -110,6 +117,8 @@ class GetPlayerGameStateQueryHandlerTest {
                 .willReturn(List.of());
         given(revealedInfluenceIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
                 .willReturn(List.of());
+        given(revealedHandCardIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(List.of());
 
         var result = handler.get(gameId, playerId);
 
@@ -135,6 +144,8 @@ class GetPlayerGameStateQueryHandlerTest {
                 .willReturn(List.of(intel));
         given(revealedInfluenceIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
                 .willReturn(List.of());
+        given(revealedHandCardIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(List.of());
 
         var result = handler.get(gameId, playerId);
 
@@ -155,10 +166,39 @@ class GetPlayerGameStateQueryHandlerTest {
                 new RevealedInfluenceIntel(gameId, playerId, 2, UUID.randomUUID(), 2, List.of(UUID.randomUUID()));
         given(revealedInfluenceIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
                 .willReturn(List.of(influence));
+        given(revealedHandCardIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(List.of());
 
         var result = handler.get(gameId, playerId);
 
         assertThat(result.myRevealedIntel()).containsExactly(influence);
+    }
+
+    @Test
+    void get_activeEra_includesInterceptedHandCardsAlongsideOtherIntel() {
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, null, List.of())));
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_2)));
+        given(gamePlayers.findByGameId(gameId)).willReturn(List.of());
+        given(gameActiveEvents.findByGameId(gameId)).willReturn(List.of());
+        given(revealedProbabilityIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(List.of());
+        given(revealedInfluenceIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(List.of());
+        var intercepted = new RevealedHandCardIntel(
+                gameId,
+                playerId,
+                2,
+                UUID.randomUUID(),
+                1,
+                List.of(new RevealedHandCard(UUID.randomUUID(), "SWING", "III")));
+        given(revealedHandCardIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(List.of(intercepted));
+
+        var result = handler.get(gameId, playerId);
+
+        assertThat(result.myRevealedIntel()).containsExactly(intercepted);
     }
 
     @Test
@@ -175,6 +215,7 @@ class GetPlayerGameStateQueryHandlerTest {
         assertThat(result.myRevealedIntel()).isEmpty();
         then(revealedProbabilityIntel).shouldHaveNoInteractions();
         then(revealedInfluenceIntel).shouldHaveNoInteractions();
+        then(revealedHandCardIntel).shouldHaveNoInteractions();
     }
 
     @Test
@@ -188,6 +229,8 @@ class GetPlayerGameStateQueryHandlerTest {
         given(revealedProbabilityIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
                 .willReturn(List.of());
         given(revealedInfluenceIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(List.of());
+        given(revealedHandCardIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
                 .willReturn(List.of());
 
         var result = handler.get(gameId, playerId);
@@ -206,6 +249,8 @@ class GetPlayerGameStateQueryHandlerTest {
         given(revealedProbabilityIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
                 .willReturn(List.of());
         given(revealedInfluenceIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(List.of());
+        given(revealedHandCardIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
                 .willReturn(List.of());
 
         var result = handler.get(gameId, playerId);
