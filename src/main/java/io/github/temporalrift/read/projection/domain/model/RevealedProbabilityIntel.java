@@ -10,7 +10,8 @@ public record RevealedProbabilityIntel(
         int eraNumber,
         UUID eventId,
         int observedInRound,
-        List<RevealedProbabilityOutcome> outcomes) {
+        List<RevealedProbabilityOutcome> outcomes)
+        implements RevealedIntelEntry {
 
     public RevealedProbabilityIntel {
         outcomes = List.copyOf(outcomes);

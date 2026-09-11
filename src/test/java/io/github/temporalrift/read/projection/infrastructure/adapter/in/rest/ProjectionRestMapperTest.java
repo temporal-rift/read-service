@@ -13,6 +13,7 @@ import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameS
 import io.github.temporalrift.read.projection.domain.model.HandCard;
 import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
 import io.github.temporalrift.read.projection.domain.model.Phase;
+import io.github.temporalrift.read.projection.domain.model.RevealedInfluenceIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
 import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
@@ -94,6 +95,41 @@ class ProjectionRestMapperTest {
         var response = ProjectionRestMapper.toResponse(resultWithHand(Phase.ACTION_ROUND_2, 2, List.of()));
 
         assertThat(response.getMyRevealedIntel()).isEmpty();
+    }
+
+    @Test
+    void toResponse_mapsInfluenceIntelWithItsInfluencers() {
+        var eventId = UUID.randomUUID();
+        var influencerOne = UUID.randomUUID();
+        var influencerTwo = UUID.randomUUID();
+        var intel = new RevealedInfluenceIntel(
+                GAME_ID, UUID.randomUUID(), 2, eventId, 2, List.of(influencerOne, influencerTwo));
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID, 2, Phase.ACTION_ROUND_2, "ERASERS", List.of(), null, List.of(intel), 0, List.of(), List.of());
+
+        var response = ProjectionRestMapper.toResponse(result);
+
+        assertThat(response.getMyRevealedIntel()).singleElement().satisfies(revealed -> {
+            assertThat(revealed.getKind().getValue()).isEqualTo("INFLUENCE");
+            assertThat(revealed.getObservedInRound()).isEqualTo(2);
+            assertThat(revealed.getEventId()).isEqualTo(eventId);
+            assertThat(revealed.getInfluencerPlayerIds()).containsExactlyInAnyOrder(influencerOne, influencerTwo);
+        });
+    }
+
+    @Test
+    void toResponse_mapsEmptyInfluenceIntelAsEmptyList() {
+        var eventId = UUID.randomUUID();
+        var intel = new RevealedInfluenceIntel(GAME_ID, UUID.randomUUID(), 2, eventId, 1, List.of());
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID, 2, Phase.ACTION_ROUND_2, "ERASERS", List.of(), null, List.of(intel), 0, List.of(), List.of());
+
+        var response = ProjectionRestMapper.toResponse(result);
+
+        assertThat(response.getMyRevealedIntel()).singleElement().satisfies(revealed -> {
+            assertThat(revealed.getKind().getValue()).isEqualTo("INFLUENCE");
+            assertThat(revealed.getInfluencerPlayerIds()).isEmpty();
+        });
     }
 
     @ParameterizedTest

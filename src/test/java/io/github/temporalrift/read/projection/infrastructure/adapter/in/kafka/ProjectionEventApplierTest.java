@@ -24,6 +24,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundStartedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.InfluenceTracedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.PlayerJammedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.RoundSummaryPublishedPayload;
 import io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.ScoreUpdate;
@@ -65,6 +66,7 @@ import io.github.temporalrift.read.projection.domain.model.PendingHandCard;
 import io.github.temporalrift.read.projection.domain.model.PendingHandSelection;
 import io.github.temporalrift.read.projection.domain.model.Phase;
 import io.github.temporalrift.read.projection.domain.model.PlayerGameState;
+import io.github.temporalrift.read.projection.domain.model.RevealedInfluenceIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
 import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
@@ -72,6 +74,7 @@ import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRep
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameProjectionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PlayerGameStateRepository;
+import io.github.temporalrift.read.projection.domain.port.out.RevealedInfluenceIntelRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedProbabilityIntelRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -92,6 +95,9 @@ class ProjectionEventApplierTest {
     @Mock
     RevealedProbabilityIntelRepository revealedProbabilityIntel;
 
+    @Mock
+    RevealedInfluenceIntelRepository revealedInfluenceIntel;
+
     private ProjectionEventApplier applier;
 
     private final UUID gameId = UUID.randomUUID();
@@ -102,7 +108,12 @@ class ProjectionEventApplierTest {
                 .when(gameProjections.findByGameIdForUpdate(gameId))
                 .thenReturn(Optional.of(new GameProjection(gameId, 0, Phase.LOBBY)));
         applier = new ProjectionEventApplier(
-                gameProjections, gamePlayers, gameActiveEvents, playerGameStates, revealedProbabilityIntel);
+                gameProjections,
+                gamePlayers,
+                gameActiveEvents,
+                playerGameStates,
+                revealedProbabilityIntel,
+                revealedInfluenceIntel);
     }
 
     @Test
@@ -461,6 +472,7 @@ class ProjectionEventApplierTest {
 
         then(gameProjections).should().save(new GameProjection(gameId, 1, Phase.ERA_END));
         then(revealedProbabilityIntel).should().deleteByGameIdAndEraNumber(gameId, 1);
+        then(revealedInfluenceIntel).should().deleteByGameIdAndEraNumber(gameId, 1);
         then(gameActiveEvents).should().deleteByGameId(gameId);
     }
 
@@ -473,6 +485,7 @@ class ProjectionEventApplierTest {
 
         then(gameProjections).should(never()).save(any());
         then(revealedProbabilityIntel).should(never()).deleteByGameIdAndEraNumber(any(), anyInt());
+        then(revealedInfluenceIntel).should(never()).deleteByGameIdAndEraNumber(any(), anyInt());
         then(gameActiveEvents).should(never()).deleteByGameId(any());
     }
 
@@ -535,6 +548,56 @@ class ProjectionEventApplierTest {
     }
 
     @Test
+    void applyInfluenceTraced_storesInfluencersForTheTracingViewer() {
+        var viewerId = UUID.randomUUID();
+        var targetEventId = UUID.randomUUID();
+        var influencerOne = UUID.randomUUID();
+        var influencerTwo = UUID.randomUUID();
+
+        applier.applyInfluenceTraced(new InfluenceTracedPayload(
+                gameId, 1, 2, viewerId, targetEventId, List.of(influencerOne, influencerTwo)));
+
+        then(revealedInfluenceIntel)
+                .should()
+                .upsertLatest(new RevealedInfluenceIntel(
+                        gameId, viewerId, 1, targetEventId, 2, List.of(influencerOne, influencerTwo)));
+    }
+
+    @Test
+    void applyInfluenceTraced_emptyInfluencerSetIsStoredNotDropped() {
+        var viewerId = UUID.randomUUID();
+        var targetEventId = UUID.randomUUID();
+
+        applier.applyInfluenceTraced(new InfluenceTracedPayload(gameId, 1, 2, viewerId, targetEventId, List.of()));
+
+        then(revealedInfluenceIntel)
+                .should()
+                .upsertLatest(new RevealedInfluenceIntel(gameId, viewerId, 1, targetEventId, 2, List.of()));
+    }
+
+    @Test
+    void applyInfluenceTraced_forPriorEra_skipsIt() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));
+
+        applier.applyInfluenceTraced(
+                new InfluenceTracedPayload(gameId, 1, 2, UUID.randomUUID(), UUID.randomUUID(), List.of()));
+
+        then(revealedInfluenceIntel).should(never()).upsertLatest(any());
+    }
+
+    @Test
+    void applyInfluenceTraced_afterEraEnd_skipsIt() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ERA_END)));
+
+        applier.applyInfluenceTraced(
+                new InfluenceTracedPayload(gameId, 2, 2, UUID.randomUUID(), UUID.randomUUID(), List.of()));
+
+        then(revealedInfluenceIntel).should(never()).upsertLatest(any());
+    }
+
+    @Test
     void applyGameEnded_preservesEraNumberAndUpdatesScores() {
         var playerId = UUID.randomUUID();
         given(gameProjections.findByGameIdForUpdate(gameId))
@@ -548,6 +611,7 @@ class ProjectionEventApplierTest {
         then(gameProjections).should().save(new GameProjection(gameId, 3, Phase.GAME_ENDED));
         then(gamePlayers).should().save(gameId, new GamePlayer(playerId, 20, true, "ERASERS"));
         then(revealedProbabilityIntel).should().deleteByGameIdAndEraNumber(gameId, 3);
+        then(revealedInfluenceIntel).should().deleteByGameIdAndEraNumber(gameId, 3);
         then(gameActiveEvents).should().deleteByGameId(gameId);
     }
 

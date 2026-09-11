@@ -11,6 +11,8 @@ import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
 import io.github.temporalrift.read.projection.domain.model.Phase;
+import io.github.temporalrift.read.projection.domain.model.RevealedInfluenceIntel;
+import io.github.temporalrift.read.projection.domain.model.RevealedIntelEntry;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActionSummary;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActiveEvent;
@@ -74,13 +76,26 @@ final class ProjectionRestMapper {
                         .toList());
     }
 
-    private static RevealedIntel toRevealedIntel(RevealedProbabilityIntel domain) {
+    private static RevealedIntel toRevealedIntel(RevealedIntelEntry domain) {
+        return switch (domain) {
+            case RevealedProbabilityIntel probability -> toProbabilityIntel(probability);
+            case RevealedInfluenceIntel influence -> toInfluenceIntel(influence);
+        };
+    }
+
+    private static RevealedIntel toProbabilityIntel(RevealedProbabilityIntel domain) {
         var response =
                 new RevealedIntel(RevealedIntel.KindEnum.PROBABILITY, domain.observedInRound(), domain.eventId());
         response.setOutcomes(domain.outcomes().stream()
                 .map(outcome -> new RevealedProbabilityOutcome(
                         outcome.outcomeId(), outcome.probability(), outcome.isAnnihilated(), outcome.isSealed()))
                 .toList());
+        return response;
+    }
+
+    private static RevealedIntel toInfluenceIntel(RevealedInfluenceIntel domain) {
+        var response = new RevealedIntel(RevealedIntel.KindEnum.INFLUENCE, domain.observedInRound(), domain.eventId());
+        response.setInfluencerPlayerIds(List.copyOf(domain.influencerPlayerIds()));
         return response;
     }
 
