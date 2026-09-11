@@ -12,6 +12,8 @@ import static org.mockito.Mockito.verify;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
 import tools.jackson.databind.ObjectMapper;
@@ -40,25 +42,11 @@ class NotificationFanOutServiceTest {
         verify(recipient, times(1)).send(any());
     }
 
-    @Test
-    void targetsHandDealtToPayloadPlayerOnly() {
-        var gameId = UUID.randomUUID();
-        var targetPlayerId = UUID.randomUUID();
-        var target = mock(NotificationDeliveryPort.class);
-        var other = mock(NotificationDeliveryPort.class);
-        var registry = new NotificationSessionRegistry();
-        registry.register(activeSession("target", gameId, targetPlayerId, target));
-        registry.register(activeSession("other", gameId, UUID.randomUUID(), other));
-        var service = new NotificationFanOutService(new NotificationPolicy(), registry, new ObjectMapper());
-
-        service.fanOut(message(gameId, "HandDealt", "{\"playerId\":\"" + targetPlayerId + "\"}"));
-
-        verify(target).send(any());
-        verify(other, never()).send(any());
-    }
-
-    @Test
-    void targetsProbabilityStateRevealedToTheScanningPlayerOnly() {
+    @ParameterizedTest
+    @ValueSource(
+            strings = {"HandDealt", "ProbabilityStateRevealed", "PlayerJammed", "InfluenceTraced", "HandCardIntercepted"
+            })
+    void targetsViewerScopedEventToPayloadPlayerOnly(String eventType) {
         var gameId = UUID.randomUUID();
         var viewerId = UUID.randomUUID();
         var viewer = mock(NotificationDeliveryPort.class);
@@ -70,67 +58,7 @@ class NotificationFanOutServiceTest {
         registry.register(activeSession("other-two", gameId, UUID.randomUUID(), otherTwo));
         var service = new NotificationFanOutService(new NotificationPolicy(), registry, new ObjectMapper());
 
-        service.fanOut(message(gameId, "ProbabilityStateRevealed", "{\"playerId\":\"" + viewerId + "\"}"));
-
-        verify(viewer).send(any());
-        verify(otherOne, never()).send(any());
-        verify(otherTwo, never()).send(any());
-    }
-
-    @Test
-    void targetsPlayerJammedToTheSuppressedPlayerOnly() {
-        var gameId = UUID.randomUUID();
-        var suppressedPlayerId = UUID.randomUUID();
-        var suppressed = mock(NotificationDeliveryPort.class);
-        var otherOne = mock(NotificationDeliveryPort.class);
-        var otherTwo = mock(NotificationDeliveryPort.class);
-        var registry = new NotificationSessionRegistry();
-        registry.register(activeSession("suppressed", gameId, suppressedPlayerId, suppressed));
-        registry.register(activeSession("other-one", gameId, UUID.randomUUID(), otherOne));
-        registry.register(activeSession("other-two", gameId, UUID.randomUUID(), otherTwo));
-        var service = new NotificationFanOutService(new NotificationPolicy(), registry, new ObjectMapper());
-
-        service.fanOut(message(gameId, "PlayerJammed", "{\"playerId\":\"" + suppressedPlayerId + "\"}"));
-
-        verify(suppressed).send(any());
-        verify(otherOne, never()).send(any());
-        verify(otherTwo, never()).send(any());
-    }
-
-    @Test
-    void targetsInfluenceTracedToTheTracingPlayerOnly() {
-        var gameId = UUID.randomUUID();
-        var viewerId = UUID.randomUUID();
-        var viewer = mock(NotificationDeliveryPort.class);
-        var otherOne = mock(NotificationDeliveryPort.class);
-        var otherTwo = mock(NotificationDeliveryPort.class);
-        var registry = new NotificationSessionRegistry();
-        registry.register(activeSession("viewer", gameId, viewerId, viewer));
-        registry.register(activeSession("other-one", gameId, UUID.randomUUID(), otherOne));
-        registry.register(activeSession("other-two", gameId, UUID.randomUUID(), otherTwo));
-        var service = new NotificationFanOutService(new NotificationPolicy(), registry, new ObjectMapper());
-
-        service.fanOut(message(gameId, "InfluenceTraced", "{\"playerId\":\"" + viewerId + "\"}"));
-
-        verify(viewer).send(any());
-        verify(otherOne, never()).send(any());
-        verify(otherTwo, never()).send(any());
-    }
-
-    @Test
-    void targetsHandCardInterceptedToTheInterceptingPlayerOnly() {
-        var gameId = UUID.randomUUID();
-        var viewerId = UUID.randomUUID();
-        var viewer = mock(NotificationDeliveryPort.class);
-        var otherOne = mock(NotificationDeliveryPort.class);
-        var otherTwo = mock(NotificationDeliveryPort.class);
-        var registry = new NotificationSessionRegistry();
-        registry.register(activeSession("viewer", gameId, viewerId, viewer));
-        registry.register(activeSession("other-one", gameId, UUID.randomUUID(), otherOne));
-        registry.register(activeSession("other-two", gameId, UUID.randomUUID(), otherTwo));
-        var service = new NotificationFanOutService(new NotificationPolicy(), registry, new ObjectMapper());
-
-        service.fanOut(message(gameId, "HandCardIntercepted", "{\"playerId\":\"" + viewerId + "\"}"));
+        service.fanOut(message(gameId, eventType, "{\"playerId\":\"" + viewerId + "\"}"));
 
         verify(viewer).send(any());
         verify(otherOne, never()).send(any());

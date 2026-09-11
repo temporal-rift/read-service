@@ -261,7 +261,9 @@ class ProjectionEventApplier {
     }
 
     // A winner can end the game directly from the final era without an intervening EraEnded for that
-    // era, so this era's scan intel and active events would otherwise never be cleared.
+    // era, so this era's scan intel and active events would otherwise never be cleared. The intel
+    // clear is game-scoped, not current-era-scoped: an out-of-order future-era reveal can be
+    // persisted while the projection still lags on an earlier era, and that row must not orphan.
     void applyGameEnded(GameEndedPayload payload) {
         var existing = lockGame(payload.gameId());
         if (existing.phase() == Phase.GAME_ENDED) {
@@ -271,9 +273,9 @@ class ProjectionEventApplier {
         var eraNumber = existing.eraNumber();
         gameProjections.save(new GameProjection(
                 payload.gameId(), eraNumber, Phase.GAME_ENDED, List.of(), existing.lastRoundSummary()));
-        revealedProbabilityIntel.deleteByGameIdAndEraNumber(payload.gameId(), eraNumber);
-        revealedInfluenceIntel.deleteByGameIdAndEraNumber(payload.gameId(), eraNumber);
-        revealedHandCardIntel.deleteByGameIdAndEraNumber(payload.gameId(), eraNumber);
+        revealedProbabilityIntel.deleteByGameId(payload.gameId());
+        revealedInfluenceIntel.deleteByGameId(payload.gameId());
+        revealedHandCardIntel.deleteByGameId(payload.gameId());
         gameActiveEvents.deleteByGameId(payload.gameId());
         for (var finalScore : payload.finalScores()) {
             gamePlayers

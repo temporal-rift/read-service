@@ -110,6 +110,13 @@ class JpaRevealedInfluenceIntelAdapterTest {
         then(repository).should().deleteByGameIdAndEraNumber(gameId, 2);
     }
 
+    @Test
+    void deleteByGameId_delegatesTheWholeGameKey() {
+        adapter.deleteByGameId(gameId);
+
+        then(repository).should().deleteByGameId(gameId);
+    }
+
     private RevealedInfluenceIntel intel(int observedInRound, List<UUID> influencers) {
         return new RevealedInfluenceIntel(gameId, playerId, 2, eventId, observedInRound, influencers);
     }

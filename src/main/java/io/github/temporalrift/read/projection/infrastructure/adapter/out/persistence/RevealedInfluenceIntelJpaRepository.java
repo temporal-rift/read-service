@@ -17,4 +17,7 @@ interface RevealedInfluenceIntelJpaRepository extends JpaRepository<RevealedInfl
 
     @Transactional
     void deleteByGameIdAndEraNumber(UUID gameId, int eraNumber);
+
+    @Transactional
+    void deleteByGameId(UUID gameId);
 }

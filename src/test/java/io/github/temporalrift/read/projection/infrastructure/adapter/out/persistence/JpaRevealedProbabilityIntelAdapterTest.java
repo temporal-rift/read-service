@@ -97,6 +97,13 @@ class JpaRevealedProbabilityIntelAdapterTest {
         then(repository).should().deleteByGameIdAndEraNumber(gameId, 2);
     }
 
+    @Test
+    void deleteByGameId_delegatesTheWholeGameKey() {
+        adapter.deleteByGameId(gameId);
+
+        then(repository).should().deleteByGameId(gameId);
+    }
+
     private RevealedProbabilityIntel intel(int observedInRound, int probability) {
         return new RevealedProbabilityIntel(
                 gameId,
