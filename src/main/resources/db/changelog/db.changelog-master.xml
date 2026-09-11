@@ -19,5 +19,6 @@
     <include file="db/changelog/projection/008-create-game-resolved-event.xml"/>
     <include file="db/changelog/projection/009-add-last-round-summary.xml"/>
     <include file="db/changelog/projection/010-add-jammed-until-round.xml"/>
+    <include file="db/changelog/projection/011-create-revealed-influence-intel.xml"/>
 
 </databaseChangeLog>

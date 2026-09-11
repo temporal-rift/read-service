@@ -29,6 +29,7 @@ import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.InfluenceTracedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedOutcomeState;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedPayload;
 import io.github.temporalrift.read.shared.PlayerPrincipal;
@@ -955,6 +956,107 @@ class PlayerGameStateIT {
                 .andExpect(jsonPath("$.myRevealedIntel").isEmpty());
     }
 
+    @Test
+    void tracedInfluence_survivesReconnectWithoutLeakingClearsAtEraEndAndKeepsEmptySets() throws Exception {
+        var gameId = UUID.randomUUID();
+        var tracingPlayerId = UUID.randomUUID();
+        var otherPlayerId = UUID.randomUUID();
+        var tracedEventId = UUID.randomUUID();
+        var emptyTracedEventId = UUID.randomUUID();
+        var influencerOne = UUID.randomUUID();
+        var influencerTwo = UUID.randomUUID();
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "GameStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "lobbyId",
+                        UUID.randomUUID(),
+                        "playerIds",
+                        List.of(tracingPlayerId, otherPlayerId),
+                        "totalFactions",
+                        3,
+                        "deckSize",
+                        30));
+        awaitPlayerGameStateRowExists(gameId, tracingPlayerId);
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "EraStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "carryOverEventIds",
+                        List.of(),
+                        "playerIds",
+                        List.of(tracingPlayerId, otherPlayerId)));
+        awaitPhase(gameId, "ERA_START");
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "InfluenceTraced",
+                gameId,
+                new InfluenceTracedPayload(
+                        gameId, 1, 1, tracingPlayerId, tracedEventId, List.of(influencerOne, influencerTwo)));
+        awaitInfluenceIntelCount(gameId, tracingPlayerId, 1, 1);
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "InfluenceTraced",
+                gameId,
+                new InfluenceTracedPayload(gameId, 1, 1, tracingPlayerId, emptyTracedEventId, List.of()));
+        awaitInfluenceIntelCount(gameId, tracingPlayerId, 1, 2);
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(tracingPlayerId)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.myRevealedIntel.length()").value(2))
+                .andExpect(jsonPath("$.myRevealedIntel[*].kind")
+                        .value(org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is("INFLUENCE"))))
+                .andExpect(jsonPath("$.myRevealedIntel[*].eventId")
+                        .value(org.hamcrest.Matchers.containsInAnyOrder(
+                                tracedEventId.toString(), emptyTracedEventId.toString())));
+
+        assertThatInfluenceIntelInfluencers(gameId, tracingPlayerId, 1, tracedEventId, 2);
+        assertThatInfluenceIntelInfluencers(gameId, tracingPlayerId, 1, emptyTracedEventId, 0);
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(otherPlayerId)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.myRevealedIntel").isEmpty());
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "EraEnded",
+                gameId,
+                Map.of("gameId", gameId, "eraNumber", 1, "cascadedParadoxCount", 0, "nextEraNumber", 2));
+        awaitPhase(gameId, "ERA_END");
+        awaitInfluenceIntelCount(gameId, tracingPlayerId, 1, 0);
+
+        var lateRevealEventId = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "InfluenceTraced",
+                        gameId,
+                        new InfluenceTracedPayload(
+                                gameId, 1, 1, tracingPlayerId, tracedEventId, List.of(influencerOne)),
+                        lateRevealEventId)
+                .join();
+        awaitProcessed(lateRevealEventId, "projection.game-events");
+        assertThatInfluenceIntelCount(gameId, tracingPlayerId, 1, 0);
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(tracingPlayerId)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.myRevealedIntel").isEmpty());
+    }
+
     // game.events and timeline.events are independent consumer groups with no ordering guarantee between
     // them, so EraEnded and a same-era ProbabilityStateRevealed genuinely race on separate threads here —
     // this isn't simulated. Repeated across fresh games to actually exercise both interleavings rather than
@@ -1263,6 +1365,35 @@ class PlayerGameStateIT {
                         playerId,
                         eraNumber))
                 .isEqualTo(expected);
+    }
+
+    private void awaitInfluenceIntelCount(UUID gameId, UUID playerId, int eraNumber, int expected) {
+        await().atMost(Duration.ofSeconds(30))
+                .untilAsserted(() -> assertThatInfluenceIntelCount(gameId, playerId, eraNumber, expected));
+    }
+
+    private void assertThatInfluenceIntelCount(UUID gameId, UUID playerId, int eraNumber, int expected) {
+        assertThat(jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM revealed_influence_intel "
+                                + "WHERE game_id = ? AND player_id = ? AND era_number = ?",
+                        Integer.class,
+                        gameId,
+                        playerId,
+                        eraNumber))
+                .isEqualTo(expected);
+    }
+
+    private void assertThatInfluenceIntelInfluencers(
+            UUID gameId, UUID playerId, int eraNumber, UUID eventId, int expectedCount) {
+        assertThat(jdbcTemplate.queryForObject(
+                        "SELECT jsonb_array_length(influencer_player_ids) FROM revealed_influence_intel "
+                                + "WHERE game_id = ? AND player_id = ? AND era_number = ? AND event_id = ?",
+                        Integer.class,
+                        gameId,
+                        playerId,
+                        eraNumber,
+                        eventId))
+                .isEqualTo(expectedCount);
     }
 
     private void awaitProbabilityIntelProbability(

@@ -15,9 +15,17 @@ class NotificationPolicyTest {
         assertThat(policy.deliveryFor("HandSelected")).isEqualTo(NotificationPolicy.Delivery.TARGETED);
         assertThat(policy.deliveryFor("ProbabilityStateRevealed")).isEqualTo(NotificationPolicy.Delivery.TARGETED);
         assertThat(policy.deliveryFor("PlayerJammed")).isEqualTo(NotificationPolicy.Delivery.TARGETED);
-        assertThat(policy.deliveryFor("InfluenceTraced")).isEqualTo(NotificationPolicy.Delivery.NEVER);
+        assertThat(policy.deliveryFor("InfluenceTraced")).isEqualTo(NotificationPolicy.Delivery.TARGETED);
         assertThat(policy.deliveryFor("EraResolutionCompleted")).isEqualTo(NotificationPolicy.Delivery.NEVER);
         assertThat(policy.deliveryFor("ProbabilityStateCalculated")).isEqualTo(NotificationPolicy.Delivery.NEVER);
         assertThat(policy.deliveryFor("UnknownEvent")).isEqualTo(NotificationPolicy.Delivery.NEVER);
+    }
+
+    @Test
+    void revealFamilyIsNeverBroadcast() {
+        assertThat(policy.deliveryFor("ProbabilityStateRevealed")).isNotEqualTo(NotificationPolicy.Delivery.BROADCAST);
+        assertThat(policy.deliveryFor("InfluenceTraced")).isNotEqualTo(NotificationPolicy.Delivery.BROADCAST);
+        assertThat(policy.deliveryFor("PlayerJammed")).isNotEqualTo(NotificationPolicy.Delivery.BROADCAST);
+        assertThat(policy.deliveryFor("HandCardIntercepted")).isNotEqualTo(NotificationPolicy.Delivery.BROADCAST);
     }
 }

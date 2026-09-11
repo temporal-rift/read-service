@@ -5,7 +5,6 @@ import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -22,26 +21,7 @@ import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOu
                 @UniqueConstraint(
                         name = "uq_revealed_probability_intel_identity",
                         columnNames = {"game_id", "player_id", "era_number", "event_id"}))
-class RevealedProbabilityIntelEntity {
-
-    @Id
-    @Column(name = "id", nullable = false)
-    private UUID id;
-
-    @Column(name = "game_id", nullable = false)
-    private UUID gameId;
-
-    @Column(name = "player_id", nullable = false)
-    private UUID playerId;
-
-    @Column(name = "era_number", nullable = false)
-    private int eraNumber;
-
-    @Column(name = "event_id", nullable = false)
-    private UUID eventId;
-
-    @Column(name = "observed_in_round", nullable = false)
-    private int observedInRound;
+class RevealedProbabilityIntelEntity extends RevealedIntelBaseEntity {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "outcomes", nullable = false, columnDefinition = "jsonb")
@@ -50,11 +30,7 @@ class RevealedProbabilityIntelEntity {
     protected RevealedProbabilityIntelEntity() {}
 
     private RevealedProbabilityIntelEntity(UUID id, RevealedProbabilityIntel intel, ObjectMapper objectMapper) {
-        this.id = id;
-        this.gameId = intel.gameId();
-        this.playerId = intel.playerId();
-        this.eraNumber = intel.eraNumber();
-        this.eventId = intel.eventId();
+        super(id, intel.gameId(), intel.playerId(), intel.eraNumber(), intel.eventId(), intel.observedInRound());
         updateFrom(intel, objectMapper);
     }
 
@@ -65,20 +41,16 @@ class RevealedProbabilityIntelEntity {
 
     RevealedProbabilityIntel toDomain(ObjectMapper objectMapper) {
         return new RevealedProbabilityIntel(
-                gameId,
-                playerId,
-                eraNumber,
-                eventId,
-                observedInRound,
+                getGameId(),
+                getPlayerId(),
+                getEraNumber(),
+                getEventId(),
+                getObservedInRound(),
                 Arrays.asList(objectMapper.readValue(outcomes, RevealedProbabilityOutcome[].class)));
     }
 
     void updateFrom(RevealedProbabilityIntel intel, ObjectMapper objectMapper) {
-        observedInRound = intel.observedInRound();
+        setObservedInRound(intel.observedInRound());
         outcomes = objectMapper.writeValueAsString(intel.outcomes());
-    }
-
-    int getObservedInRound() {
-        return observedInRound;
     }
 }

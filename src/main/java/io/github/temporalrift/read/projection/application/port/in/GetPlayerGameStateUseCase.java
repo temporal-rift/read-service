@@ -9,7 +9,7 @@ import io.github.temporalrift.read.projection.domain.model.HandCard;
 import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
 import io.github.temporalrift.read.projection.domain.model.PendingHandSelection;
 import io.github.temporalrift.read.projection.domain.model.Phase;
-import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
+import io.github.temporalrift.read.projection.domain.model.RevealedIntelEntry;
 
 public interface GetPlayerGameStateUseCase {
 
@@ -23,7 +23,7 @@ public interface GetPlayerGameStateUseCase {
             String myFaction,
             List<HandCard> myHand,
             PendingHandSelection pendingHandSelection,
-            List<RevealedProbabilityIntel> myRevealedIntel,
+            List<RevealedIntelEntry> myRevealedIntel,
             int myScore,
             List<GamePlayer> players,
             List<GameActiveEvent> activeEvents,
@@ -37,7 +37,7 @@ public interface GetPlayerGameStateUseCase {
                 String myFaction,
                 List<HandCard> myHand,
                 PendingHandSelection pendingHandSelection,
-                List<RevealedProbabilityIntel> myRevealedIntel,
+                List<RevealedIntelEntry> myRevealedIntel,
                 int myScore,
                 List<GamePlayer> players,
                 List<GameActiveEvent> activeEvents) {

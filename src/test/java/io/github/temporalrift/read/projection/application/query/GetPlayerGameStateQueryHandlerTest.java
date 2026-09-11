@@ -23,6 +23,7 @@ import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
 import io.github.temporalrift.read.projection.domain.model.Phase;
 import io.github.temporalrift.read.projection.domain.model.PlayerGameState;
 import io.github.temporalrift.read.projection.domain.model.PlayerNotInGameException;
+import io.github.temporalrift.read.projection.domain.model.RevealedInfluenceIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
 import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
@@ -30,6 +31,7 @@ import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRep
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameProjectionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PlayerGameStateRepository;
+import io.github.temporalrift.read.projection.domain.port.out.RevealedInfluenceIntelRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedProbabilityIntelRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -50,6 +52,9 @@ class GetPlayerGameStateQueryHandlerTest {
     @Mock
     RevealedProbabilityIntelRepository revealedProbabilityIntel;
 
+    @Mock
+    RevealedInfluenceIntelRepository revealedInfluenceIntel;
+
     private GetPlayerGameStateQueryHandler handler;
 
     private final UUID gameId = UUID.randomUUID();
@@ -58,7 +63,12 @@ class GetPlayerGameStateQueryHandlerTest {
     @BeforeEach
     void setUp() {
         handler = new GetPlayerGameStateQueryHandler(
-                gameProjections, gamePlayers, gameActiveEvents, playerGameStates, revealedProbabilityIntel);
+                gameProjections,
+                gamePlayers,
+                gameActiveEvents,
+                playerGameStates,
+                revealedProbabilityIntel,
+                revealedInfluenceIntel);
     }
 
     @Test
@@ -98,6 +108,8 @@ class GetPlayerGameStateQueryHandlerTest {
         given(gameActiveEvents.findByGameId(gameId)).willReturn(List.of());
         given(revealedProbabilityIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
                 .willReturn(List.of());
+        given(revealedInfluenceIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(List.of());
 
         var result = handler.get(gameId, playerId);
 
@@ -121,10 +133,32 @@ class GetPlayerGameStateQueryHandlerTest {
                 List.of(new RevealedProbabilityOutcome(UUID.randomUUID(), 50, false, false)));
         given(revealedProbabilityIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
                 .willReturn(List.of(intel));
+        given(revealedInfluenceIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(List.of());
 
         var result = handler.get(gameId, playerId);
 
         assertThat(result.myRevealedIntel()).containsExactly(intel);
+    }
+
+    @Test
+    void get_activeEra_includesTracedInfluenceAlongsideProbabilityIntel() {
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, null, List.of())));
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_2)));
+        given(gamePlayers.findByGameId(gameId)).willReturn(List.of());
+        given(gameActiveEvents.findByGameId(gameId)).willReturn(List.of());
+        given(revealedProbabilityIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(List.of());
+        var influence =
+                new RevealedInfluenceIntel(gameId, playerId, 2, UUID.randomUUID(), 2, List.of(UUID.randomUUID()));
+        given(revealedInfluenceIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(List.of(influence));
+
+        var result = handler.get(gameId, playerId);
+
+        assertThat(result.myRevealedIntel()).containsExactly(influence);
     }
 
     @Test
@@ -140,6 +174,7 @@ class GetPlayerGameStateQueryHandlerTest {
 
         assertThat(result.myRevealedIntel()).isEmpty();
         then(revealedProbabilityIntel).shouldHaveNoInteractions();
+        then(revealedInfluenceIntel).shouldHaveNoInteractions();
     }
 
     @Test
@@ -151,6 +186,8 @@ class GetPlayerGameStateQueryHandlerTest {
         given(gamePlayers.findByGameId(gameId)).willReturn(List.of());
         given(gameActiveEvents.findByGameId(gameId)).willReturn(List.of());
         given(revealedProbabilityIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(List.of());
+        given(revealedInfluenceIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
                 .willReturn(List.of());
 
         var result = handler.get(gameId, playerId);
@@ -167,6 +204,8 @@ class GetPlayerGameStateQueryHandlerTest {
         given(gamePlayers.findByGameId(gameId)).willReturn(List.of());
         given(gameActiveEvents.findByGameId(gameId)).willReturn(List.of());
         given(revealedProbabilityIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(List.of());
+        given(revealedInfluenceIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
                 .willReturn(List.of());
 
         var result = handler.get(gameId, playerId);

@@ -19,6 +19,7 @@ import org.springframework.messaging.support.MessageBuilder;
 import tools.jackson.databind.ObjectMapper;
 
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.InfluenceTracedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.RoundSummaryPublishedPayload;
 import io.github.temporalrift.read.shared.ProcessedEventPort;
 
@@ -182,5 +183,66 @@ class GameEventsKafkaConsumerTest {
             assertThat(summary.actionFamily()).isEqualTo("CARD");
             assertThat(summary.skipped()).isFalse();
         });
+    }
+
+    @Test
+    void handle_influenceTraced_dispatchesToApplier() {
+        var eventId = UUID.randomUUID();
+        var gameId = UUID.randomUUID();
+        var viewerId = UUID.randomUUID();
+        var targetEventId = UUID.randomUUID();
+        var influencerId = UUID.randomUUID();
+        var payload = """
+                {
+                  "gameId": "%s",
+                  "eraNumber": 1,
+                  "roundNumber": 2,
+                  "playerId": "%s",
+                  "targetEventId": "%s",
+                  "influencerPlayerIds": ["%s"]
+                }
+                """.formatted(gameId, viewerId, targetEventId, influencerId);
+        var message = MessageBuilder.withPayload((Object) payload.getBytes(StandardCharsets.UTF_8))
+                .setHeader("eventId", eventId.toString())
+                .setHeader("eventType", "InfluenceTraced")
+                .build();
+        given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
+
+        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper()).handle(message);
+
+        var payloadCaptor = ArgumentCaptor.forClass(InfluenceTracedPayload.class);
+        then(applier).should().applyInfluenceTraced(payloadCaptor.capture());
+        assertThat(payloadCaptor.getValue().playerId()).isEqualTo(viewerId);
+        assertThat(payloadCaptor.getValue().targetEventId()).isEqualTo(targetEventId);
+        assertThat(payloadCaptor.getValue().influencerPlayerIds()).containsExactly(influencerId);
+    }
+
+    @Test
+    void handle_influenceTracedWithEmptyInfluencers_dispatchesToApplier() {
+        var eventId = UUID.randomUUID();
+        var gameId = UUID.randomUUID();
+        var viewerId = UUID.randomUUID();
+        var targetEventId = UUID.randomUUID();
+        var payload = """
+                {
+                  "gameId": "%s",
+                  "eraNumber": 1,
+                  "roundNumber": 1,
+                  "playerId": "%s",
+                  "targetEventId": "%s",
+                  "influencerPlayerIds": []
+                }
+                """.formatted(gameId, viewerId, targetEventId);
+        var message = MessageBuilder.withPayload((Object) payload.getBytes(StandardCharsets.UTF_8))
+                .setHeader("eventId", eventId.toString())
+                .setHeader("eventType", "InfluenceTraced")
+                .build();
+        given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
+
+        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper()).handle(message);
+
+        var payloadCaptor = ArgumentCaptor.forClass(InfluenceTracedPayload.class);
+        then(applier).should().applyInfluenceTraced(payloadCaptor.capture());
+        assertThat(payloadCaptor.getValue().influencerPlayerIds()).isEmpty();
     }
 }

@@ -4,8 +4,13 @@ import java.util.Set;
 
 public final class NotificationPolicy {
 
-    private static final Set<String> TARGETED =
-            Set.of("FactionAssigned", "HandDealt", "HandSelected", "ProbabilityStateRevealed", "PlayerJammed");
+    private static final Set<String> TARGETED = Set.of(
+            "FactionAssigned",
+            "HandDealt",
+            "HandSelected",
+            "ProbabilityStateRevealed",
+            "InfluenceTraced",
+            "PlayerJammed");
     private static final Set<String> NEVER = Set.of(
             "CardPlayed",
             "SpecialActionPlayed",

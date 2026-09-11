@@ -1,5 +1,7 @@
 package io.github.temporalrift.read.projection.application.query;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -9,11 +11,12 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.PlayerNotInGameException;
-import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
+import io.github.temporalrift.read.projection.domain.model.RevealedIntelEntry;
 import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameProjectionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PlayerGameStateRepository;
+import io.github.temporalrift.read.projection.domain.port.out.RevealedInfluenceIntelRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedProbabilityIntelRepository;
 
 @Service
@@ -24,18 +27,21 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
     private final GameActiveEventRepository gameActiveEvents;
     private final PlayerGameStateRepository playerGameStates;
     private final RevealedProbabilityIntelRepository revealedProbabilityIntel;
+    private final RevealedInfluenceIntelRepository revealedInfluenceIntel;
 
     GetPlayerGameStateQueryHandler(
             GameProjectionRepository gameProjections,
             GamePlayerRepository gamePlayers,
             GameActiveEventRepository gameActiveEvents,
             PlayerGameStateRepository playerGameStates,
-            RevealedProbabilityIntelRepository revealedProbabilityIntel) {
+            RevealedProbabilityIntelRepository revealedProbabilityIntel,
+            RevealedInfluenceIntelRepository revealedInfluenceIntel) {
         this.gameProjections = gameProjections;
         this.gamePlayers = gamePlayers;
         this.gameActiveEvents = gameActiveEvents;
         this.playerGameStates = playerGameStates;
         this.revealedProbabilityIntel = revealedProbabilityIntel;
+        this.revealedInfluenceIntel = revealedInfluenceIntel;
     }
 
     @Override
@@ -53,9 +59,8 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                 .map(GamePlayer::score)
                 .orElse(0);
         var myRevealedIntel = gameProjection.phase().isEraOver()
-                ? List.<RevealedProbabilityIntel>of()
-                : revealedProbabilityIntel.findByGameIdAndPlayerIdAndEraNumber(
-                        gameId, playerId, gameProjection.eraNumber());
+                ? List.<RevealedIntelEntry>of()
+                : combinedIntel(gameId, playerId, gameProjection.eraNumber());
         var myJammedUntilRound =
                 playerGameState.effectiveJammedUntilRound(gameProjection.eraNumber(), gameProjection.phase());
 
@@ -72,5 +77,13 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                 gameActiveEvents.findByGameId(gameId),
                 gameProjection.lastRoundSummary(),
                 myJammedUntilRound);
+    }
+
+    private List<RevealedIntelEntry> combinedIntel(UUID gameId, UUID playerId, int eraNumber) {
+        var intel = new ArrayList<RevealedIntelEntry>(
+                revealedProbabilityIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, eraNumber));
+        intel.addAll(revealedInfluenceIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, eraNumber));
+        intel.sort(Comparator.comparing(RevealedIntelEntry::eventId));
+        return List.copyOf(intel);
     }
 }
