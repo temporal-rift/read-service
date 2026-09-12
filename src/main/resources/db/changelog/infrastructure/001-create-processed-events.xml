@@ -6,8 +6,8 @@
             https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
 
   <!--
-      Kafka consumer idempotency. Consumers claim (event_id, consumer) before any business work.
-      See event-schema.md §2.1.1 and developer-notes.md §4 (Idempotency).
+      Kafka consumer idempotency. Consumers claim (event_id, consumer) before any business work,
+      per this workspace's internal event-contract and architecture references.
   -->
   <changeSet id="001-create-processed-events" author="read-service">
     <createTable tableName="processed_events">

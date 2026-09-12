@@ -13,6 +13,7 @@ import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.PlayerNotInGameException;
 import io.github.temporalrift.read.projection.domain.model.RevealedIntelEntry;
 import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRepository;
+import io.github.temporalrift.read.projection.domain.port.out.GameChainRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameProjectionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PlayerGameStateRepository;
@@ -30,6 +31,7 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
     private final RevealedProbabilityIntelRepository revealedProbabilityIntel;
     private final RevealedInfluenceIntelRepository revealedInfluenceIntel;
     private final RevealedHandCardIntelRepository revealedHandCardIntel;
+    private final GameChainRepository gameChains;
 
     GetPlayerGameStateQueryHandler(
             GameProjectionRepository gameProjections,
@@ -38,7 +40,8 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
             PlayerGameStateRepository playerGameStates,
             RevealedProbabilityIntelRepository revealedProbabilityIntel,
             RevealedInfluenceIntelRepository revealedInfluenceIntel,
-            RevealedHandCardIntelRepository revealedHandCardIntel) {
+            RevealedHandCardIntelRepository revealedHandCardIntel,
+            GameChainRepository gameChains) {
         this.gameProjections = gameProjections;
         this.gamePlayers = gamePlayers;
         this.gameActiveEvents = gameActiveEvents;
@@ -46,6 +49,7 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
         this.revealedProbabilityIntel = revealedProbabilityIntel;
         this.revealedInfluenceIntel = revealedInfluenceIntel;
         this.revealedHandCardIntel = revealedHandCardIntel;
+        this.gameChains = gameChains;
     }
 
     @Override
@@ -80,7 +84,8 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                 players,
                 gameActiveEvents.findByGameId(gameId),
                 gameProjection.lastRoundSummary(),
-                myJammedUntilRound);
+                myJammedUntilRound,
+                gameChains.findByGameId(gameId).orElse(null));
     }
 
     private List<RevealedIntelEntry> combinedIntel(UUID gameId, UUID playerId, int eraNumber) {

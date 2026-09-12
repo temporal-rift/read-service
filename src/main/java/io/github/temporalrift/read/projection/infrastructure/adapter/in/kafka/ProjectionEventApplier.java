@@ -1,6 +1,7 @@
 package io.github.temporalrift.read.projection.infrastructure.adapter.in.kafka;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.slf4j.Logger;
@@ -26,14 +27,19 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Ha
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PlayerAbandonedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PlayerDisconnectedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ResolutionStartedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainBrokenPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainCompletedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainLinkAddedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.OutcomeAppliedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolutionPhaseStartedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolvedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedPayload;
 import io.github.temporalrift.read.projection.domain.model.CarryOverState;
+import io.github.temporalrift.read.projection.domain.model.ChainStatus;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
+import io.github.temporalrift.read.projection.domain.model.GameChain;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.GameProjection;
 import io.github.temporalrift.read.projection.domain.model.HandCard;
@@ -49,6 +55,7 @@ import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIn
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
 import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
 import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRepository;
+import io.github.temporalrift.read.projection.domain.port.out.GameChainRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameProjectionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PlayerGameStateRepository;
@@ -74,6 +81,7 @@ class ProjectionEventApplier {
     private final RevealedProbabilityIntelRepository revealedProbabilityIntel;
     private final RevealedInfluenceIntelRepository revealedInfluenceIntel;
     private final RevealedHandCardIntelRepository revealedHandCardIntel;
+    private final GameChainRepository gameChains;
 
     ProjectionEventApplier(
             GameProjectionRepository gameProjections,
@@ -82,7 +90,8 @@ class ProjectionEventApplier {
             PlayerGameStateRepository playerGameStates,
             RevealedProbabilityIntelRepository revealedProbabilityIntel,
             RevealedInfluenceIntelRepository revealedInfluenceIntel,
-            RevealedHandCardIntelRepository revealedHandCardIntel) {
+            RevealedHandCardIntelRepository revealedHandCardIntel,
+            GameChainRepository gameChains) {
         this.gameProjections = gameProjections;
         this.gamePlayers = gamePlayers;
         this.gameActiveEvents = gameActiveEvents;
@@ -90,6 +99,7 @@ class ProjectionEventApplier {
         this.revealedProbabilityIntel = revealedProbabilityIntel;
         this.revealedInfluenceIntel = revealedInfluenceIntel;
         this.revealedHandCardIntel = revealedHandCardIntel;
+        this.gameChains = gameChains;
     }
 
     // Preserves rather than overwrites: a per-player event can arrive, and find-or-create a row,
@@ -277,6 +287,7 @@ class ProjectionEventApplier {
         revealedInfluenceIntel.deleteByGameId(payload.gameId());
         revealedHandCardIntel.deleteByGameId(payload.gameId());
         gameActiveEvents.deleteByGameId(payload.gameId());
+        gameChains.deleteByGameId(payload.gameId());
         for (var finalScore : payload.finalScores()) {
             gamePlayers
                     .findByGameIdAndPlayerId(payload.gameId(), finalScore.playerId())
@@ -474,6 +485,75 @@ class ProjectionEventApplier {
                 payload.targetPlayerId(),
                 payload.roundNumber(),
                 cards));
+    }
+
+    // New chainId always replaces the tracked chain (a new chain has started); a message for the tracked
+    // chainId is rejected once that chain is terminal, and ChainLinkAdded is additionally rejected when its
+    // chainLength does not exceed the tracked length — guards a message with no eraNumber to key staleness on.
+    void applyChainLinkAdded(ChainLinkAddedPayload payload) {
+        if (lockGame(payload.gameId()).phase() == Phase.GAME_ENDED) {
+            log.warn("ChainLinkAdded for ended game {} — skipping", payload.gameId());
+            return;
+        }
+        var existing = gameChains.findByGameId(payload.gameId());
+        if (isStaleChainMessage(existing, payload.chainId())) {
+            log.warn("ChainLinkAdded for resolved chain {} in game {} — skipping", payload.chainId(), payload.gameId());
+            return;
+        }
+        if (isSameChain(existing, payload.chainId())
+                && payload.chainLength() <= existing.get().length()) {
+            log.warn(
+                    "ChainLinkAdded stale length {} for chain {} in game {} — skipping",
+                    payload.chainLength(),
+                    payload.chainId(),
+                    payload.gameId());
+            return;
+        }
+        gameChains.save(
+                payload.gameId(),
+                new GameChain(payload.gameId(), payload.chainId(), ChainStatus.ACTIVE, payload.chainLength()));
+    }
+
+    void applyChainCompleted(ChainCompletedPayload payload) {
+        if (lockGame(payload.gameId()).phase() == Phase.GAME_ENDED) {
+            log.warn("ChainCompleted for ended game {} — skipping", payload.gameId());
+            return;
+        }
+        var existing = gameChains.findByGameId(payload.gameId());
+        if (isStaleChainMessage(existing, payload.chainId())) {
+            log.warn("ChainCompleted for resolved chain {} in game {} — skipping", payload.chainId(), payload.gameId());
+            return;
+        }
+        gameChains.save(
+                payload.gameId(),
+                new GameChain(
+                        payload.gameId(),
+                        payload.chainId(),
+                        ChainStatus.COMPLETED,
+                        payload.links().size()));
+    }
+
+    void applyChainBroken(ChainBrokenPayload payload) {
+        if (lockGame(payload.gameId()).phase() == Phase.GAME_ENDED) {
+            log.warn("ChainBroken for ended game {} — skipping", payload.gameId());
+            return;
+        }
+        var existing = gameChains.findByGameId(payload.gameId());
+        if (isStaleChainMessage(existing, payload.chainId())) {
+            log.warn("ChainBroken for resolved chain {} in game {} — skipping", payload.chainId(), payload.gameId());
+            return;
+        }
+        gameChains.save(
+                payload.gameId(),
+                new GameChain(payload.gameId(), payload.chainId(), ChainStatus.BROKEN, payload.chainLengthAtBreak()));
+    }
+
+    private boolean isSameChain(Optional<GameChain> existing, UUID chainId) {
+        return existing.isPresent() && existing.get().chainId().equals(chainId);
+    }
+
+    private boolean isStaleChainMessage(Optional<GameChain> existing, UUID chainId) {
+        return isSameChain(existing, chainId) && existing.get().status() != ChainStatus.ACTIVE;
     }
 
     void applyParadoxResolutionPhaseStarted(ParadoxResolutionPhaseStartedPayload payload) {

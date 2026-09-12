@@ -10,6 +10,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
+import io.github.temporalrift.read.projection.domain.model.ChainStatus;
+import io.github.temporalrift.read.projection.domain.model.GameChain;
 import io.github.temporalrift.read.projection.domain.model.HandCard;
 import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
 import io.github.temporalrift.read.projection.domain.model.Phase;
@@ -217,6 +219,7 @@ class ProjectionRestMapperTest {
                 List.of(),
                 List.of(),
                 new LastRoundSummary(2, 2, List.of(new RoundActionSummary(playerId, "INFORMATION", "CARD", false))),
+                null,
                 null);
 
         var response = ProjectionRestMapper.toResponse(result);
@@ -246,7 +249,8 @@ class ProjectionRestMapperTest {
                 List.of(),
                 List.of(),
                 null,
-                3);
+                3,
+                null);
 
         var response = ProjectionRestMapper.toResponse(result);
 
@@ -258,6 +262,39 @@ class ProjectionRestMapperTest {
         var response = ProjectionRestMapper.toResponse(resultWithHand(Phase.ACTION_ROUND_2, 2, List.of()));
 
         assertThat(response.getMyJammedUntilRound()).isNull();
+    }
+
+    @Test
+    void toResponse_mapsChainStatusAndLength() {
+        var chainId = UUID.randomUUID();
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID,
+                2,
+                Phase.ACTION_ROUND_2,
+                "ERASERS",
+                List.of(),
+                null,
+                List.of(),
+                0,
+                List.of(),
+                List.of(),
+                null,
+                null,
+                new GameChain(GAME_ID, chainId, ChainStatus.ACTIVE, 2));
+
+        var response = ProjectionRestMapper.toResponse(result);
+
+        assertThat(response.getChain()).satisfies(chain -> {
+            assertThat(chain.getStatus().getValue()).isEqualTo("ACTIVE");
+            assertThat(chain.getLength()).isEqualTo(2);
+        });
+    }
+
+    @Test
+    void toResponse_noChainMapsToNull() {
+        var response = ProjectionRestMapper.toResponse(resultWithHand(Phase.ACTION_ROUND_2, 2, List.of()));
+
+        assertThat(response.getChain()).isNull();
     }
 
     private static GetPlayerGameStateUseCase.Result resultWithFaction(String faction) {
