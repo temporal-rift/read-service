@@ -491,6 +491,10 @@ class ProjectionEventApplier {
     // chainId is rejected once that chain is terminal, and ChainLinkAdded is additionally rejected when its
     // chainLength does not exceed the tracked length — guards a message with no eraNumber to key staleness on.
     void applyChainLinkAdded(ChainLinkAddedPayload payload) {
+        if (lockGame(payload.gameId()).phase() == Phase.GAME_ENDED) {
+            log.warn("ChainLinkAdded for ended game {} — skipping", payload.gameId());
+            return;
+        }
         var existing = gameChains.findByGameId(payload.gameId());
         if (isStaleChainMessage(existing, payload.chainId())) {
             log.warn("ChainLinkAdded for resolved chain {} in game {} — skipping", payload.chainId(), payload.gameId());
@@ -511,6 +515,10 @@ class ProjectionEventApplier {
     }
 
     void applyChainCompleted(ChainCompletedPayload payload) {
+        if (lockGame(payload.gameId()).phase() == Phase.GAME_ENDED) {
+            log.warn("ChainCompleted for ended game {} — skipping", payload.gameId());
+            return;
+        }
         var existing = gameChains.findByGameId(payload.gameId());
         if (isStaleChainMessage(existing, payload.chainId())) {
             log.warn("ChainCompleted for resolved chain {} in game {} — skipping", payload.chainId(), payload.gameId());
@@ -526,6 +534,10 @@ class ProjectionEventApplier {
     }
 
     void applyChainBroken(ChainBrokenPayload payload) {
+        if (lockGame(payload.gameId()).phase() == Phase.GAME_ENDED) {
+            log.warn("ChainBroken for ended game {} — skipping", payload.gameId());
+            return;
+        }
         var existing = gameChains.findByGameId(payload.gameId());
         if (isStaleChainMessage(existing, payload.chainId())) {
             log.warn("ChainBroken for resolved chain {} in game {} — skipping", payload.chainId(), payload.gameId());

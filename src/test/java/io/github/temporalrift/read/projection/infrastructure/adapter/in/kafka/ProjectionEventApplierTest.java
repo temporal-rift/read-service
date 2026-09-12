@@ -741,6 +741,8 @@ class ProjectionEventApplierTest {
     void applyChainLinkAdded_noExistingChain_startsANewActiveChain() {
         var chainId = UUID.randomUUID();
         var playerId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
         given(gameChains.findByGameId(gameId)).willReturn(Optional.empty());
 
         applier.applyChainLinkAdded(
@@ -752,6 +754,8 @@ class ProjectionEventApplierTest {
     @Test
     void applyChainLinkAdded_growsAnExistingActiveChain() {
         var chainId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
         given(gameChains.findByGameId(gameId))
                 .willReturn(Optional.of(new GameChain(gameId, chainId, ChainStatus.ACTIVE, 1)));
 
@@ -764,6 +768,8 @@ class ProjectionEventApplierTest {
     @Test
     void applyChainLinkAdded_staleLowerLength_isSkipped() {
         var chainId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
         given(gameChains.findByGameId(gameId))
                 .willReturn(Optional.of(new GameChain(gameId, chainId, ChainStatus.ACTIVE, 2)));
 
@@ -776,6 +782,8 @@ class ProjectionEventApplierTest {
     @Test
     void applyChainLinkAdded_forAlreadyResolvedChain_isSkipped() {
         var chainId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
         given(gameChains.findByGameId(gameId))
                 .willReturn(Optional.of(new GameChain(gameId, chainId, ChainStatus.BROKEN, 2)));
 
@@ -789,6 +797,8 @@ class ProjectionEventApplierTest {
     void applyChainLinkAdded_forADifferentChainId_replacesTheResolvedChain() {
         var oldChainId = UUID.randomUUID();
         var newChainId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
         given(gameChains.findByGameId(gameId))
                 .willReturn(Optional.of(new GameChain(gameId, oldChainId, ChainStatus.COMPLETED, 3)));
 
@@ -799,8 +809,23 @@ class ProjectionEventApplierTest {
     }
 
     @Test
+    void applyChainLinkAdded_gameAlreadyEnded_isSkipped() {
+        var chainId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.GAME_ENDED)));
+
+        applier.applyChainLinkAdded(new ChainLinkAddedPayload(
+                gameId, chainId, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 1, null));
+
+        then(gameChains).should(never()).findByGameId(any());
+        then(gameChains).should(never()).save(any(), any());
+    }
+
+    @Test
     void applyChainCompleted_setsCompletedStatusWithLinkCount() {
         var chainId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
         given(gameChains.findByGameId(gameId))
                 .willReturn(Optional.of(new GameChain(gameId, chainId, ChainStatus.ACTIVE, 3)));
 
@@ -820,6 +845,8 @@ class ProjectionEventApplierTest {
     @Test
     void applyChainCompleted_forAlreadyResolvedChain_isSkipped() {
         var chainId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
         given(gameChains.findByGameId(gameId))
                 .willReturn(Optional.of(new GameChain(gameId, chainId, ChainStatus.BROKEN, 2)));
 
@@ -829,8 +856,22 @@ class ProjectionEventApplierTest {
     }
 
     @Test
+    void applyChainCompleted_gameAlreadyEnded_isSkipped() {
+        var chainId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.GAME_ENDED)));
+
+        applier.applyChainCompleted(new ChainCompletedPayload(gameId, 1, chainId, UUID.randomUUID(), List.of()));
+
+        then(gameChains).should(never()).findByGameId(any());
+        then(gameChains).should(never()).save(any(), any());
+    }
+
+    @Test
     void applyChainBroken_setsBrokenStatusWithLengthAtBreak() {
         var chainId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
         given(gameChains.findByGameId(gameId))
                 .willReturn(Optional.of(new GameChain(gameId, chainId, ChainStatus.ACTIVE, 2)));
 
@@ -842,11 +883,25 @@ class ProjectionEventApplierTest {
     @Test
     void applyChainBroken_forAlreadyResolvedChain_isSkipped() {
         var chainId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
         given(gameChains.findByGameId(gameId))
                 .willReturn(Optional.of(new GameChain(gameId, chainId, ChainStatus.COMPLETED, 3)));
 
         applier.applyChainBroken(new ChainBrokenPayload(gameId, 1, chainId, UUID.randomUUID(), UUID.randomUUID(), 3));
 
+        then(gameChains).should(never()).save(any(), any());
+    }
+
+    @Test
+    void applyChainBroken_gameAlreadyEnded_isSkipped() {
+        var chainId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.GAME_ENDED)));
+
+        applier.applyChainBroken(new ChainBrokenPayload(gameId, 1, chainId, UUID.randomUUID(), UUID.randomUUID(), 3));
+
+        then(gameChains).should(never()).findByGameId(any());
         then(gameChains).should(never()).save(any(), any());
     }
 
