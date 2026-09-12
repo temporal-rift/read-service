@@ -14,6 +14,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
 import tools.jackson.databind.ObjectMapper;
@@ -94,6 +95,48 @@ class NotificationFanOutServiceTest {
 
         verify(healthy).send(any());
         assertThat(registry.sessionsFor(gameId)).hasSize(1);
+    }
+
+    @Test
+    void chainLinkAddedIsBroadcastWithoutThePlayerIdField() {
+        var gameId = UUID.randomUUID();
+        var playerId = UUID.randomUUID();
+        var recipient = mock(NotificationDeliveryPort.class);
+        var registry = new NotificationSessionRegistry();
+        registry.register(activeSession("session", gameId, UUID.randomUUID(), recipient));
+        var service = new NotificationFanOutService(new NotificationPolicy(), registry, new ObjectMapper());
+
+        service.fanOut(message(
+                gameId,
+                "ChainLinkAdded",
+                "{\"gameId\":\"" + gameId + "\",\"playerId\":\"" + playerId + "\",\"chainLength\":2}"));
+
+        var captor = ArgumentCaptor.forClass(NotificationMessage.class);
+        verify(recipient).send(captor.capture());
+        assertThat(captor.getValue().payload().has("playerId")).isFalse();
+        assertThat(captor.getValue().payload().get("chainLength").asInt()).isEqualTo(2);
+    }
+
+    @Test
+    void chainBrokenIsBroadcastWithoutEitherIdentityField() {
+        var gameId = UUID.randomUUID();
+        var recipient = mock(NotificationDeliveryPort.class);
+        var registry = new NotificationSessionRegistry();
+        registry.register(activeSession("session", gameId, UUID.randomUUID(), recipient));
+        var service = new NotificationFanOutService(new NotificationPolicy(), registry, new ObjectMapper());
+
+        service.fanOut(message(
+                gameId,
+                "ChainBroken",
+                "{\"gameId\":\"" + gameId + "\",\"brokenByPlayerId\":\"" + UUID.randomUUID()
+                        + "\",\"targetPlayerId\":\"" + UUID.randomUUID() + "\",\"chainLengthAtBreak\":3}"));
+
+        var captor = ArgumentCaptor.forClass(NotificationMessage.class);
+        verify(recipient).send(captor.capture());
+        assertThat(captor.getValue().payload().has("brokenByPlayerId")).isFalse();
+        assertThat(captor.getValue().payload().has("targetPlayerId")).isFalse();
+        assertThat(captor.getValue().payload().get("chainLengthAtBreak").asInt())
+                .isEqualTo(3);
     }
 
     private static Message<Object> message(UUID gameId, String type, String payload) {

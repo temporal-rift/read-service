@@ -55,11 +55,11 @@
         <sonar.coverage.exclusions>**/generated-sources/**/*</sonar.coverage.exclusions>
 
         <archunit-junit5.version>1.4.2</archunit-junit5.version>
-        <projection-api.version>2.7.5</projection-api.version>
+        <projection-api.version>2.8.0</projection-api.version>
         <session-event.version>1.2.1</session-event.version>
         <action-event.version>2.2.0</action-event.version>
         <scoring-event.version>1.0.2</scoring-event.version>
-        <timeline-event.version>2.1.0</timeline-event.version>
+        <timeline-event.version>2.2.0</timeline-event.version>
     </properties>
 
     <dependencies>

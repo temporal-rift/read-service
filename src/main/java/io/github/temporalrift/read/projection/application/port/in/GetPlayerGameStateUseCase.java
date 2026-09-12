@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.UUID;
 
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
+import io.github.temporalrift.read.projection.domain.model.GameChain;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.HandCard;
 import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
@@ -28,7 +29,8 @@ public interface GetPlayerGameStateUseCase {
             List<GamePlayer> players,
             List<GameActiveEvent> activeEvents,
             LastRoundSummary lastRoundSummary,
-            Integer myJammedUntilRound) {
+            Integer myJammedUntilRound,
+            GameChain chain) {
 
         public Result(
                 UUID gameId,
@@ -52,6 +54,7 @@ public interface GetPlayerGameStateUseCase {
                     myScore,
                     players,
                     activeEvents,
+                    null,
                     null,
                     null);
         }

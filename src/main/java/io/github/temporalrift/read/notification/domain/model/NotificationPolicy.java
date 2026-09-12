@@ -1,8 +1,16 @@
 package io.github.temporalrift.read.notification.domain.model;
 
+import java.util.Map;
 import java.util.Set;
 
 public final class NotificationPolicy {
+
+    // Chain events carry the acting player's id, which would identify the Weavers faction holder before
+    // FactionRevealed since only one player per game can hold it — these fields never reach a client.
+    private static final Map<String, Set<String>> IDENTITY_REDACTIONS = Map.of(
+            "ChainLinkAdded", Set.of("playerId"),
+            "ChainCompleted", Set.of("playerId"),
+            "ChainBroken", Set.of("brokenByPlayerId", "targetPlayerId"));
 
     private static final Set<String> TARGETED = Set.of(
             "FactionAssigned",
@@ -65,6 +73,11 @@ public final class NotificationPolicy {
             return Delivery.TARGETED;
         }
         return BROADCAST.contains(eventType) ? Delivery.BROADCAST : Delivery.NEVER;
+    }
+
+    /** Payload field names to strip before delivery, empty when the event type carries no identity to redact. */
+    public Set<String> identityFieldsToRedact(String eventType) {
+        return IDENTITY_REDACTIONS.getOrDefault(eventType, Set.of());
     }
 
     public enum Delivery {

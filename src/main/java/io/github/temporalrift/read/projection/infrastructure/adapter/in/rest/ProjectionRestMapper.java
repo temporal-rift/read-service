@@ -8,6 +8,7 @@ import io.github.temporalrift.read.projection.application.port.in.GetGameHistory
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
 import io.github.temporalrift.read.projection.domain.model.DealtCard;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
+import io.github.temporalrift.read.projection.domain.model.GameChain;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
 import io.github.temporalrift.read.projection.domain.model.Phase;
@@ -19,6 +20,7 @@ import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActiveEvent;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CardGrade;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CascadedEvent;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ChainState;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.DealtHandCard;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.EventOutcome;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.GameHistoryEra;
@@ -65,7 +67,12 @@ final class ProjectionRestMapper {
                 result.pendingHandSelection() == null ? null : toPendingHandSelection(result.pendingHandSelection()));
         response.setLastRoundSummary(
                 result.lastRoundSummary() == null ? null : toRoundSummary(result.lastRoundSummary()));
+        response.setChain(result.chain() == null ? null : toChainState(result.chain()));
         return response;
+    }
+
+    private static ChainState toChainState(GameChain domain) {
+        return new ChainState(ChainState.StatusEnum.valueOf(domain.status().name()), domain.length());
     }
 
     private static RoundSummary toRoundSummary(LastRoundSummary summary) {

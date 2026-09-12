@@ -800,6 +800,125 @@ class PlayerGameStateIT {
     }
 
     @Test
+    void chainProgress_visibleToEveryPlayerWithoutIdentityAndClearsAtGameEnd() throws Exception {
+        var gameId = UUID.randomUUID();
+        var player1 = UUID.randomUUID();
+        var player2 = UUID.randomUUID();
+        var chainId = UUID.randomUUID();
+        var weaverPlayerId = UUID.randomUUID();
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "GameStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "lobbyId",
+                        UUID.randomUUID(),
+                        "playerIds",
+                        List.of(player1, player2),
+                        "totalFactions",
+                        3,
+                        "deckSize",
+                        30));
+        awaitPlayerGameStateRowExists(gameId, player1);
+        awaitPlayerGameStateRowExists(gameId, player2);
+
+        publish(
+                TIMELINE_EVENTS_TOPIC,
+                "ChainLinkAdded",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "chainId",
+                        chainId,
+                        "playerId",
+                        weaverPlayerId,
+                        "linkedEventId",
+                        UUID.randomUUID(),
+                        "linkedOutcomeId",
+                        UUID.randomUUID(),
+                        "chainLength",
+                        1));
+        awaitChainState(gameId, "ACTIVE", 1);
+
+        publish(
+                TIMELINE_EVENTS_TOPIC,
+                "ChainLinkAdded",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "chainId",
+                        chainId,
+                        "playerId",
+                        weaverPlayerId,
+                        "linkedEventId",
+                        UUID.randomUUID(),
+                        "linkedOutcomeId",
+                        UUID.randomUUID(),
+                        "chainLength",
+                        2,
+                        "previousLinkEventId",
+                        UUID.randomUUID()));
+        awaitChainState(gameId, "ACTIVE", 2);
+
+        for (var playerId : List.of(player1, player2)) {
+            mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                            .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(playerId)))))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.chain.status").value("ACTIVE"))
+                    .andExpect(jsonPath("$.chain.length").value(2))
+                    .andExpect(jsonPath("$.chain.playerId").doesNotExist())
+                    .andExpect(jsonPath("$..brokenByPlayerId").doesNotExist())
+                    .andExpect(jsonPath("$..targetPlayerId").doesNotExist());
+        }
+
+        publish(
+                TIMELINE_EVENTS_TOPIC,
+                "ChainBroken",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "chainId",
+                        chainId,
+                        "brokenByPlayerId",
+                        UUID.randomUUID(),
+                        "targetPlayerId",
+                        weaverPlayerId,
+                        "chainLengthAtBreak",
+                        2));
+        awaitChainState(gameId, "BROKEN", 2);
+
+        for (var playerId : List.of(player1, player2)) {
+            mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                            .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(playerId)))))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.chain.status").value("BROKEN"))
+                    .andExpect(jsonPath("$.chain.length").value(2))
+                    .andExpect(jsonPath("$..brokenByPlayerId").doesNotExist())
+                    .andExpect(jsonPath("$..targetPlayerId").doesNotExist());
+        }
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "GameEnded",
+                gameId,
+                Map.of("gameId", gameId, "endReason", "SCORE_THRESHOLD", "finalScores", List.of()));
+        awaitPhase(gameId, "GAME_ENDED");
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(player1)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.chain").value(nullValue()));
+    }
+
+    @Test
     void nonParticipant_getState_returns404() throws Exception {
         var gameId = UUID.randomUUID();
         var participant = UUID.randomUUID();
@@ -1566,6 +1685,15 @@ class PlayerGameStateIT {
                         eraNumber,
                         eventId))
                 .isEqualTo(expectedCount);
+    }
+
+    private void awaitChainState(UUID gameId, String status, int length) {
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+            var state = jdbcTemplate.queryForMap(
+                    "SELECT status, length FROM game_chain_projection WHERE game_id = ?", gameId);
+            assertThat(state).containsEntry("status", status);
+            assertThat(state).containsEntry("length", length);
+        });
     }
 
     private void awaitProbabilityIntelProbability(

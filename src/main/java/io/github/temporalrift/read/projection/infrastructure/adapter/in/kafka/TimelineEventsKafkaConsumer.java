@@ -8,6 +8,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainBrokenPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainCompletedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainLinkAddedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.OutcomeAppliedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolutionPhaseStartedPayload;
@@ -54,6 +57,9 @@ class TimelineEventsKafkaConsumer {
             case "ParadoxCascaded" -> applier.applyParadoxCascaded(read(message, ParadoxCascadedPayload.class));
             case "ProbabilityStateRevealed" ->
                 applier.applyProbabilityStateRevealed(read(message, ProbabilityStateRevealedPayload.class));
+            case "ChainLinkAdded" -> applier.applyChainLinkAdded(read(message, ChainLinkAddedPayload.class));
+            case "ChainCompleted" -> applier.applyChainCompleted(read(message, ChainCompletedPayload.class));
+            case "ChainBroken" -> applier.applyChainBroken(read(message, ChainBrokenPayload.class));
             default -> {
                 // Other timeline.events types aren't consumed by this projection.
             }
