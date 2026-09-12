@@ -21,5 +21,6 @@
     <include file="db/changelog/projection/010-add-jammed-until-round.xml"/>
     <include file="db/changelog/projection/011-create-revealed-influence-intel.xml"/>
     <include file="db/changelog/projection/012-create-revealed-hand-card-intel.xml"/>
+    <include file="db/changelog/projection/013-create-game-chain-projection.xml"/>
 
 </databaseChangeLog>

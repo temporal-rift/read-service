@@ -15,7 +15,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import io.github.temporalrift.read.projection.domain.model.ChainStatus;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
+import io.github.temporalrift.read.projection.domain.model.GameChain;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.GameProjection;
 import io.github.temporalrift.read.projection.domain.model.HandCard;
@@ -30,6 +32,7 @@ import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIn
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
 import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
 import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRepository;
+import io.github.temporalrift.read.projection.domain.port.out.GameChainRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameProjectionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PlayerGameStateRepository;
@@ -61,6 +64,9 @@ class GetPlayerGameStateQueryHandlerTest {
     @Mock
     RevealedHandCardIntelRepository revealedHandCardIntel;
 
+    @Mock
+    GameChainRepository gameChains;
+
     private GetPlayerGameStateQueryHandler handler;
 
     private final UUID gameId = UUID.randomUUID();
@@ -75,7 +81,8 @@ class GetPlayerGameStateQueryHandlerTest {
                 playerGameStates,
                 revealedProbabilityIntel,
                 revealedInfluenceIntel,
-                revealedHandCardIntel);
+                revealedHandCardIntel,
+                gameChains);
     }
 
     @Test
@@ -101,6 +108,30 @@ class GetPlayerGameStateQueryHandlerTest {
         assertThat(result.players()).isEqualTo(players);
         assertThat(result.activeEvents()).isEqualTo(activeEvents);
         assertThat(result.lastRoundSummary()).isNull();
+        assertThat(result.chain()).isNull();
+    }
+
+    @Test
+    void get_participantIncludesTheGameWideChainState() {
+        var chainId = UUID.randomUUID();
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, null, List.of())));
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));
+        given(gamePlayers.findByGameId(gameId)).willReturn(List.of());
+        given(gameActiveEvents.findByGameId(gameId)).willReturn(List.of());
+        given(revealedProbabilityIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(List.of());
+        given(revealedInfluenceIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(List.of());
+        given(revealedHandCardIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(List.of());
+        given(gameChains.findByGameId(gameId))
+                .willReturn(Optional.of(new GameChain(gameId, chainId, ChainStatus.ACTIVE, 2)));
+
+        var result = handler.get(gameId, playerId);
+
+        assertThat(result.chain()).isEqualTo(new GameChain(gameId, chainId, ChainStatus.ACTIVE, 2));
     }
 
     @Test
