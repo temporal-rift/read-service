@@ -219,6 +219,7 @@ class ProjectionRestMapperTest {
                 List.of(),
                 List.of(),
                 new LastRoundSummary(2, 2, List.of(new RoundActionSummary(playerId, "INFORMATION", "CARD", false))),
+                null,
                 null);
 
         var response = ProjectionRestMapper.toResponse(result);
@@ -248,7 +249,8 @@ class ProjectionRestMapperTest {
                 List.of(),
                 List.of(),
                 null,
-                3);
+                3,
+                null);
 
         var response = ProjectionRestMapper.toResponse(result);
 
