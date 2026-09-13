@@ -5,13 +5,15 @@ import java.util.Set;
 
 public final class NotificationPolicy {
 
+    private static final String PLAYER_ID_FIELD = "playerId";
+
     // Chain events carry the acting player's id, which would identify the Weavers faction holder before
     // FactionRevealed since only one player per game can hold it — these fields never reach a client.
     private static final Map<String, Set<String>> IDENTITY_REDACTIONS = Map.of(
-            "ChainLinkAdded", Set.of("playerId"),
-            "ChainCompleted", Set.of("playerId"),
+            "ChainLinkAdded", Set.of(PLAYER_ID_FIELD),
+            "ChainCompleted", Set.of(PLAYER_ID_FIELD),
             "ChainBroken", Set.of("brokenByPlayerId", "targetPlayerId"),
-            "ChainLinkInvalidated", Set.of("playerId"));
+            "ChainLinkInvalidated", Set.of(PLAYER_ID_FIELD));
 
     private static final Set<String> TARGETED = Set.of(
             "FactionAssigned",
