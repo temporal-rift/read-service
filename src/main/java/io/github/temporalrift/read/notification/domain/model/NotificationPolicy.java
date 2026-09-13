@@ -10,7 +10,8 @@ public final class NotificationPolicy {
     private static final Map<String, Set<String>> IDENTITY_REDACTIONS = Map.of(
             "ChainLinkAdded", Set.of("playerId"),
             "ChainCompleted", Set.of("playerId"),
-            "ChainBroken", Set.of("brokenByPlayerId", "targetPlayerId"));
+            "ChainBroken", Set.of("brokenByPlayerId", "targetPlayerId"),
+            "ChainLinkInvalidated", Set.of("playerId"));
 
     private static final Set<String> TARGETED = Set.of(
             "FactionAssigned",

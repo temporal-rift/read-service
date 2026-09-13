@@ -139,6 +139,26 @@ class NotificationFanOutServiceTest {
                 .isEqualTo(3);
     }
 
+    @Test
+    void chainLinkInvalidatedIsBroadcastWithoutThePlayerIdField() {
+        var gameId = UUID.randomUUID();
+        var playerId = UUID.randomUUID();
+        var recipient = mock(NotificationDeliveryPort.class);
+        var registry = new NotificationSessionRegistry();
+        registry.register(activeSession("session", gameId, UUID.randomUUID(), recipient));
+        var service = new NotificationFanOutService(new NotificationPolicy(), registry, new ObjectMapper());
+
+        service.fanOut(message(
+                gameId,
+                "ChainLinkInvalidated",
+                "{\"gameId\":\"" + gameId + "\",\"playerId\":\"" + playerId + "\",\"chainLength\":1}"));
+
+        var captor = ArgumentCaptor.forClass(NotificationMessage.class);
+        verify(recipient).send(captor.capture());
+        assertThat(captor.getValue().payload().has("playerId")).isFalse();
+        assertThat(captor.getValue().payload().get("chainLength").asInt()).isEqualTo(1);
+    }
+
     private static Message<Object> message(UUID gameId, String type, String payload) {
         return MessageBuilder.withPayload((Object) payload.getBytes())
                 .setHeader("gameId", gameId.toString())
