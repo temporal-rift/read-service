@@ -19,7 +19,8 @@ public final class NotificationPolicy {
             "ProbabilityStateRevealed",
             "InfluenceTraced",
             "HandCardIntercepted",
-            "PlayerJammed");
+            "PlayerJammed",
+            "ThreadRejected");
     private static final Set<String> NEVER = Set.of(
             "CardPlayed",
             "SpecialActionPlayed",
@@ -66,7 +67,8 @@ public final class NotificationPolicy {
             "FactionRevealed",
             "ChainLinkAdded",
             "ChainCompleted",
-            "ChainBroken");
+            "ChainBroken",
+            "ChainLinkInvalidated");
 
     public Delivery deliveryFor(String eventType) {
         if (TARGETED.contains(eventType)) {

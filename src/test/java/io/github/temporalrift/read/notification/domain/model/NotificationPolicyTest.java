@@ -19,6 +19,8 @@ class NotificationPolicyTest {
         assertThat(policy.deliveryFor("PlayerJammed")).isEqualTo(NotificationPolicy.Delivery.TARGETED);
         assertThat(policy.deliveryFor("InfluenceTraced")).isEqualTo(NotificationPolicy.Delivery.TARGETED);
         assertThat(policy.deliveryFor("HandCardIntercepted")).isEqualTo(NotificationPolicy.Delivery.TARGETED);
+        assertThat(policy.deliveryFor("ThreadRejected")).isEqualTo(NotificationPolicy.Delivery.TARGETED);
+        assertThat(policy.deliveryFor("ChainLinkInvalidated")).isEqualTo(NotificationPolicy.Delivery.BROADCAST);
         assertThat(policy.deliveryFor("EraResolutionCompleted")).isEqualTo(NotificationPolicy.Delivery.NEVER);
         assertThat(policy.deliveryFor("ProbabilityStateCalculated")).isEqualTo(NotificationPolicy.Delivery.NEVER);
         assertThat(policy.deliveryFor("UnknownEvent")).isEqualTo(NotificationPolicy.Delivery.NEVER);
@@ -33,6 +35,7 @@ class NotificationPolicyTest {
         assertThat(policy.deliveryFor("InfluenceTraced")).isNotEqualTo(NotificationPolicy.Delivery.BROADCAST);
         assertThat(policy.deliveryFor("PlayerJammed")).isNotEqualTo(NotificationPolicy.Delivery.BROADCAST);
         assertThat(policy.deliveryFor("HandCardIntercepted")).isNotEqualTo(NotificationPolicy.Delivery.BROADCAST);
+        assertThat(policy.deliveryFor("ThreadRejected")).isNotEqualTo(NotificationPolicy.Delivery.BROADCAST);
     }
 
     @Test
