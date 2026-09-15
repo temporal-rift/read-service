@@ -31,25 +31,32 @@ class GameHistoryKafkaConsumer {
     private static final String EVENT_TYPE_HEADER = "eventType";
     private static final String CONSUMER = "projection.game-history";
     private static final String GROUP_ID = "read-service." + CONSUMER;
+    private static final int SUPPORTED_VERSION = 1;
     private static final Set<String> GAME_EVENT_TYPES = Set.of("EventsDrawn", "EraEnded", "HandSelected");
     private static final Set<String> TIMELINE_EVENT_TYPES = Set.of("OutcomeApplied", "ParadoxCascaded");
 
     private final ProcessedEventPort processedEvents;
     private final GameHistoryEventApplier applier;
     private final ObjectMapper objectMapper;
+    private final KafkaSkipMetrics skipMetrics;
 
     GameHistoryKafkaConsumer(
-            ProcessedEventPort processedEvents, GameHistoryEventApplier applier, ObjectMapper objectMapper) {
+            ProcessedEventPort processedEvents,
+            GameHistoryEventApplier applier,
+            ObjectMapper objectMapper,
+            KafkaSkipMetrics skipMetrics) {
         this.processedEvents = processedEvents;
         this.applier = applier;
         this.objectMapper = objectMapper;
+        this.skipMetrics = skipMetrics;
     }
 
     @KafkaListener(topics = "game.events", groupId = GROUP_ID)
     @Transactional(propagation = REQUIRES_NEW)
     public void handleGameEvent(Message<Object> message) {
         var eventType = supportedEventType(message, GAME_EVENT_TYPES);
-        if (eventType == null) {
+        if (eventType == null
+                || UnsupportedEventGate.isUnsupportedVersion(message, CONSUMER, SUPPORTED_VERSION, skipMetrics)) {
             return;
         }
         InboundEventClaim.accept(message, CONSUMER, processedEvents)
@@ -60,7 +67,8 @@ class GameHistoryKafkaConsumer {
     @Transactional(propagation = REQUIRES_NEW)
     public void handleTimelineEvent(Message<Object> message) {
         var eventType = supportedEventType(message, TIMELINE_EVENT_TYPES);
-        if (eventType == null) {
+        if (eventType == null
+                || UnsupportedEventGate.isUnsupportedVersion(message, CONSUMER, SUPPORTED_VERSION, skipMetrics)) {
             return;
         }
         InboundEventClaim.accept(message, CONSUMER, processedEvents)

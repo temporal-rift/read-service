@@ -54,8 +54,13 @@ spring:
       sasl.jaas.config: ${KAFKA_SASL_JAAS_CONFIG:}
     consumer:
       auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
+      # ErrorHandlingDeserializer routes a deserialization failure (before any listener runs) through the
+      # same DefaultErrorHandler/DeadLetterPublishingRecoverer path as a listener-thrown exception.
+      key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.key.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
+        spring.deserializer.value.delegate.class: org.apache.kafka.common.serialization.ByteArrayDeserializer
     producer:
       # This service consumes only in MVP1 — no application code publishes. The autoconfigured
       # KafkaTemplate is still used directly by ProjectionKafkaConsumersIT to simulate an upstream

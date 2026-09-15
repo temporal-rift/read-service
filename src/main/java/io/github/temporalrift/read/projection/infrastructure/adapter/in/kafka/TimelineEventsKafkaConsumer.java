@@ -2,12 +2,15 @@ package io.github.temporalrift.read.projection.infrastructure.adapter.in.kafka;
 
 import static org.springframework.transaction.annotation.Propagation.REQUIRES_NEW;
 
+import java.util.Set;
+
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainBrokenPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainCompletedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainLinkAddedPayload;
@@ -26,21 +29,52 @@ class TimelineEventsKafkaConsumer {
 
     private static final String EVENT_TYPE_HEADER = "eventType";
     private static final String CONSUMER = "projection.timeline-events";
+    private static final int SUPPORTED_VERSION = 1;
+
+    // Every eventType ever published on timeline.events — see GameEventsKafkaConsumer for why this
+    // references the generated constants rather than hand-typed literals.
+    private static final Set<String> KNOWN_EVENT_TYPES = Set.of(
+            GeneratedChannelContract.RESOLUTION_STARTED_EVENT_TYPE,
+            GeneratedChannelContract.PROBABILITY_STATE_CALCULATED_EVENT_TYPE,
+            GeneratedChannelContract.PROBABILITY_STATE_REVEALED_EVENT_TYPE,
+            GeneratedChannelContract.BANDED_PROBABILITY_PUBLISHED_EVENT_TYPE,
+            GeneratedChannelContract.PARADOX_DETECTED_EVENT_TYPE,
+            GeneratedChannelContract.PARADOX_RESOLUTION_PHASE_STARTED_EVENT_TYPE,
+            GeneratedChannelContract.PARADOX_RESOLVED_EVENT_TYPE,
+            GeneratedChannelContract.PARADOX_CASCADED_EVENT_TYPE,
+            GeneratedChannelContract.OUTCOME_APPLIED_EVENT_TYPE,
+            GeneratedChannelContract.ERA_RESOLUTION_COMPLETED_EVENT_TYPE,
+            GeneratedChannelContract.CHAIN_LINK_ADDED_EVENT_TYPE,
+            GeneratedChannelContract.CHAIN_COMPLETED_EVENT_TYPE,
+            GeneratedChannelContract.CHAIN_BROKEN_EVENT_TYPE,
+            GeneratedChannelContract.CHAIN_LINK_INVALIDATED_EVENT_TYPE,
+            GeneratedChannelContract.THREAD_REJECTED_EVENT_TYPE,
+            GeneratedChannelContract.CORRUPT_INVERSION_CONFIRMED_EVENT_TYPE,
+            GeneratedChannelContract.RESOLUTION_FAILED_EVENT_TYPE,
+            GeneratedChannelContract.RESOLUTION_WARNING_EVENT_TYPE);
 
     private final ProcessedEventPort processedEvents;
     private final ProjectionEventApplier applier;
     private final ObjectMapper objectMapper;
+    private final KafkaSkipMetrics skipMetrics;
 
     TimelineEventsKafkaConsumer(
-            ProcessedEventPort processedEvents, ProjectionEventApplier applier, ObjectMapper objectMapper) {
+            ProcessedEventPort processedEvents,
+            ProjectionEventApplier applier,
+            ObjectMapper objectMapper,
+            KafkaSkipMetrics skipMetrics) {
         this.processedEvents = processedEvents;
         this.applier = applier;
         this.objectMapper = objectMapper;
+        this.skipMetrics = skipMetrics;
     }
 
     @KafkaListener(topics = "timeline.events", groupId = "read-service." + CONSUMER)
     @Transactional(propagation = REQUIRES_NEW)
     public void handle(Message<Object> message) {
+        if (UnsupportedEventGate.isUnsupported(message, CONSUMER, KNOWN_EVENT_TYPES, SUPPORTED_VERSION, skipMetrics)) {
+            return;
+        }
         InboundEventClaim.accept(message, CONSUMER, processedEvents).ifPresent(eventId -> dispatch(message));
     }
 

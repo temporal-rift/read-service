@@ -36,12 +36,15 @@ class GameEventsKafkaConsumerTest {
     @Mock
     ObjectMapper objectMapper;
 
+    @Mock
+    KafkaSkipMetrics skipMetrics;
+
     @Test
     void handle_newEvent_claimsForGameEventsConsumer() {
         var eventId = UUID.randomUUID();
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, objectMapper)
+        new GameEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics)
                 .handle(KafkaTestMessages.withEventId(eventId));
 
         then(processedEvents).should().claim(eventId, "projection.game-events");
@@ -52,10 +55,36 @@ class GameEventsKafkaConsumerTest {
         var eventId = UUID.randomUUID();
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, objectMapper)
+        new GameEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics)
                 .handle(KafkaTestMessages.withEventId(eventId));
 
         verifyNoInteractions(applier);
+    }
+
+    @Test
+    void handle_unrecognizedEventType_doesNotClaimOrThrow() {
+        var eventId = UUID.randomUUID();
+
+        new GameEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics)
+                .handle(KafkaTestMessages.withEventIdAndEventType(eventId, "SomeFutureEventType"));
+
+        verifyNoInteractions(processedEvents, applier);
+        then(skipMetrics).should().recordUnknownType();
+    }
+
+    @Test
+    void handle_unsupportedVersion_doesNotClaimOrDispatch() {
+        var eventId = UUID.randomUUID();
+        var message = MessageBuilder.withPayload((Object) new byte[0])
+                .setHeader("eventId", eventId.toString())
+                .setHeader("eventType", "GameStarted")
+                .setHeader("version", "2")
+                .build();
+
+        new GameEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics).handle(message);
+
+        verifyNoInteractions(processedEvents, applier);
+        then(skipMetrics).should().recordUnsupportedVersion("projection.game-events");
     }
 
     @Test
@@ -63,7 +92,7 @@ class GameEventsKafkaConsumerTest {
         var eventId = UUID.randomUUID();
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, objectMapper)
+        new GameEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics)
                 .handle(KafkaTestMessages.withEventIdAndEventType(eventId, "GameStarted"));
 
         then(applier).should().applyGameStarted(any());
@@ -74,7 +103,7 @@ class GameEventsKafkaConsumerTest {
         var eventId = UUID.randomUUID();
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, objectMapper)
+        new GameEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics)
                 .handle(KafkaTestMessages.withEventIdAndEventType(
                         eventId, "GameStarted".getBytes(StandardCharsets.UTF_8)));
 
@@ -103,10 +132,11 @@ class GameEventsKafkaConsumerTest {
         var message = MessageBuilder.withPayload((Object) payload.getBytes(StandardCharsets.UTF_8))
                 .setHeader("eventId", eventId.toString())
                 .setHeader("eventType", "CardPlayed")
+                .setHeader("version", "1")
                 .build();
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper()).handle(message);
+        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics).handle(message);
 
         var payloadCaptor = ArgumentCaptor.forClass(CardPlayedPayload.class);
         then(applier).should().applyCardPlayed(payloadCaptor.capture());
@@ -138,10 +168,11 @@ class GameEventsKafkaConsumerTest {
         var message = MessageBuilder.withPayload((Object) payload.getBytes(StandardCharsets.UTF_8))
                 .setHeader("eventId", eventId.toString())
                 .setHeader("eventType", "CardPlayed")
+                .setHeader("version", "1")
                 .build();
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper()).handle(message);
+        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics).handle(message);
 
         var payloadCaptor = ArgumentCaptor.forClass(CardPlayedPayload.class);
         then(applier).should().applyCardPlayed(payloadCaptor.capture());
@@ -170,10 +201,11 @@ class GameEventsKafkaConsumerTest {
         var message = MessageBuilder.withPayload((Object) payload.getBytes(StandardCharsets.UTF_8))
                 .setHeader("eventId", eventId.toString())
                 .setHeader("eventType", "RoundSummaryPublished")
+                .setHeader("version", "1")
                 .build();
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper()).handle(message);
+        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics).handle(message);
 
         var payloadCaptor = ArgumentCaptor.forClass(RoundSummaryPublishedPayload.class);
         then(applier).should().applyRoundSummaryPublished(payloadCaptor.capture());
@@ -206,10 +238,11 @@ class GameEventsKafkaConsumerTest {
         var message = MessageBuilder.withPayload((Object) payload.getBytes(StandardCharsets.UTF_8))
                 .setHeader("eventId", eventId.toString())
                 .setHeader("eventType", "InfluenceTraced")
+                .setHeader("version", "1")
                 .build();
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper()).handle(message);
+        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics).handle(message);
 
         var payloadCaptor = ArgumentCaptor.forClass(InfluenceTracedPayload.class);
         then(applier).should().applyInfluenceTraced(payloadCaptor.capture());
@@ -237,10 +270,11 @@ class GameEventsKafkaConsumerTest {
         var message = MessageBuilder.withPayload((Object) payload.getBytes(StandardCharsets.UTF_8))
                 .setHeader("eventId", eventId.toString())
                 .setHeader("eventType", "InfluenceTraced")
+                .setHeader("version", "1")
                 .build();
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper()).handle(message);
+        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics).handle(message);
 
         var payloadCaptor = ArgumentCaptor.forClass(InfluenceTracedPayload.class);
         then(applier).should().applyInfluenceTraced(payloadCaptor.capture());
@@ -271,10 +305,11 @@ class GameEventsKafkaConsumerTest {
         var message = MessageBuilder.withPayload((Object) payload.getBytes(StandardCharsets.UTF_8))
                 .setHeader("eventId", eventId.toString())
                 .setHeader("eventType", "HandCardIntercepted")
+                .setHeader("version", "1")
                 .build();
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper()).handle(message);
+        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics).handle(message);
 
         var payloadCaptor = ArgumentCaptor.forClass(HandCardInterceptedPayload.class);
         then(applier).should().applyHandCardIntercepted(payloadCaptor.capture());
