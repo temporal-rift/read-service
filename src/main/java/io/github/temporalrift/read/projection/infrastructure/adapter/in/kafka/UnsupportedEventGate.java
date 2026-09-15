@@ -15,6 +15,9 @@ import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.Messag
  */
 final class UnsupportedEventGate {
 
+    /** Every event type in this workspace is still at envelope schema version 1. */
+    static final int CURRENT_ENVELOPE_VERSION = 1;
+
     private static final Logger log = LoggerFactory.getLogger(UnsupportedEventGate.class);
     private static final String EVENT_TYPE_HEADER = "eventType";
     private static final String VERSION_HEADER = "version";
