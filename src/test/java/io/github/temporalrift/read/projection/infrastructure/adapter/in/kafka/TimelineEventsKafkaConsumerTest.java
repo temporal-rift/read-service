@@ -32,12 +32,15 @@ class TimelineEventsKafkaConsumerTest {
     @Mock
     ObjectMapper objectMapper;
 
+    @Mock
+    KafkaSkipMetrics skipMetrics;
+
     @Test
     void handle_newEvent_claimsForTimelineEventsConsumer() {
         var eventId = UUID.randomUUID();
         given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(true);
 
-        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper)
+        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics)
                 .handle(KafkaTestMessages.withEventId(eventId));
 
         then(processedEvents).should().claim(eventId, "projection.timeline-events");
@@ -48,10 +51,36 @@ class TimelineEventsKafkaConsumerTest {
         var eventId = UUID.randomUUID();
         given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(true);
 
-        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper)
+        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics)
                 .handle(KafkaTestMessages.withEventId(eventId));
 
         verifyNoInteractions(applier);
+    }
+
+    @Test
+    void handle_unrecognizedEventType_doesNotClaimOrThrow() {
+        var eventId = UUID.randomUUID();
+
+        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics)
+                .handle(KafkaTestMessages.withEventIdAndEventType(eventId, "SomeFutureEventType"));
+
+        verifyNoInteractions(processedEvents, applier);
+        then(skipMetrics).should().recordUnknownType();
+    }
+
+    @Test
+    void handle_unsupportedVersion_doesNotClaimOrDispatch() {
+        var eventId = UUID.randomUUID();
+        var message = MessageBuilder.withPayload((Object) new byte[0])
+                .setHeader("eventId", eventId.toString())
+                .setHeader("eventType", "OutcomeApplied")
+                .setHeader("version", "2")
+                .build();
+
+        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics).handle(message);
+
+        verifyNoInteractions(processedEvents, applier);
+        then(skipMetrics).should().recordUnsupportedVersion("projection.timeline-events");
     }
 
     @Test
@@ -62,12 +91,13 @@ class TimelineEventsKafkaConsumerTest {
         var message = MessageBuilder.withPayload((Object) payload)
                 .setHeader("eventId", eventId.toString())
                 .setHeader("eventType", "ProbabilityStateRevealed")
+                .setHeader("version", "1")
                 .build();
         given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(true);
         given(objectMapper.convertValue(payload, ProbabilityStateRevealedPayload.class))
                 .willReturn(payload);
 
-        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper).handle(message);
+        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics).handle(message);
 
         then(applier).should().applyProbabilityStateRevealed(payload);
     }
@@ -80,11 +110,12 @@ class TimelineEventsKafkaConsumerTest {
         var message = MessageBuilder.withPayload((Object) payload)
                 .setHeader("eventId", eventId.toString())
                 .setHeader("eventType", "ChainLinkAdded")
+                .setHeader("version", "1")
                 .build();
         given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(true);
         given(objectMapper.convertValue(payload, ChainLinkAddedPayload.class)).willReturn(payload);
 
-        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper).handle(message);
+        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics).handle(message);
 
         then(applier).should().applyChainLinkAdded(payload);
     }
@@ -96,11 +127,12 @@ class TimelineEventsKafkaConsumerTest {
         var message = MessageBuilder.withPayload((Object) payload)
                 .setHeader("eventId", eventId.toString())
                 .setHeader("eventType", "ChainCompleted")
+                .setHeader("version", "1")
                 .build();
         given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(true);
         given(objectMapper.convertValue(payload, ChainCompletedPayload.class)).willReturn(payload);
 
-        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper).handle(message);
+        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics).handle(message);
 
         then(applier).should().applyChainCompleted(payload);
     }
@@ -113,11 +145,12 @@ class TimelineEventsKafkaConsumerTest {
         var message = MessageBuilder.withPayload((Object) payload)
                 .setHeader("eventId", eventId.toString())
                 .setHeader("eventType", "ChainBroken")
+                .setHeader("version", "1")
                 .build();
         given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(true);
         given(objectMapper.convertValue(payload, ChainBrokenPayload.class)).willReturn(payload);
 
-        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper).handle(message);
+        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics).handle(message);
 
         then(applier).should().applyChainBroken(payload);
     }

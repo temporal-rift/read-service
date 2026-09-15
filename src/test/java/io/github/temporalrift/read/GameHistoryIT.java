@@ -213,6 +213,7 @@ class GameHistoryIT {
                 .setHeader(KafkaHeaders.KEY, gameId.toString())
                 .setHeader("eventId", UUID.randomUUID().toString())
                 .setHeader("eventType", eventType)
+                .setHeader("version", "1")
                 .build();
         kafkaTemplate.send(message).join();
     }

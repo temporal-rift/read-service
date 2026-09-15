@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.messaging.support.MessageBuilder;
 import tools.jackson.databind.ObjectMapper;
 
 import io.github.temporalrift.read.shared.ProcessedEventPort;
@@ -26,6 +27,9 @@ class GameHistoryKafkaConsumerTest {
 
     @Mock
     ObjectMapper objectMapper;
+
+    @Mock
+    KafkaSkipMetrics skipMetrics;
 
     @Test
     void supportedGameEvent_claimsThenDispatches() {
@@ -76,6 +80,21 @@ class GameHistoryKafkaConsumerTest {
     }
 
     @Test
+    void unsupportedVersion_doesNotClaimOrDispatch() {
+        var eventId = UUID.randomUUID();
+        var message = MessageBuilder.withPayload((Object) new byte[0])
+                .setHeader("eventId", eventId.toString())
+                .setHeader("eventType", "EventsDrawn")
+                .setHeader("version", "2")
+                .build();
+
+        consumer().handleGameEvent(message);
+
+        verifyNoInteractions(processedEvents, applier);
+        then(skipMetrics).should().recordUnsupportedVersion("projection.game-history");
+    }
+
+    @Test
     void duplicateDelivery_doesNotDispatch() {
         var eventId = UUID.randomUUID();
         given(processedEvents.claim(eventId, "projection.game-history")).willReturn(false);
@@ -86,6 +105,6 @@ class GameHistoryKafkaConsumerTest {
     }
 
     private GameHistoryKafkaConsumer consumer() {
-        return new GameHistoryKafkaConsumer(processedEvents, applier, objectMapper);
+        return new GameHistoryKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics);
     }
 }
