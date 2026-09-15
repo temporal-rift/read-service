@@ -75,10 +75,8 @@ class GameEventsKafkaConsumer {
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.EXPOSE_BEHAVIOR_CHANGED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.SCORES_UPDATED_EVENT_TYPE);
 
-    // The subset of KNOWN_EVENT_TYPES that ProjectionEventApplier actually projects. Gating on this before
-    // calling into the generated dispatchers avoids paying their eager deserialization for a known type this
-    // projection has no read model for (e.g. LobbyCreated) — filtering must stay header-only per the
-    // pre-deserialization skip requirement.
+    // The subset of KNOWN_EVENT_TYPES that ProjectionEventApplier actually projects; gating dispatch() on
+    // this avoids the generated dispatchers' eager deserialization for a known-but-unprojected type.
     private static final Set<String> APPLIED_EVENT_TYPES = Set.of(
             io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GAME_STARTED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.FACTION_ASSIGNED_EVENT_TYPE,
