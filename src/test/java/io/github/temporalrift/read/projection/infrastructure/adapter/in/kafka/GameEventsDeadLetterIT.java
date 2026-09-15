@@ -52,7 +52,7 @@ class GameEventsDeadLetterIT {
             deadLetterConsumer.subscribe(List.of(DEAD_LETTER_TOPIC));
 
             publishPoisonGameStarted(gameId, poisonEventId);
-            publishPlainRecord(followingEventId);
+            publishPlainRecord(gameId, followingEventId);
 
             var parked = await().atMost(Duration.ofSeconds(30))
                     .until(() -> parkedRecord(deadLetterConsumer, poisonEventId), Objects::nonNull);
@@ -60,6 +60,7 @@ class GameEventsDeadLetterIT {
             assertThat(parked.key()).isEqualTo(gameId.toString());
             assertThat(headerValue(parked, "eventId")).isEqualTo(poisonEventId.toString());
             assertThat(headerValue(parked, "eventType")).isEqualTo("GameStarted");
+            assertThat(headerValue(parked, "version")).isEqualTo("1");
             assertThat(headerValue(parked, KafkaHeaders.DLT_EXCEPTION_MESSAGE)).isNotBlank();
             awaitClaim(followingEventId, "projection.game-events");
         }
@@ -76,9 +77,12 @@ class GameEventsDeadLetterIT {
         kafkaTemplate.send(message);
     }
 
-    private void publishPlainRecord(UUID eventId) {
+    private void publishPlainRecord(UUID gameId, UUID eventId) {
+        // Same key as the poison record so both land on the same partition -- proving that partition
+        // keeps flowing after the poison record is parked, not just that some other partition is fine.
         Message<Object> message = MessageBuilder.withPayload((Object) new byte[0])
                 .setHeader(KafkaHeaders.TOPIC, GAME_EVENTS_TOPIC)
+                .setHeader(KafkaHeaders.KEY, gameId.toString())
                 .setHeader("eventId", eventId.toString())
                 .build();
         kafkaTemplate.send(message);

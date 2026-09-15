@@ -29,7 +29,6 @@ class TimelineEventsKafkaConsumer {
 
     private static final String EVENT_TYPE_HEADER = "eventType";
     private static final String CONSUMER = "projection.timeline-events";
-    private static final int SUPPORTED_VERSION = 1;
 
     // Must be every type on timeline.events, not just the ones this consumer applies — narrowing this
     // would misclassify a legitimate, still-unapplied type as unsupported and skip it without claiming.
@@ -72,7 +71,8 @@ class TimelineEventsKafkaConsumer {
     @KafkaListener(topics = "timeline.events", groupId = "read-service." + CONSUMER)
     @Transactional(propagation = REQUIRES_NEW)
     public void handle(Message<Object> message) {
-        if (UnsupportedEventGate.isUnsupported(message, CONSUMER, KNOWN_EVENT_TYPES, SUPPORTED_VERSION, skipMetrics)) {
+        if (UnsupportedEventGate.isUnsupported(
+                message, CONSUMER, KNOWN_EVENT_TYPES, UnsupportedEventGate.CURRENT_ENVELOPE_VERSION, skipMetrics)) {
             return;
         }
         InboundEventClaim.accept(message, CONSUMER, processedEvents).ifPresent(eventId -> dispatch(message));

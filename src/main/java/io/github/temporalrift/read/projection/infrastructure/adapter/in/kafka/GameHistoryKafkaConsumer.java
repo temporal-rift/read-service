@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EraEndedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EventsDrawnPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandSelectedPayload;
@@ -31,9 +32,13 @@ class GameHistoryKafkaConsumer {
     private static final String EVENT_TYPE_HEADER = "eventType";
     private static final String CONSUMER = "projection.game-history";
     private static final String GROUP_ID = "read-service." + CONSUMER;
-    private static final int SUPPORTED_VERSION = 1;
-    private static final Set<String> GAME_EVENT_TYPES = Set.of("EventsDrawn", "EraEnded", "HandSelected");
-    private static final Set<String> TIMELINE_EVENT_TYPES = Set.of("OutcomeApplied", "ParadoxCascaded");
+    private static final Set<String> GAME_EVENT_TYPES = Set.of(
+            GeneratedChannelContract.EVENTS_DRAWN_EVENT_TYPE,
+            GeneratedChannelContract.ERA_ENDED_EVENT_TYPE,
+            GeneratedChannelContract.HAND_SELECTED_EVENT_TYPE);
+    private static final Set<String> TIMELINE_EVENT_TYPES = Set.of(
+            io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.OUTCOME_APPLIED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.PARADOX_CASCADED_EVENT_TYPE);
 
     private final ProcessedEventPort processedEvents;
     private final GameHistoryEventApplier applier;
@@ -56,7 +61,8 @@ class GameHistoryKafkaConsumer {
     public void handleGameEvent(Message<Object> message) {
         var eventType = supportedEventType(message, GAME_EVENT_TYPES);
         if (eventType == null
-                || UnsupportedEventGate.isUnsupportedVersion(message, CONSUMER, SUPPORTED_VERSION, skipMetrics)) {
+                || UnsupportedEventGate.isUnsupportedVersion(
+                        message, CONSUMER, UnsupportedEventGate.CURRENT_ENVELOPE_VERSION, skipMetrics)) {
             return;
         }
         InboundEventClaim.accept(message, CONSUMER, processedEvents)
@@ -68,7 +74,8 @@ class GameHistoryKafkaConsumer {
     public void handleTimelineEvent(Message<Object> message) {
         var eventType = supportedEventType(message, TIMELINE_EVENT_TYPES);
         if (eventType == null
-                || UnsupportedEventGate.isUnsupportedVersion(message, CONSUMER, SUPPORTED_VERSION, skipMetrics)) {
+                || UnsupportedEventGate.isUnsupportedVersion(
+                        message, CONSUMER, UnsupportedEventGate.CURRENT_ENVELOPE_VERSION, skipMetrics)) {
             return;
         }
         InboundEventClaim.accept(message, CONSUMER, processedEvents)
@@ -82,17 +89,22 @@ class GameHistoryKafkaConsumer {
 
     private void dispatchGameEvent(String eventType, Message<Object> message) {
         switch (eventType) {
-            case "EventsDrawn" -> applier.applyEventsDrawn(read(message, EventsDrawnPayload.class));
-            case "EraEnded" -> applier.applyEraEnded(read(message, EraEndedPayload.class));
-            case "HandSelected" -> applier.applyHandSelected(read(message, HandSelectedPayload.class));
+            case GeneratedChannelContract.EVENTS_DRAWN_EVENT_TYPE ->
+                applier.applyEventsDrawn(read(message, EventsDrawnPayload.class));
+            case GeneratedChannelContract.ERA_ENDED_EVENT_TYPE ->
+                applier.applyEraEnded(read(message, EraEndedPayload.class));
+            case GeneratedChannelContract.HAND_SELECTED_EVENT_TYPE ->
+                applier.applyHandSelected(read(message, HandSelectedPayload.class));
             default -> throw new IllegalArgumentException("Unsupported game history event type " + eventType);
         }
     }
 
     private void dispatchTimelineEvent(String eventType, Message<Object> message) {
         switch (eventType) {
-            case "OutcomeApplied" -> applier.applyOutcomeApplied(read(message, OutcomeAppliedPayload.class));
-            case "ParadoxCascaded" -> applier.applyParadoxCascaded(read(message, ParadoxCascadedPayload.class));
+            case io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.OUTCOME_APPLIED_EVENT_TYPE ->
+                applier.applyOutcomeApplied(read(message, OutcomeAppliedPayload.class));
+            case io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.PARADOX_CASCADED_EVENT_TYPE ->
+                applier.applyParadoxCascaded(read(message, ParadoxCascadedPayload.class));
             default -> throw new IllegalArgumentException("Unsupported game history event type " + eventType);
         }
     }
