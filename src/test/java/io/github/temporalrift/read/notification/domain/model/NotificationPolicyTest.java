@@ -13,6 +13,8 @@ class NotificationPolicyTest {
     @Test
     void classifiesPublicTargetedPrivateAndUnknownEventsExplicitly() {
         assertThat(policy.deliveryFor("ParadoxCascaded")).isEqualTo(NotificationPolicy.Delivery.BROADCAST);
+        assertThat(policy.deliveryFor("BandedProbabilityPublished")).isEqualTo(NotificationPolicy.Delivery.BROADCAST);
+        assertThat(policy.deliveryFor("AdjustedBandsPublished")).isEqualTo(NotificationPolicy.Delivery.BROADCAST);
         assertThat(policy.deliveryFor("FactionAssigned")).isEqualTo(NotificationPolicy.Delivery.TARGETED);
         assertThat(policy.deliveryFor("HandSelected")).isEqualTo(NotificationPolicy.Delivery.TARGETED);
         assertThat(policy.deliveryFor("ProbabilityStateRevealed")).isEqualTo(NotificationPolicy.Delivery.TARGETED);
