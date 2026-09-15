@@ -75,6 +75,31 @@ class GameEventsKafkaConsumer {
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.EXPOSE_BEHAVIOR_CHANGED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.SCORES_UPDATED_EVENT_TYPE);
 
+    // The subset of KNOWN_EVENT_TYPES that ProjectionEventApplier actually projects. Gating on this before
+    // calling into the generated dispatchers avoids paying their eager deserialization for a known type this
+    // projection has no read model for (e.g. LobbyCreated) — filtering must stay header-only per the
+    // pre-deserialization skip requirement.
+    private static final Set<String> APPLIED_EVENT_TYPES = Set.of(
+            io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GAME_STARTED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.FACTION_ASSIGNED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ERA_STARTED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EVENTS_DRAWN_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HAND_DEALT_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HAND_SELECTED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PLAYER_DISCONNECTED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PLAYER_ABANDONED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ERA_ENDED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GAME_ENDED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.FACTION_REVEALED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.RESOLUTION_STARTED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ACTION_ROUND_STARTED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CARD_PLAYED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ROUND_SUMMARY_PUBLISHED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.PLAYER_JAMMED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.INFLUENCE_TRACED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.HAND_CARD_INTERCEPTED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.SCORES_UPDATED_EVENT_TYPE);
+
     private final ProcessedEventPort processedEvents;
     private final SessionEventDispatcher session;
     private final ActionEventDispatcher action;
@@ -110,7 +135,7 @@ class GameEventsKafkaConsumer {
 
     private void dispatch(Message<Object> message) {
         var eventType = MessageHeaders.asString(message, EVENT_TYPE_HEADER);
-        if (eventType == null) {
+        if (eventType == null || !APPLIED_EVENT_TYPES.contains(eventType)) {
             return;
         }
         var payload = message.getPayload();
@@ -134,20 +159,14 @@ class GameEventsKafkaConsumer {
                 this::deserialize)) {
             return;
         }
-        if (scoring.dispatch(
+        scoring.dispatch(
                 eventType,
                 payload,
                 headers(
                         message,
                         eventType,
                         io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.EventHeaders::new),
-                this::deserialize)) {
-            return;
-        }
-        // dispatch() returning false means "not this contract family," not "safe to ignore" — an eventType
-        // none of session/action/scoring recognizes is a real failure at the Kafka boundary (design.md
-        // "Migration addendum: consumer contract adoption"), not a slice this projection simply skips.
-        throw new IllegalArgumentException("Unknown eventType: " + eventType);
+                this::deserialize);
     }
 
     private <T> T deserialize(Object rawPayload, Class<T> type) {

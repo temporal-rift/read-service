@@ -73,6 +73,24 @@ class GameEventsKafkaConsumerTest {
     }
 
     @Test
+    void handle_knownButUnprojectedEventType_claimsButNeverDeserializesOrDispatches() {
+        var eventId = UUID.randomUUID();
+        given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
+        // Malformed for LobbyCreatedPayload on purpose: if dispatch() still routed this through the
+        // generated session dispatcher's eager deserialization, reading it would throw.
+        var message = MessageBuilder.withPayload((Object) "not valid json".getBytes(StandardCharsets.UTF_8))
+                .setHeader("eventId", eventId.toString())
+                .setHeader("eventType", "LobbyCreated")
+                .setHeader("version", "1")
+                .build();
+
+        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics).handle(message);
+
+        then(processedEvents).should().claim(eventId, "projection.game-events");
+        verifyNoInteractions(applier);
+    }
+
+    @Test
     void handle_unsupportedVersion_doesNotClaimOrDispatch() {
         var eventId = UUID.randomUUID();
         var message = MessageBuilder.withPayload((Object) new byte[0])
