@@ -1,11 +1,15 @@
 package io.github.temporalrift.read.projection.infrastructure.adapter.in.kafka;
 
+import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.messaging.Message;
 
+import io.github.temporalrift.read.shared.ProcessedEventPort;
+import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.InboundEventClaim;
 import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.MessageHeaders;
 
 /**
@@ -23,6 +27,23 @@ final class UnsupportedEventGate {
     private static final String VERSION_HEADER = "version";
 
     private UnsupportedEventGate() {}
+
+    /**
+     * Gate then claim: empty when the type/version is unsupported (see {@link #isUnsupported}) or the
+     * record is a duplicate; present only for a newly-claimed, supported record.
+     */
+    static Optional<UUID> accept(
+            Message<?> message,
+            String consumer,
+            Set<String> knownEventTypes,
+            int supportedVersion,
+            KafkaSkipMetrics skipMetrics,
+            ProcessedEventPort processedEvents) {
+        if (isUnsupported(message, consumer, knownEventTypes, supportedVersion, skipMetrics)) {
+            return Optional.empty();
+        }
+        return InboundEventClaim.accept(message, consumer, processedEvents);
+    }
 
     static boolean isUnsupported(
             Message<?> message,
