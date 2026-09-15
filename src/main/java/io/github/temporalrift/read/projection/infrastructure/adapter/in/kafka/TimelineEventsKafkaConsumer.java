@@ -20,7 +20,6 @@ import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.P
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolvedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedPayload;
 import io.github.temporalrift.read.shared.ProcessedEventPort;
-import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.InboundEventClaim;
 import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.MessageHeaders;
 
 /** Consumes {@code timeline.events} (resolution facts from timeline-service) — design.md Decision 2/9. */
@@ -71,11 +70,14 @@ class TimelineEventsKafkaConsumer {
     @KafkaListener(topics = "timeline.events", groupId = "read-service." + CONSUMER)
     @Transactional(propagation = REQUIRES_NEW)
     public void handle(Message<Object> message) {
-        if (UnsupportedEventGate.isUnsupported(
-                message, CONSUMER, KNOWN_EVENT_TYPES, UnsupportedEventGate.CURRENT_ENVELOPE_VERSION, skipMetrics)) {
-            return;
-        }
-        InboundEventClaim.accept(message, CONSUMER, processedEvents).ifPresent(eventId -> dispatch(message));
+        UnsupportedEventGate.accept(
+                        message,
+                        CONSUMER,
+                        KNOWN_EVENT_TYPES,
+                        UnsupportedEventGate.CURRENT_ENVELOPE_VERSION,
+                        skipMetrics,
+                        processedEvents)
+                .ifPresent(eventId -> dispatch(message));
     }
 
     private void dispatch(Message<Object> message) {
