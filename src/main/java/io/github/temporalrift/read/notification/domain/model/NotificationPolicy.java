@@ -54,6 +54,7 @@ public final class NotificationPolicy {
             "RoundSummaryPublished",
             "ResolutionStarted",
             "BandedProbabilityPublished",
+            "AdjustedBandsPublished",
             "ParadoxDetected",
             "ParadoxResolutionPhaseStarted",
             "ParadoxResolved",
