@@ -29,10 +29,8 @@ class GameEventsKafkaConsumer {
     private static final String CONSUMER = "projection.game-events";
     private static final int SUPPORTED_VERSION = 1;
 
-    // Every eventType ever published on game.events, across the three independently-owned apis contracts
-    // that share this topic (session/action/scoring) — the full set this consumer must recognize, not just
-    // the subset ProjectionEventApplier projects. Referencing the generated constants (rather than
-    // hand-typed literals) means a contract rename breaks the build instead of silently drifting.
+    // Must be every type on game.events, not just the ones ProjectionEventApplier projects — narrowing this
+    // would misclassify a legitimate, still-unprojected type as unsupported and skip it without claiming.
     private static final Set<String> KNOWN_EVENT_TYPES = Set.of(
             io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.LOBBY_CREATED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PLAYER_JOINED_LOBBY_EVENT_TYPE,

@@ -31,8 +31,8 @@ class TimelineEventsKafkaConsumer {
     private static final String CONSUMER = "projection.timeline-events";
     private static final int SUPPORTED_VERSION = 1;
 
-    // Every eventType ever published on timeline.events — see GameEventsKafkaConsumer for why this
-    // references the generated constants rather than hand-typed literals.
+    // Must be every type on timeline.events, not just the ones this consumer applies — narrowing this
+    // would misclassify a legitimate, still-unapplied type as unsupported and skip it without claiming.
     private static final Set<String> KNOWN_EVENT_TYPES = Set.of(
             GeneratedChannelContract.RESOLUTION_STARTED_EVENT_TYPE,
             GeneratedChannelContract.PROBABILITY_STATE_CALCULATED_EVENT_TYPE,
