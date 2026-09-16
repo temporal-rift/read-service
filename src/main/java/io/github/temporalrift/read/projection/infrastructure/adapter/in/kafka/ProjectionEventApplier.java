@@ -30,6 +30,7 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Re
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainBrokenPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainCompletedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainLinkAddedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainReAnchoredPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.OutcomeAppliedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolutionPhaseStartedPayload;
@@ -531,6 +532,25 @@ class ProjectionEventApplier {
                         payload.chainId(),
                         ChainStatus.COMPLETED,
                         payload.links().size()));
+    }
+
+    // REWEAVE replaces the chain's newest link rather than growing it, so chainLength stays equal to the
+    // tracked value rather than exceeding it — the growth-only staleness guard applyChainLinkAdded uses does not
+    // apply here; re-saving the same (chainId, ACTIVE, chainLength) shape on redelivery is already idempotent.
+    void applyChainReAnchored(ChainReAnchoredPayload payload) {
+        if (lockGame(payload.gameId()).phase() == Phase.GAME_ENDED) {
+            log.warn("ChainReAnchored for ended game {} — skipping", payload.gameId());
+            return;
+        }
+        var existing = gameChains.findByGameId(payload.gameId());
+        if (isStaleChainMessage(existing, payload.chainId())) {
+            log.warn(
+                    "ChainReAnchored for resolved chain {} in game {} — skipping", payload.chainId(), payload.gameId());
+            return;
+        }
+        gameChains.save(
+                payload.gameId(),
+                new GameChain(payload.gameId(), payload.chainId(), ChainStatus.ACTIVE, payload.chainLength()));
     }
 
     void applyChainBroken(ChainBrokenPayload payload) {

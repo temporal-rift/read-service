@@ -14,6 +14,7 @@ import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainBrokenPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainCompletedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainLinkAddedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainReAnchoredPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.OutcomeAppliedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolutionPhaseStartedPayload;
@@ -49,7 +50,13 @@ class TimelineEventsKafkaConsumer {
             GeneratedChannelContract.THREAD_REJECTED_EVENT_TYPE,
             GeneratedChannelContract.CORRUPT_INVERSION_CONFIRMED_EVENT_TYPE,
             GeneratedChannelContract.RESOLUTION_FAILED_EVENT_TYPE,
-            GeneratedChannelContract.RESOLUTION_WARNING_EVENT_TYPE);
+            GeneratedChannelContract.RESOLUTION_WARNING_EVENT_TYPE,
+            // Private/tactical, no projection effect — same treatment as THREAD_REJECTED above.
+            GeneratedChannelContract.SPECIAL_REJECTED_EVENT_TYPE,
+            GeneratedChannelContract.CHAIN_PROTECTION_ARMED_EVENT_TYPE,
+            GeneratedChannelContract.CHAIN_PROTECTION_CONSUMED_EVENT_TYPE,
+            GeneratedChannelContract.CASCADE_CARRIED_FORWARD_EVENT_TYPE,
+            GeneratedChannelContract.CHAIN_RE_ANCHORED_EVENT_TYPE);
 
     private final ProcessedEventPort processedEvents;
     private final ProjectionEventApplier applier;
@@ -96,6 +103,7 @@ class TimelineEventsKafkaConsumer {
             case "ChainLinkAdded" -> applier.applyChainLinkAdded(read(message, ChainLinkAddedPayload.class));
             case "ChainCompleted" -> applier.applyChainCompleted(read(message, ChainCompletedPayload.class));
             case "ChainBroken" -> applier.applyChainBroken(read(message, ChainBrokenPayload.class));
+            case "ChainReAnchored" -> applier.applyChainReAnchored(read(message, ChainReAnchoredPayload.class));
             default -> {
                 // Other timeline.events types aren't consumed by this projection.
             }
