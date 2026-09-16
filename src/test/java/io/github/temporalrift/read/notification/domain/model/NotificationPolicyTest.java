@@ -3,10 +3,14 @@ package io.github.temporalrift.read.notification.domain.model;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Set;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
 
 class NotificationPolicyTest {
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private final NotificationPolicy policy = new NotificationPolicy();
 
@@ -53,5 +57,59 @@ class NotificationPolicyTest {
         assertThat(policy.identityFieldsToRedact("ParadoxCascaded")).isEmpty();
         assertThat(policy.identityFieldsToRedact("FactionRevealed")).isEmpty();
         assertThat(policy.identityFieldsToRedact("UnknownEvent")).isEmpty();
+    }
+
+    @Test
+    void scoresUpdatedKeepsFactionAndReasonOnlyForTheOwningEntry() {
+        var owner = UUID.randomUUID();
+        var opponent = UUID.randomUUID();
+        var payload = objectMapper.readTree("""
+                {"gameId":"%s","eraNumber":1,"updates":[
+                    {"playerId":"%s","faction":"PROPHETS","pointsDelta":4,
+                     "reason":"EVENT_RESOLVED_AS_WRITTEN","newTotal":12},
+                    {"playerId":"%s","faction":"ERASERS","pointsDelta":2,
+                     "reason":"ANNIHILATED_OUTCOME","newTotal":6}
+                ]}
+                """.formatted(UUID.randomUUID(), owner, opponent));
+
+        var view = policy.scoresUpdatedFor(payload, owner);
+
+        var updates = view.get("updates");
+        var ownEntry = updates.get(0);
+        assertThat(ownEntry.get("faction").asText()).isEqualTo("PROPHETS");
+        assertThat(ownEntry.get("reason").asText()).isEqualTo("EVENT_RESOLVED_AS_WRITTEN");
+        assertThat(ownEntry.get("playerId").asText()).isEqualTo(owner.toString());
+        assertThat(ownEntry.get("pointsDelta").asInt()).isEqualTo(4);
+        assertThat(ownEntry.get("newTotal").asInt()).isEqualTo(12);
+
+        var opponentEntry = updates.get(1);
+        assertThat(opponentEntry.has("faction")).isFalse();
+        assertThat(opponentEntry.has("reason")).isFalse();
+        assertThat(opponentEntry.get("playerId").asText()).isEqualTo(opponent.toString());
+        assertThat(opponentEntry.get("pointsDelta").asInt()).isEqualTo(2);
+        assertThat(opponentEntry.get("newTotal").asInt()).isEqualTo(6);
+    }
+
+    @Test
+    void scoresUpdatedStripsEveryEntryWhenViewerOwnsNone() {
+        var payload = objectMapper.readTree("""
+                {"gameId":"%s","eraNumber":0,"updates":[
+                    {"playerId":"%s","faction":"REVISIONISTS","pointsDelta":6,
+                     "reason":"FACTION_UNIDENTIFIED","newTotal":18}
+                ]}
+                """.formatted(UUID.randomUUID(), UUID.randomUUID()));
+
+        var view = policy.scoresUpdatedFor(payload, UUID.randomUUID());
+
+        var entry = view.get("updates").get(0);
+        assertThat(entry.has("faction")).isFalse();
+        assertThat(entry.has("reason")).isFalse();
+    }
+
+    @Test
+    void scoresUpdatedPassesThroughPayloadsWithoutAnUpdatesArray() {
+        var payload = objectMapper.readTree("{\"gameId\":\"" + UUID.randomUUID() + "\"}");
+
+        assertThat(policy.scoresUpdatedFor(payload, UUID.randomUUID())).isEqualTo(payload);
     }
 }

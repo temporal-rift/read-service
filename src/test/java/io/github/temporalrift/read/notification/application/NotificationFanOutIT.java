@@ -85,6 +85,61 @@ class NotificationFanOutIT {
         }
     }
 
+    @Test
+    void scoresUpdatedHidesOpponentFactionAndReasonForMidGameAndEndGameEntries() {
+        var gameId = UUID.randomUUID();
+        var playerA = UUID.randomUUID();
+        var playerB = UUID.randomUUID();
+        var playerC = UUID.randomUUID();
+        var sessionA = register(gameId, playerA);
+        var sessionB = register(gameId, playerB);
+        var sessionC = register(gameId, playerC);
+
+        fanOut.fanOut(message(gameId, "ScoresUpdated", """
+                {"gameId":"%s","eraNumber":1,"updates":[
+                    {"playerId":"%s","faction":"PROPHETS","pointsDelta":4,
+                     "reason":"EVENT_RESOLVED_AS_WRITTEN","newTotal":12}
+                ]}
+                """.formatted(gameId, playerA)));
+        fanOut.fanOut(message(gameId, "ScoresUpdated", """
+                {"gameId":"%s","eraNumber":0,"updates":[
+                    {"playerId":"%s","faction":"REVISIONISTS","pointsDelta":6,
+                     "reason":"FACTION_UNIDENTIFIED","newTotal":18}
+                ]}
+                """.formatted(gameId, playerB)));
+
+        await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
+            assertThat(sessionA.messages()).hasSize(2);
+            assertThat(sessionB.messages()).hasSize(2);
+            assertThat(sessionC.messages()).hasSize(2);
+        });
+
+        var ownEraOneEntry = sessionA.messages().get(0).payload().get("updates").get(0);
+        assertThat(ownEraOneEntry.get("faction").asText()).isEqualTo("PROPHETS");
+        assertThat(ownEraOneEntry.get("reason").asText()).isEqualTo("EVENT_RESOLVED_AS_WRITTEN");
+
+        for (var session : List.of(sessionB, sessionC)) {
+            var opponentEraOneEntry =
+                    session.messages().get(0).payload().get("updates").get(0);
+            assertThat(opponentEraOneEntry.has("faction")).isFalse();
+            assertThat(opponentEraOneEntry.has("reason")).isFalse();
+            assertThat(opponentEraOneEntry.get("playerId").asText()).isEqualTo(playerA.toString());
+            assertThat(opponentEraOneEntry.get("newTotal").asInt()).isEqualTo(12);
+        }
+
+        var ownEndGameEntry =
+                sessionB.messages().get(1).payload().get("updates").get(0);
+        assertThat(ownEndGameEntry.get("faction").asText()).isEqualTo("REVISIONISTS");
+        assertThat(ownEndGameEntry.get("reason").asText()).isEqualTo("FACTION_UNIDENTIFIED");
+
+        for (var session : List.of(sessionA, sessionC)) {
+            var opponentEndGameEntry =
+                    session.messages().get(1).payload().get("updates").get(0);
+            assertThat(opponentEndGameEntry.has("faction")).isFalse();
+            assertThat(opponentEndGameEntry.has("reason")).isFalse();
+        }
+    }
+
     private CapturingDelivery register(UUID gameId, UUID playerId) {
         var delivery = new CapturingDelivery();
         var session = new NotificationSession(

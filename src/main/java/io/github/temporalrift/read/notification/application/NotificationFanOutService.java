@@ -16,12 +16,14 @@ import tools.jackson.databind.node.ObjectNode;
 import io.github.temporalrift.read.notification.application.port.in.FanOutNotificationUseCase;
 import io.github.temporalrift.read.notification.domain.model.NotificationMessage;
 import io.github.temporalrift.read.notification.domain.model.NotificationPolicy;
+import io.github.temporalrift.read.notification.domain.model.NotificationSession;
 import io.github.temporalrift.read.notification.domain.model.NotificationSessionRegistry;
 
 @Service
 class NotificationFanOutService implements FanOutNotificationUseCase {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationFanOutService.class);
+    private static final String SCORES_UPDATED = "ScoresUpdated";
 
     private final NotificationPolicy policy;
     private final NotificationSessionRegistry sessions;
@@ -45,8 +47,14 @@ class NotificationFanOutService implements FanOutNotificationUseCase {
         if (delivery == NotificationPolicy.Delivery.NEVER) {
             return;
         }
-        var payload = redact(payload(message.getPayload()), policy.identityFieldsToRedact(eventType));
-        var notification = NotificationMessage.event(eventType, occurredAt(message), payload);
+        var rawPayload = payload(message.getPayload());
+        var occurredAt = occurredAt(message);
+        if (SCORES_UPDATED.equals(eventType)) {
+            fanOutScoresUpdated(gameId, rawPayload, occurredAt);
+            return;
+        }
+        var payload = redact(rawPayload, policy.identityFieldsToRedact(eventType));
+        var notification = NotificationMessage.event(eventType, occurredAt, payload);
         var targetPlayerId = delivery == NotificationPolicy.Delivery.TARGETED ? uuid(payload, "playerId") : null;
         if (delivery == NotificationPolicy.Delivery.TARGETED && targetPlayerId == null) {
             return;
@@ -54,21 +62,29 @@ class NotificationFanOutService implements FanOutNotificationUseCase {
         sessions.sessionsFor(gameId).stream()
                 .filter(session ->
                         targetPlayerId == null || session.recipient().playerId().equals(targetPlayerId))
-                .forEach(session -> {
-                    try {
-                        session.deliver(notification);
-                    } catch (RuntimeException e) {
-                        sessions.unregister(session.sessionId());
-                        try {
-                            session.close();
-                        } catch (RuntimeException closeFailure) {
-                            log.debug(
-                                    "Unable to close failed notification session {}",
-                                    session.sessionId(),
-                                    closeFailure);
-                        }
-                    }
-                });
+                .forEach(session -> deliver(session, notification));
+    }
+
+    /** ScoresUpdated has no single shared payload: each session sees only its own entries' faction/reason. */
+    private void fanOutScoresUpdated(UUID gameId, JsonNode rawPayload, Instant occurredAt) {
+        sessions.sessionsFor(gameId).forEach(session -> {
+            var viewerPayload =
+                    policy.scoresUpdatedFor(rawPayload, session.recipient().playerId());
+            deliver(session, NotificationMessage.event(SCORES_UPDATED, occurredAt, viewerPayload));
+        });
+    }
+
+    private void deliver(NotificationSession session, NotificationMessage notification) {
+        try {
+            session.deliver(notification);
+        } catch (RuntimeException e) {
+            sessions.unregister(session.sessionId());
+            try {
+                session.close();
+            } catch (RuntimeException closeFailure) {
+                log.debug("Unable to close failed notification session {}", session.sessionId(), closeFailure);
+            }
+        }
     }
 
     private JsonNode payload(Object value) {
