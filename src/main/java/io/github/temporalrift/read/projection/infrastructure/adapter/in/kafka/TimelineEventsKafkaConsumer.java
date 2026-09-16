@@ -35,7 +35,7 @@ class TimelineEventsKafkaConsumer {
             GeneratedChannelContract.RESOLUTION_STARTED_EVENT_TYPE,
             GeneratedChannelContract.PROBABILITY_STATE_CALCULATED_EVENT_TYPE,
             GeneratedChannelContract.PROBABILITY_STATE_REVEALED_EVENT_TYPE,
-            GeneratedChannelContract.BANDED_PROBABILITY_PUBLISHED_EVENT_TYPE,
+            GeneratedChannelContract.ADJUSTED_BANDS_PUBLISHED_EVENT_TYPE,
             GeneratedChannelContract.PARADOX_DETECTED_EVENT_TYPE,
             GeneratedChannelContract.PARADOX_RESOLUTION_PHASE_STARTED_EVENT_TYPE,
             GeneratedChannelContract.PARADOX_RESOLVED_EVENT_TYPE,

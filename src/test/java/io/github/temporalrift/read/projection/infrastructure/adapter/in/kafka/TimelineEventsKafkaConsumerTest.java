@@ -58,6 +58,29 @@ class TimelineEventsKafkaConsumerTest {
     }
 
     @Test
+    void handle_adjustedBandsPublished_isKnownButNotDispatched() {
+        var eventId = UUID.randomUUID();
+        given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(true);
+
+        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics)
+                .handle(KafkaTestMessages.withEventIdAndEventType(eventId, "AdjustedBandsPublished"));
+
+        then(processedEvents).should().claim(eventId, "projection.timeline-events");
+        verifyNoInteractions(applier);
+    }
+
+    @Test
+    void handle_redeliveredAdjustedBandsPublished_isSkippedWithoutReclaiming() {
+        var eventId = UUID.randomUUID();
+        given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(false);
+
+        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics)
+                .handle(KafkaTestMessages.withEventIdAndEventType(eventId, "AdjustedBandsPublished"));
+
+        verifyNoInteractions(applier);
+    }
+
+    @Test
     void handle_unrecognizedEventType_doesNotClaimOrThrow() {
         var eventId = UUID.randomUUID();
 
