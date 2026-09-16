@@ -159,6 +159,46 @@ class NotificationFanOutServiceTest {
         assertThat(captor.getValue().payload().get("chainLength").asInt()).isEqualTo(1);
     }
 
+    @Test
+    void scoresUpdatedIsReshapedPerViewer() {
+        var gameId = UUID.randomUUID();
+        var playerA = UUID.randomUUID();
+        var playerB = UUID.randomUUID();
+        var sessionA = mock(NotificationDeliveryPort.class);
+        var sessionB = mock(NotificationDeliveryPort.class);
+        var registry = new NotificationSessionRegistry();
+        registry.register(activeSession("session-a", gameId, playerA, sessionA));
+        registry.register(activeSession("session-b", gameId, playerB, sessionB));
+        var service = new NotificationFanOutService(new NotificationPolicy(), registry, new ObjectMapper());
+
+        service.fanOut(message(gameId, "ScoresUpdated", """
+                {"gameId":"%s","eraNumber":1,"updates":[
+                    {"playerId":"%s","faction":"PROPHETS","pointsDelta":4,
+                     "reason":"EVENT_RESOLVED_AS_WRITTEN","newTotal":12},
+                    {"playerId":"%s","faction":"ERASERS","pointsDelta":2,
+                     "reason":"ANNIHILATED_OUTCOME","newTotal":6}
+                ]}
+                """.formatted(gameId, playerA, playerB)));
+
+        var captorA = ArgumentCaptor.forClass(NotificationMessage.class);
+        verify(sessionA).send(captorA.capture());
+        var updatesForA = captorA.getValue().payload().get("updates");
+        assertThat(updatesForA.get(0).has("faction")).isTrue();
+        assertThat(updatesForA.get(0).has("reason")).isTrue();
+        assertThat(updatesForA.get(1).has("faction")).isFalse();
+        assertThat(updatesForA.get(1).has("reason")).isFalse();
+        assertThat(updatesForA.get(1).get("playerId").asText()).isEqualTo(playerB.toString());
+        assertThat(updatesForA.get(1).get("newTotal").asInt()).isEqualTo(6);
+
+        var captorB = ArgumentCaptor.forClass(NotificationMessage.class);
+        verify(sessionB).send(captorB.capture());
+        var updatesForB = captorB.getValue().payload().get("updates");
+        assertThat(updatesForB.get(0).has("faction")).isFalse();
+        assertThat(updatesForB.get(0).has("reason")).isFalse();
+        assertThat(updatesForB.get(1).has("faction")).isTrue();
+        assertThat(updatesForB.get(1).has("reason")).isTrue();
+    }
+
     private static Message<Object> message(UUID gameId, String type, String payload) {
         return MessageBuilder.withPayload((Object) payload.getBytes())
                 .setHeader("gameId", gameId.toString())
