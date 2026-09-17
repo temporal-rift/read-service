@@ -182,7 +182,7 @@ final class ProjectionRestMapper {
             case "ERASERS" -> List.of("ANNIHILATE", "CORRUPT", "CASCADE");
             case "PROPHETS" -> List.of("FORESIGHT", "SEAL", "FULFILLMENT");
             case "REVISIONISTS" -> List.of("REWRITE", "MIMIC", "OBSCURE");
-            case "WEAVERS" -> List.of("THREAD", "TAPESTRY", "UNRAVEL");
+            case "WEAVERS" -> List.of("THREAD", "TAPESTRY", "REWEAVE");
             case "ACTIVISTS" -> List.of("RALLY", "EXPOSE", "MOMENTUM");
             case null, default -> List.of();
         };
