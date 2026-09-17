@@ -185,7 +185,7 @@ class ProjectionRestMapperTest {
         "ERASERS, ANNIHILATE, CORRUPT, CASCADE",
         "PROPHETS, FORESIGHT, SEAL, FULFILLMENT",
         "REVISIONISTS, REWRITE, MIMIC, OBSCURE",
-        "WEAVERS, THREAD, TAPESTRY, UNRAVEL",
+        "WEAVERS, THREAD, TAPESTRY, REWEAVE",
         "ACTIVISTS, RALLY, EXPOSE, MOMENTUM"
     })
     void toResponse_setsMySpecialActionsPerFactionPerGddTable(
