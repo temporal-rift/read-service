@@ -118,7 +118,7 @@ class NotificationFanOutServiceTest {
     }
 
     @Test
-    void chainBrokenIsBroadcastWithoutEitherIdentityField() {
+    void chainBrokenIsBroadcastWithoutTheIdentityField() {
         var gameId = UUID.randomUUID();
         var recipient = mock(NotificationDeliveryPort.class);
         var registry = new NotificationSessionRegistry();
@@ -128,13 +128,12 @@ class NotificationFanOutServiceTest {
         service.fanOut(message(
                 gameId,
                 "ChainBroken",
-                "{\"gameId\":\"" + gameId + "\",\"brokenByPlayerId\":\"" + UUID.randomUUID()
-                        + "\",\"targetPlayerId\":\"" + UUID.randomUUID() + "\",\"chainLengthAtBreak\":3}"));
+                "{\"gameId\":\"" + gameId + "\",\"playerId\":\"" + UUID.randomUUID() + "\",\"paradoxId\":\""
+                        + UUID.randomUUID() + "\",\"chainLengthAtBreak\":3}"));
 
         var captor = ArgumentCaptor.forClass(NotificationMessage.class);
         verify(recipient).send(captor.capture());
-        assertThat(captor.getValue().payload().has("brokenByPlayerId")).isFalse();
-        assertThat(captor.getValue().payload().has("targetPlayerId")).isFalse();
+        assertThat(captor.getValue().payload().has("playerId")).isFalse();
         assertThat(captor.getValue().payload().get("chainLengthAtBreak").asInt())
                 .isEqualTo(3);
     }
