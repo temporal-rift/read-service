@@ -62,16 +62,16 @@ class NotificationFanOutIT {
     @Test
     void chainBrokenIsDeliveredToEveryConnectedSessionWithoutIdentityFields() {
         var gameId = UUID.randomUUID();
-        var brokenByPlayerId = UUID.randomUUID();
-        var targetPlayerId = UUID.randomUUID();
+        var playerId = UUID.randomUUID();
+        var paradoxId = UUID.randomUUID();
         var sessionOne = register(gameId, UUID.randomUUID());
         var sessionTwo = register(gameId, UUID.randomUUID());
 
         fanOut.fanOut(message(
                 gameId,
                 "ChainBroken",
-                "{\"gameId\":\"" + gameId + "\",\"brokenByPlayerId\":\"" + brokenByPlayerId + "\",\"targetPlayerId\":\""
-                        + targetPlayerId + "\",\"chainLengthAtBreak\":2}"));
+                "{\"gameId\":\"" + gameId + "\",\"playerId\":\"" + playerId + "\",\"paradoxId\":\"" + paradoxId
+                        + "\",\"chainLengthAtBreak\":2}"));
 
         await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
             assertThat(sessionOne.messages()).hasSize(1);
@@ -79,8 +79,7 @@ class NotificationFanOutIT {
         });
         for (var session : List.of(sessionOne, sessionTwo)) {
             var payload = session.messages().getFirst().payload();
-            assertThat(payload.has("brokenByPlayerId")).isFalse();
-            assertThat(payload.has("targetPlayerId")).isFalse();
+            assertThat(payload.has("playerId")).isFalse();
             assertThat(payload.get("chainLengthAtBreak").asInt()).isEqualTo(2);
         }
     }

@@ -887,10 +887,10 @@ class PlayerGameStateIT {
                         1,
                         "chainId",
                         chainId,
-                        "brokenByPlayerId",
-                        UUID.randomUUID(),
-                        "targetPlayerId",
+                        "playerId",
                         weaverPlayerId,
+                        "paradoxId",
+                        UUID.randomUUID(),
                         "chainLengthAtBreak",
                         2));
         awaitChainState(gameId, "BROKEN", 2);
@@ -901,8 +901,8 @@ class PlayerGameStateIT {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.chain.status").value("BROKEN"))
                     .andExpect(jsonPath("$.chain.length").value(2))
-                    .andExpect(jsonPath("$..brokenByPlayerId").doesNotExist())
-                    .andExpect(jsonPath("$..targetPlayerId").doesNotExist());
+                    .andExpect(jsonPath("$.chain.playerId").doesNotExist())
+                    .andExpect(jsonPath("$.chain.paradoxId").doesNotExist());
         }
 
         publish(
