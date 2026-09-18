@@ -42,6 +42,7 @@ class TimelineEventsKafkaConsumer {
             GeneratedChannelContract.PARADOX_CASCADED_EVENT_TYPE,
             GeneratedChannelContract.OUTCOME_APPLIED_EVENT_TYPE,
             GeneratedChannelContract.ERA_RESOLUTION_COMPLETED_EVENT_TYPE,
+            GeneratedChannelContract.CHAIN_LINK_THREADED_EVENT_TYPE,
             GeneratedChannelContract.CHAIN_LINK_ADDED_EVENT_TYPE,
             GeneratedChannelContract.CHAIN_COMPLETED_EVENT_TYPE,
             GeneratedChannelContract.CHAIN_BROKEN_EVENT_TYPE,
