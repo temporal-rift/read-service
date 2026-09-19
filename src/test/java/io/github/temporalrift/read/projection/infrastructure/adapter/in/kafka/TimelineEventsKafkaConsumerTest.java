@@ -81,6 +81,18 @@ class TimelineEventsKafkaConsumerTest {
     }
 
     @Test
+    void handle_chainLinkThreaded_isKnownButNotDispatched() {
+        var eventId = UUID.randomUUID();
+        given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(true);
+
+        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics)
+                .handle(KafkaTestMessages.withEventIdAndEventType(eventId, "ChainLinkThreaded"));
+
+        then(processedEvents).should().claim(eventId, "projection.timeline-events");
+        verifyNoInteractions(applier);
+    }
+
+    @Test
     void handle_unrecognizedEventType_doesNotClaimOrThrow() {
         var eventId = UUID.randomUUID();
 
