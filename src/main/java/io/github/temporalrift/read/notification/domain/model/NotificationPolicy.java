@@ -17,10 +17,13 @@ public final class NotificationPolicy {
 
     // Chain events carry the acting player's id, which would identify the Weavers faction holder before
     // FactionRevealed since only one player per game can hold it — these fields never reach a client.
+    // ChainBroken also strips its retired pre-5.0 fields: a retained or replayed record from the previous
+    // contract revision can still arrive with those names, and the notification path forwards the raw
+    // payload without schema validation.
     private static final Map<String, Set<String>> IDENTITY_REDACTIONS = Map.of(
             "ChainLinkAdded", Set.of(PLAYER_ID_FIELD),
             "ChainCompleted", Set.of(PLAYER_ID_FIELD),
-            "ChainBroken", Set.of(PLAYER_ID_FIELD),
+            "ChainBroken", Set.of(PLAYER_ID_FIELD, "brokenByPlayerId", "targetPlayerId"),
             "ChainLinkInvalidated", Set.of(PLAYER_ID_FIELD));
 
     private static final Set<String> TARGETED = Set.of(
