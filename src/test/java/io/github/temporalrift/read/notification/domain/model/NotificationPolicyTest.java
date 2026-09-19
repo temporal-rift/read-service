@@ -48,7 +48,8 @@ class NotificationPolicyTest {
     void chainEventsRedactTheirIdentityFieldsOnly() {
         assertThat(policy.identityFieldsToRedact("ChainLinkAdded")).isEqualTo(Set.of("playerId"));
         assertThat(policy.identityFieldsToRedact("ChainCompleted")).isEqualTo(Set.of("playerId"));
-        assertThat(policy.identityFieldsToRedact("ChainBroken")).isEqualTo(Set.of("playerId"));
+        assertThat(policy.identityFieldsToRedact("ChainBroken"))
+                .isEqualTo(Set.of("playerId", "brokenByPlayerId", "targetPlayerId"));
     }
 
     @Test

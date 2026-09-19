@@ -139,6 +139,28 @@ class NotificationFanOutServiceTest {
     }
 
     @Test
+    void chainBrokenAlsoStripsRetiredIdentityFields() {
+        var gameId = UUID.randomUUID();
+        var recipient = mock(NotificationDeliveryPort.class);
+        var registry = new NotificationSessionRegistry();
+        registry.register(activeSession("session", gameId, UUID.randomUUID(), recipient));
+        var service = new NotificationFanOutService(new NotificationPolicy(), registry, new ObjectMapper());
+
+        service.fanOut(message(
+                gameId,
+                "ChainBroken",
+                "{\"gameId\":\"" + gameId + "\",\"brokenByPlayerId\":\"" + UUID.randomUUID()
+                        + "\",\"targetPlayerId\":\"" + UUID.randomUUID() + "\",\"chainLengthAtBreak\":3}"));
+
+        var captor = ArgumentCaptor.forClass(NotificationMessage.class);
+        verify(recipient).send(captor.capture());
+        assertThat(captor.getValue().payload().has("brokenByPlayerId")).isFalse();
+        assertThat(captor.getValue().payload().has("targetPlayerId")).isFalse();
+        assertThat(captor.getValue().payload().get("chainLengthAtBreak").asInt())
+                .isEqualTo(3);
+    }
+
+    @Test
     void chainLinkInvalidatedIsBroadcastWithoutThePlayerIdField() {
         var gameId = UUID.randomUUID();
         var playerId = UUID.randomUUID();
