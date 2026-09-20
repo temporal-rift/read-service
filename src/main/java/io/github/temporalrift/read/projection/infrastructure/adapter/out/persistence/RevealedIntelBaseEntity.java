@@ -3,25 +3,11 @@ package io.github.temporalrift.read.projection.infrastructure.adapter.out.persis
 import java.util.UUID;
 
 import jakarta.persistence.Column;
-import jakarta.persistence.Id;
 import jakarta.persistence.MappedSuperclass;
 
 /** Shared game/viewer/era/event identity for the per-kind revealed-intel tables. */
 @MappedSuperclass
-abstract class RevealedIntelBaseEntity {
-
-    @Id
-    @Column(name = "id", nullable = false)
-    private UUID id;
-
-    @Column(name = "game_id", nullable = false)
-    private UUID gameId;
-
-    @Column(name = "player_id", nullable = false)
-    private UUID playerId;
-
-    @Column(name = "era_number", nullable = false)
-    private int eraNumber;
+abstract class RevealedIntelBaseEntity extends PlayerScopedBaseEntity {
 
     @Column(name = "event_id", nullable = false)
     private UUID eventId;
@@ -33,24 +19,9 @@ abstract class RevealedIntelBaseEntity {
 
     protected RevealedIntelBaseEntity(
             UUID id, UUID gameId, UUID playerId, int eraNumber, UUID eventId, int observedInRound) {
-        this.id = id;
-        this.gameId = gameId;
-        this.playerId = playerId;
-        this.eraNumber = eraNumber;
+        super(id, gameId, playerId, eraNumber);
         this.eventId = eventId;
         this.observedInRound = observedInRound;
-    }
-
-    UUID getGameId() {
-        return gameId;
-    }
-
-    UUID getPlayerId() {
-        return playerId;
-    }
-
-    int getEraNumber() {
-        return eraNumber;
     }
 
     UUID getEventId() {

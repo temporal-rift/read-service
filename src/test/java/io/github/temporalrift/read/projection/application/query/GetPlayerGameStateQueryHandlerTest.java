@@ -16,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import io.github.temporalrift.read.projection.application.ProjectionRepositories;
 import io.github.temporalrift.read.projection.domain.model.ChainStatus;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 import io.github.temporalrift.read.projection.domain.model.GameChain;
@@ -98,7 +99,7 @@ class GetPlayerGameStateQueryHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new GetPlayerGameStateQueryHandler(
+        handler = new GetPlayerGameStateQueryHandler(new ProjectionRepositories(
                 gameProjections,
                 gamePlayers,
                 gameActiveEvents,
@@ -111,7 +112,7 @@ class GetPlayerGameStateQueryHandlerTest {
                 publicDeclarations,
                 exposeFacts,
                 playerSubmissions,
-                terminalResults);
+                terminalResults));
     }
 
     @Test
