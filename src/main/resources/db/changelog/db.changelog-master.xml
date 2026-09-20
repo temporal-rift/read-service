@@ -28,5 +28,6 @@
     <include file="db/changelog/projection/017-create-game-expose-fact.xml"/>
     <include file="db/changelog/projection/018-create-player-submission.xml"/>
     <include file="db/changelog/projection/019-create-game-terminal-result.xml"/>
+    <include file="db/changelog/projection/020-create-game-band-correction.xml"/>
 
 </databaseChangeLog>

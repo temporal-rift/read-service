@@ -70,6 +70,7 @@ import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIn
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
 import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
 import io.github.temporalrift.read.projection.domain.model.TerminalResult;
+import io.github.temporalrift.read.projection.domain.port.out.BandCorrectionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.ExposeFactRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameChainRepository;
@@ -108,6 +109,7 @@ class ProjectionEventApplier {
     private final ExposeFactRepository exposeFacts;
     private final PlayerSubmissionRepository playerSubmissions;
     private final TerminalResultRepository terminalResults;
+    private final BandCorrectionRepository bandCorrections;
 
     ProjectionEventApplier(
             GameProjectionRepository gameProjections,
@@ -122,7 +124,8 @@ class ProjectionEventApplier {
             PublicDeclarationRepository publicDeclarations,
             ExposeFactRepository exposeFacts,
             PlayerSubmissionRepository playerSubmissions,
-            TerminalResultRepository terminalResults) {
+            TerminalResultRepository terminalResults,
+            BandCorrectionRepository bandCorrections) {
         this.gameProjections = gameProjections;
         this.gamePlayers = gamePlayers;
         this.gameActiveEvents = gameActiveEvents;
@@ -136,6 +139,7 @@ class ProjectionEventApplier {
         this.exposeFacts = exposeFacts;
         this.playerSubmissions = playerSubmissions;
         this.terminalResults = terminalResults;
+        this.bandCorrections = bandCorrections;
     }
 
     // Preserves rather than overwrites: a per-player event can arrive, and find-or-create a row,
@@ -317,6 +321,7 @@ class ProjectionEventApplier {
     /** Era-scoped recoverable rows never survive their era — a delayed fact must not repopulate them. */
     private void clearRecoverableEraState(UUID gameId, int eraNumber) {
         publicBands.deleteByGameIdAndEraNumber(gameId, eraNumber);
+        bandCorrections.deleteByGameIdAndEraNumber(gameId, eraNumber);
         publicDeclarations.deleteByGameIdAndEraNumber(gameId, eraNumber);
         exposeFacts.deleteByGameIdAndEraNumber(gameId, eraNumber);
         playerSubmissions.deleteByGameIdAndEraNumber(gameId, eraNumber);
@@ -339,6 +344,7 @@ class ProjectionEventApplier {
         revealedInfluenceIntel.deleteByGameId(payload.gameId());
         revealedHandCardIntel.deleteByGameId(payload.gameId());
         publicBands.deleteByGameId(payload.gameId());
+        bandCorrections.deleteByGameId(payload.gameId());
         publicDeclarations.deleteByGameId(payload.gameId());
         exposeFacts.deleteByGameId(payload.gameId());
         playerSubmissions.deleteByGameId(payload.gameId());
@@ -436,14 +442,17 @@ class ProjectionEventApplier {
     void applyCardPlayed(CardPlayedPayload payload) {
         // The submission is the player's own accepted decision: it is recorded even when the
         // player-state row does not exist yet (out-of-order delivery), while hand removal still
-        // needs the row. Both are scoped to the caller's era, so a later GameStarted cannot leak them.
-        playerSubmissions.upsert(new PlayerSubmission(
-                payload.gameId(),
-                payload.playerId(),
-                payload.eraNumber(),
-                payload.roundNumber(),
-                PlayerSubmission.SubmissionKind.ACTION,
-                "CARD"));
+        // needs the row. The era guard keeps a delayed card from resurrecting a submission that
+        // EraEnded or GameEnded already cleared; the query only exposes the current era either way.
+        if (!isStaleEra(payload.gameId(), payload.eraNumber(), "CardPlayed")) {
+            playerSubmissions.upsert(new PlayerSubmission(
+                    payload.gameId(),
+                    payload.playerId(),
+                    payload.eraNumber(),
+                    payload.roundNumber(),
+                    PlayerSubmission.SubmissionKind.ACTION,
+                    "CARD"));
+        }
         playerGameStates
                 .findByGameIdAndPlayerId(payload.gameId(), payload.playerId())
                 .ifPresentOrElse(
@@ -627,6 +636,16 @@ class ProjectionEventApplier {
         if (isStaleEra(payload.gameId(), payload.eraNumber(), "BandedProbabilityPublished")) {
             return;
         }
+        // The correction supersedes the preview regardless of arrival order: the two travel on
+        // independent topics with no cross-topic ordering, so a reordered preview must not
+        // overwrite corrected bands.
+        if (bandCorrections.isCorrectionApplied(payload.gameId(), payload.eraNumber())) {
+            log.warn(
+                    "BandedProbabilityPublished for corrected era {} in game {} — skipping",
+                    payload.eraNumber(),
+                    payload.gameId());
+            return;
+        }
         publicBands.replaceAll(
                 payload.gameId(),
                 payload.eraNumber(),
@@ -664,6 +683,7 @@ class ProjectionEventApplier {
                                                 outcome.band().name()))
                                         .toList()))
                         .toList());
+        bandCorrections.markCorrectionApplied(payload.gameId(), payload.eraNumber());
         touchRevision(payload.gameId());
     }
 
@@ -729,7 +749,7 @@ class ProjectionEventApplier {
         terminalResults.addWinners(
                 payload.gameId(),
                 List.of(new TerminalResult.TerminalWinner(
-                        payload.winnerId(), payload.faction().name())));
+                        payload.winnerId(), payload.faction().name(), payload.winType())));
         touchRevision(payload.gameId());
     }
 

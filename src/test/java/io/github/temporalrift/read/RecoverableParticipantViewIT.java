@@ -119,6 +119,35 @@ class RecoverableParticipantViewIT {
                 .andExpect(jsonPath("$.publicBands", hasSize(1)))
                 .andExpect(jsonPath("$.publicBands[0].outcomes[0].band").value("HIGH"));
 
+        // A reordered preview arriving after the correction must not overwrite it:
+        // the two travel on independent topics with no cross-topic ordering.
+        var reorderedId = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "BandedProbabilityPublished",
+                        gameId,
+                        Map.of(
+                                "gameId",
+                                gameId,
+                                "eraNumber",
+                                1,
+                                "eventStates",
+                                List.of(Map.of(
+                                        "eventId",
+                                        eventId,
+                                        "outcomes",
+                                        List.of(Map.of("outcomeId", outcomeId, "band", "LOW"))))),
+                        reorderedId)
+                .join();
+        awaitProcessed(reorderedId, "projection.game-events");
+        awaitBandOutcome(gameId, eventId, outcomeId, "HIGH");
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(playerId)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.publicBands", hasSize(1)))
+                .andExpect(jsonPath("$.publicBands[0].outcomes[0].band").value("HIGH"));
+
         // Ending the era clears its bands; a redelivered preview for the ended era
         // must not repopulate them.
         var endedId = UUID.randomUUID();
@@ -359,8 +388,10 @@ class RecoverableParticipantViewIT {
                         Map.of(
                                 "gameId",
                                 gameId,
+                                // The owner publishes the trigger name, not the cause: the recorded
+                                // qualifier win types resolve it to SCORE_THRESHOLD on read.
                                 "endReason",
-                                "SCORE_THRESHOLD",
+                                "WIN_CONDITION_MET",
                                 "finalScores",
                                 List.of(
                                         Map.of("playerId", winner, "faction", "WEAVERS", "score", 20),
@@ -382,7 +413,7 @@ class RecoverableParticipantViewIT {
         }
     }
 
-    private void startGame(UUID gameId, UUID... playerIds) throws Exception {
+    private void startGame(UUID gameId, UUID... playerIds) {
         var startedId = UUID.randomUUID();
         publish(
                         GAME_EVENTS_TOPIC,
@@ -422,11 +453,6 @@ class RecoverableParticipantViewIT {
                 .join();
         awaitProcessed(eraId, "projection.game-events");
         awaitPhase(gameId, "ERA_START");
-    }
-
-    private CompletableFuture<SendResult<Object, Object>> publish(
-            String topic, String eventType, UUID gameId, Object payload) {
-        return publish(topic, eventType, gameId, payload, UUID.randomUUID());
     }
 
     private CompletableFuture<SendResult<Object, Object>> publish(
@@ -490,6 +516,7 @@ class RecoverableParticipantViewIT {
                                 gameId,
                                 eventId))
                         // jsonb text form separates keys from values with a space.
+                        .contains("\"outcomeId\": \"" + outcomeId + "\"")
                         .contains("\"band\": \"" + band + "\""));
     }
 

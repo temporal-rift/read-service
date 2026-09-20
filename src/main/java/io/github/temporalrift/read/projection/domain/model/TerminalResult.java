@@ -12,7 +12,12 @@ public record TerminalResult(
         finalScores = List.copyOf(finalScores);
     }
 
-    public record TerminalWinner(UUID playerId, String faction) {}
+    public record TerminalWinner(UUID playerId, String faction, String winType) {
+
+        public TerminalWinner(UUID playerId, String faction) {
+            this(playerId, faction, null);
+        }
+    }
 
     public record TerminalScore(UUID playerId, String faction, int score) {}
 }

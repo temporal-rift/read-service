@@ -104,6 +104,7 @@ import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIn
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
 import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
 import io.github.temporalrift.read.projection.domain.model.TerminalResult;
+import io.github.temporalrift.read.projection.domain.port.out.BandCorrectionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.ExposeFactRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameChainRepository;
@@ -160,6 +161,9 @@ class ProjectionEventApplierTest {
     @Mock
     TerminalResultRepository terminalResults;
 
+    @Mock
+    BandCorrectionRepository bandCorrections;
+
     private ProjectionEventApplier applier;
 
     private final UUID gameId = UUID.randomUUID();
@@ -182,7 +186,8 @@ class ProjectionEventApplierTest {
                 publicDeclarations,
                 exposeFacts,
                 playerSubmissions,
-                terminalResults);
+                terminalResults,
+                bandCorrections);
     }
 
     @Test
@@ -1642,6 +1647,7 @@ class ProjectionEventApplierTest {
         applier.applyEraEnded(new EraEndedPayload(gameId, 1, 0, 2));
 
         then(publicBands).should().deleteByGameIdAndEraNumber(gameId, 1);
+        then(bandCorrections).should().deleteByGameIdAndEraNumber(gameId, 1);
         then(publicDeclarations).should().deleteByGameIdAndEraNumber(gameId, 1);
         then(exposeFacts).should().deleteByGameIdAndEraNumber(gameId, 1);
         then(playerSubmissions).should().deleteByGameIdAndEraNumber(gameId, 1);
@@ -1663,6 +1669,7 @@ class ProjectionEventApplierTest {
                         eq("SCORE_THRESHOLD"),
                         eq(List.of(new TerminalResult.TerminalScore(playerId, "WEAVERS", 20))));
         then(publicBands).should().deleteByGameId(gameId);
+        then(bandCorrections).should().deleteByGameId(gameId);
         then(playerSubmissions).should().deleteByGameId(gameId);
     }
 
@@ -1677,8 +1684,59 @@ class ProjectionEventApplierTest {
 
         then(terminalResults)
                 .should()
-                .addWinners(eq(gameId), eq(List.of(new TerminalResult.TerminalWinner(winnerId, "PROPHETS"))));
+                .addWinners(
+                        eq(gameId),
+                        eq(List.of(new TerminalResult.TerminalWinner(winnerId, "PROPHETS", "SCORE_THRESHOLD"))));
         then(gameProjections).should().save(any(GameProjection.class));
+    }
+
+    @Test
+    void applyBandedProbabilityPublished_afterCorrection_isSkipped() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_3)));
+        given(bandCorrections.isCorrectionApplied(gameId, 1)).willReturn(true);
+
+        applier.applyBandedProbabilityPublished(new BandedProbabilityPublishedPayload(gameId, 1, List.of()));
+
+        then(publicBands).should(never()).replaceAll(any(), anyInt(), any());
+        then(gameProjections).should(never()).save(any());
+    }
+
+    @Test
+    void applyAdjustedBandsPublished_marksCorrectionApplied() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_3)));
+
+        applier.applyAdjustedBandsPublished(new AdjustedBandsPublishedPayload(gameId, 1, List.of()));
+
+        then(bandCorrections).should().markCorrectionApplied(gameId, 1);
+    }
+
+    @Test
+    void applyCardPlayed_forStaleEra_removesHandButSkipsSubmission() {
+        var playerId = UUID.randomUUID();
+        var playedCard = new HandCard(UUID.randomUUID(), "PUSH");
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of(playedCard))));
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));
+
+        applier.applyCardPlayed(new CardPlayedPayload(
+                gameId,
+                1,
+                1,
+                playerId,
+                playedCard.cardInstanceId(),
+                io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardType.PUSH,
+                io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardGrade.I,
+                null,
+                null,
+                null,
+                null,
+                null));
+
+        then(playerSubmissions).should(never()).upsert(any());
+        then(playerGameStates).should().save(any(PlayerGameState.class));
     }
 
     @Test

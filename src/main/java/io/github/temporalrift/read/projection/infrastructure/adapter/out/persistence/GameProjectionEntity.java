@@ -65,41 +65,19 @@ class GameProjectionEntity {
 
     protected GameProjectionEntity() {}
 
-    GameProjectionEntity(
-            UUID gameId,
-            int eraNumber,
-            Phase phase,
-            List<UUID> pendingParadoxIds,
-            LastRoundSummary lastRoundSummary,
-            Integer currentRoundNumber,
-            Instant actionRoundExpiresAt,
-            Instant paradoxResolutionExpiresAt,
-            long revision,
-            Instant lastUpdatedAt) {
-        this.gameId = gameId;
-        this.eraNumber = eraNumber;
-        this.phase = phase.name();
-        this.pendingParadoxIds = pendingParadoxIds;
-        this.currentRoundNumber = currentRoundNumber;
-        this.actionRoundExpiresAt = actionRoundExpiresAt;
-        this.paradoxResolutionExpiresAt = paradoxResolutionExpiresAt;
-        this.revision = revision;
-        this.lastUpdatedAt = lastUpdatedAt;
-        setLastRoundSummary(lastRoundSummary);
-    }
-
     static GameProjectionEntity fromDomain(GameProjection domain) {
-        return new GameProjectionEntity(
-                domain.gameId(),
-                domain.eraNumber(),
-                domain.phase(),
-                domain.pendingParadoxIds(),
-                domain.lastRoundSummary(),
-                domain.currentRoundNumber(),
-                domain.actionRoundExpiresAt(),
-                domain.paradoxResolutionExpiresAt(),
-                domain.revision(),
-                domain.lastUpdatedAt());
+        var entity = new GameProjectionEntity();
+        entity.setGameId(domain.gameId());
+        entity.setEraNumber(domain.eraNumber());
+        entity.setPhase(domain.phase());
+        entity.setPendingParadoxIds(domain.pendingParadoxIds());
+        entity.setLastRoundSummary(domain.lastRoundSummary());
+        entity.setCurrentRoundNumber(domain.currentRoundNumber());
+        entity.setActionRoundExpiresAt(domain.actionRoundExpiresAt());
+        entity.setParadoxResolutionExpiresAt(domain.paradoxResolutionExpiresAt());
+        entity.setRevision(domain.revision());
+        entity.setLastUpdatedAt(domain.lastUpdatedAt());
+        return entity;
     }
 
     GameProjection toDomain() {
@@ -125,6 +103,10 @@ class GameProjectionEntity {
 
     UUID getGameId() {
         return gameId;
+    }
+
+    void setGameId(UUID gameId) {
+        this.gameId = gameId;
     }
 
     void setEraNumber(int eraNumber) {
