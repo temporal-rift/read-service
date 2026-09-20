@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+  <!-- Recoverable participant view: round coordinate, authoritative expiries and freshness marker. -->
+  <changeSet id="014-widen-game-projection-recoverable-view" author="read-service">
+    <addColumn tableName="game_projection">
+      <column name="current_round_number" type="INT"/>
+    </addColumn>
+    <addColumn tableName="game_projection">
+      <column name="action_round_expires_at" type="TIMESTAMP WITH TIME ZONE"/>
+    </addColumn>
+    <addColumn tableName="game_projection">
+      <column name="paradox_resolution_expires_at" type="TIMESTAMP WITH TIME ZONE"/>
+    </addColumn>
+    <addColumn tableName="game_projection">
+      <column name="revision" type="BIGINT" defaultValue="0">
+        <constraints nullable="false"/>
+      </column>
+    </addColumn>
+    <addColumn tableName="game_projection">
+      <column name="last_updated_at" type="TIMESTAMP WITH TIME ZONE"/>
+    </addColumn>
+  </changeSet>
+
+</databaseChangeLog>

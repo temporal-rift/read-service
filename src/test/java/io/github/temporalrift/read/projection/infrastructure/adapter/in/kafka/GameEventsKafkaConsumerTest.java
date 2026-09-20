@@ -18,10 +18,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.messaging.support.MessageBuilder;
 import tools.jackson.databind.ObjectMapper;
 
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundStartedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.HandCardInterceptedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.InfluenceTracedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.RoundSummaryPublishedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.SpecialActionPlayedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.WinConditionMetPayload;
 import io.github.temporalrift.read.shared.ProcessedEventPort;
 
 @ExtendWith(MockitoExtension.class)
@@ -338,5 +341,94 @@ class GameEventsKafkaConsumerTest {
             assertThat(card.cardType().name()).isEqualTo("SWING");
             assertThat(card.grade().name()).isEqualTo("III");
         });
+    }
+
+    @Test
+    void handle_actionRoundStarted_forwardsOccurredAtForDeadlineComputation() {
+        var eventId = UUID.randomUUID();
+        var gameId = UUID.randomUUID();
+        var payload = """
+                {
+                  "gameId": "%s",
+                  "eraNumber": 1,
+                  "roundNumber": 2,
+                  "timerSeconds": 45,
+                  "pendingPlayerIds": []
+                }
+                """.formatted(gameId);
+        var message = MessageBuilder.withPayload((Object) payload.getBytes(StandardCharsets.UTF_8))
+                .setHeader("eventId", eventId.toString())
+                .setHeader("eventType", "ActionRoundStarted")
+                .setHeader("occurredAt", "2026-09-16T00:00:00Z")
+                .setHeader("version", "1")
+                .build();
+        given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
+
+        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics).handle(message);
+
+        var payloadCaptor = ArgumentCaptor.forClass(ActionRoundStartedPayload.class);
+        var occurredAtCaptor = ArgumentCaptor.forClass(java.time.Instant.class);
+        then(applier).should().applyActionRoundStarted(payloadCaptor.capture(), occurredAtCaptor.capture());
+        assertThat(payloadCaptor.getValue().gameId()).isEqualTo(gameId);
+        assertThat(payloadCaptor.getValue().roundNumber()).isEqualTo(2);
+        assertThat(occurredAtCaptor.getValue()).isEqualTo(java.time.Instant.parse("2026-09-16T00:00:00Z"));
+    }
+
+    @Test
+    void handle_specialActionPlayed_dispatchesToApplier() {
+        var eventId = UUID.randomUUID();
+        var gameId = UUID.randomUUID();
+        var playerId = UUID.randomUUID();
+        var payload = """
+                {
+                  "gameId": "%s",
+                  "eraNumber": 1,
+                  "roundNumber": 1,
+                  "playerId": "%s",
+                  "faction": "ERASERS",
+                  "specialAction": "ANNIHILATE"
+                }
+                """.formatted(gameId, playerId);
+        var message = MessageBuilder.withPayload((Object) payload.getBytes(StandardCharsets.UTF_8))
+                .setHeader("eventId", eventId.toString())
+                .setHeader("eventType", "SpecialActionPlayed")
+                .setHeader("version", "1")
+                .build();
+        given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
+
+        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics).handle(message);
+
+        var payloadCaptor = ArgumentCaptor.forClass(SpecialActionPlayedPayload.class);
+        then(applier).should().applySpecialActionPlayed(payloadCaptor.capture());
+        assertThat(payloadCaptor.getValue().playerId()).isEqualTo(playerId);
+        assertThat(payloadCaptor.getValue().specialAction().name()).isEqualTo("ANNIHILATE");
+    }
+
+    @Test
+    void handle_winConditionMet_dispatchesToApplier() {
+        var eventId = UUID.randomUUID();
+        var gameId = UUID.randomUUID();
+        var winnerId = UUID.randomUUID();
+        var payload = """
+                {
+                  "gameId": "%s",
+                  "winnerId": "%s",
+                  "faction": "WEAVERS",
+                  "finalScore": 20,
+                  "winType": "SCORE_THRESHOLD"
+                }
+                """.formatted(gameId, winnerId);
+        var message = MessageBuilder.withPayload((Object) payload.getBytes(StandardCharsets.UTF_8))
+                .setHeader("eventId", eventId.toString())
+                .setHeader("eventType", "WinConditionMet")
+                .setHeader("version", "1")
+                .build();
+        given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
+
+        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics).handle(message);
+
+        var payloadCaptor = ArgumentCaptor.forClass(WinConditionMetPayload.class);
+        then(applier).should().applyWinConditionMet(payloadCaptor.capture());
+        assertThat(payloadCaptor.getValue().winnerId()).isEqualTo(winnerId);
     }
 }

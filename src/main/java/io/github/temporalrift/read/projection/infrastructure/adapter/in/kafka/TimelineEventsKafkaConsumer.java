@@ -2,6 +2,7 @@ package io.github.temporalrift.read.projection.infrastructure.adapter.in.kafka;
 
 import static org.springframework.transaction.annotation.Propagation.REQUIRES_NEW;
 
+import java.time.Instant;
 import java.util.Set;
 
 import org.springframework.kafka.annotation.KafkaListener;
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.AdjustedBandsPublishedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainBrokenPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainCompletedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainLinkAddedPayload;
@@ -89,11 +91,14 @@ class TimelineEventsKafkaConsumer {
             }
             case "OutcomeApplied" -> applier.applyOutcomeApplied(read(message, OutcomeAppliedPayload.class));
             case "ParadoxResolutionPhaseStarted" ->
-                applier.applyParadoxResolutionPhaseStarted(read(message, ParadoxResolutionPhaseStartedPayload.class));
+                applier.applyParadoxResolutionPhaseStarted(
+                        read(message, ParadoxResolutionPhaseStartedPayload.class), occurredAt(message));
             case "ParadoxResolved" -> applier.applyParadoxResolved(read(message, ParadoxResolvedPayload.class));
             case "ParadoxCascaded" -> applier.applyParadoxCascaded(read(message, ParadoxCascadedPayload.class));
             case "ProbabilityStateRevealed" ->
                 applier.applyProbabilityStateRevealed(read(message, ProbabilityStateRevealedPayload.class));
+            case "AdjustedBandsPublished" ->
+                applier.applyAdjustedBandsPublished(read(message, AdjustedBandsPublishedPayload.class));
             case "ChainLinkAdded" -> applier.applyChainLinkAdded(read(message, ChainLinkAddedPayload.class));
             case "ChainCompleted" -> applier.applyChainCompleted(read(message, ChainCompletedPayload.class));
             case "ChainBroken" -> applier.applyChainBroken(read(message, ChainBrokenPayload.class));
@@ -105,5 +110,10 @@ class TimelineEventsKafkaConsumer {
 
     private <T> T read(Message<Object> message, Class<T> type) {
         return GameEventPayloads.read(objectMapper, message.getPayload(), type);
+    }
+
+    private static Instant occurredAt(Message<Object> message) {
+        var value = MessageHeaders.asString(message, "occurredAt");
+        return value == null ? null : Instant.parse(value);
     }
 }

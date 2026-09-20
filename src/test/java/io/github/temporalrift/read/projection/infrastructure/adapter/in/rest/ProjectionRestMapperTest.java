@@ -2,6 +2,8 @@ package io.github.temporalrift.read.projection.infrastructure.adapter.in.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -11,16 +13,21 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
 import io.github.temporalrift.read.projection.domain.model.ChainStatus;
+import io.github.temporalrift.read.projection.domain.model.ExposeFact;
 import io.github.temporalrift.read.projection.domain.model.GameChain;
 import io.github.temporalrift.read.projection.domain.model.HandCard;
 import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
 import io.github.temporalrift.read.projection.domain.model.Phase;
+import io.github.temporalrift.read.projection.domain.model.PlayerSubmission;
+import io.github.temporalrift.read.projection.domain.model.PublicBand;
+import io.github.temporalrift.read.projection.domain.model.PublicDeclaration;
 import io.github.temporalrift.read.projection.domain.model.RevealedHandCard;
 import io.github.temporalrift.read.projection.domain.model.RevealedHandCardIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedInfluenceIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
 import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
+import io.github.temporalrift.read.projection.domain.model.TerminalResult;
 
 class ProjectionRestMapperTest {
 
@@ -295,6 +302,227 @@ class ProjectionRestMapperTest {
         var response = ProjectionRestMapper.toResponse(resultWithHand(Phase.ACTION_ROUND_2, 2, List.of()));
 
         assertThat(response.getChain()).isNull();
+    }
+
+    @Test
+    void toResponse_mapsRecoverableCoordinatesDeadlinesAndContext() {
+        var paradoxId = UUID.randomUUID();
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID,
+                2,
+                Phase.PARADOX_RESOLUTION,
+                "ERASERS",
+                List.of(),
+                null,
+                List.of(),
+                0,
+                List.of(),
+                List.of(),
+                null,
+                null,
+                null,
+                41,
+                Instant.parse("2026-09-16T00:00:00Z"),
+                3,
+                null,
+                null,
+                Instant.parse("2026-09-16T00:05:00Z"),
+                false,
+                true,
+                List.of(paradoxId),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                null);
+
+        var response = ProjectionRestMapper.toResponse(result);
+
+        assertThat(response.getRevision()).isEqualTo(41);
+        assertThat(response.getLastUpdatedAt()).isEqualTo(OffsetDateTime.parse("2026-09-16T00:00:00Z"));
+        assertThat(response.getRoundNumber()).isEqualTo(3);
+        assertThat(response.getDeadlines().getHandSelectionExpiresAt()).isNull();
+        assertThat(response.getDeadlines().getActionRoundExpiresAt()).isNull();
+        assertThat(response.getDeadlines().getParadoxResolutionExpiresAt())
+                .isEqualTo(OffsetDateTime.parse("2026-09-16T00:05:00Z"));
+        assertThat(response.getPhaseContext().getDeclarationOpen()).isFalse();
+        assertThat(response.getPhaseContext().getParadoxOpen()).isTrue();
+        assertThat(response.getPhaseContext().getParadoxIds()).containsExactly(paradoxId);
+    }
+
+    @Test
+    void toResponse_absentRecoverableListsMapToNull() {
+        var response = ProjectionRestMapper.toResponse(resultWithHand(Phase.ACTION_ROUND_2, 2, List.of()));
+
+        assertThat(response.getPublicBands()).isNull();
+        assertThat(response.getDeclarations()).isNull();
+        assertThat(response.getExposeFacts()).isNull();
+        assertThat(response.getMySubmissions()).isNull();
+        assertThat(response.getResult()).isNull();
+    }
+
+    @Test
+    void toResponse_mapsPublicBandsDeclarationsExposeFactsAndOwnSubmissions() {
+        var eventId = UUID.randomUUID();
+        var outcomeId = UUID.randomUUID();
+        var declarer = UUID.randomUUID();
+        var targetEventId = UUID.randomUUID();
+        var targetOutcomeId = UUID.randomUUID();
+        var activist = UUID.randomUUID();
+        var target = UUID.randomUUID();
+        var playerId = UUID.randomUUID();
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID,
+                2,
+                Phase.ACTION_ROUND_2,
+                "ERASERS",
+                List.of(),
+                null,
+                List.of(),
+                0,
+                List.of(),
+                List.of(),
+                null,
+                null,
+                null,
+                7,
+                null,
+                2,
+                null,
+                null,
+                null,
+                false,
+                false,
+                List.of(),
+                List.of(new PublicBand(
+                        GAME_ID, 2, eventId, 2, List.of(new PublicBand.OutcomeBand(outcomeId, "MEDIUM")))),
+                List.of(new PublicDeclaration(GAME_ID, 2, declarer, "MOMENTUM", targetEventId, targetOutcomeId)),
+                List.of(new ExposeFact(
+                        GAME_ID, 2, activist, target, 2, "SWING", targetEventId, null, targetOutcomeId, false)),
+                List.of(new PlayerSubmission(GAME_ID, playerId, 2, 1, PlayerSubmission.SubmissionKind.ACTION, "CARD")),
+                null);
+
+        var response = ProjectionRestMapper.toResponse(result);
+
+        assertThat(response.getPublicBands()).singleElement().satisfies(band -> {
+            assertThat(band.getEventId()).isEqualTo(eventId);
+            assertThat(band.getObservedInRound()).isEqualTo(2);
+            assertThat(band.getOutcomes()).singleElement().satisfies(outcome -> {
+                assertThat(outcome.getOutcomeId()).isEqualTo(outcomeId);
+                assertThat(outcome.getBand().getValue()).isEqualTo("MEDIUM");
+            });
+        });
+        assertThat(response.getDeclarations()).singleElement().satisfies(declaration -> {
+            assertThat(declaration.getPlayerId()).isEqualTo(declarer);
+            assertThat(declaration.getMode().getValue()).isEqualTo("MOMENTUM");
+            assertThat(declaration.getTargetEventId()).isEqualTo(targetEventId);
+            assertThat(declaration.getTargetOutcomeId()).isEqualTo(targetOutcomeId);
+            assertThat(declaration.getEraNumber()).isEqualTo(2);
+        });
+        assertThat(response.getExposeFacts()).singleElement().satisfies(fact -> {
+            assertThat(fact.getActivistPlayerId()).isEqualTo(activist);
+            assertThat(fact.getTargetPlayerId()).isEqualTo(target);
+            assertThat(fact.getRoundNumber()).isEqualTo(2);
+            assertThat(fact.getSignature().getType().getValue()).isEqualTo("SWING");
+            assertThat(fact.getBehaviorChanged()).isFalse();
+        });
+        assertThat(response.getMySubmissions()).singleElement().satisfies(submission -> {
+            assertThat(submission.getEraNumber()).isEqualTo(2);
+            assertThat(submission.getRoundNumber()).isEqualTo(1);
+            assertThat(submission.getKind().getValue()).isEqualTo("ACTION");
+            assertThat(submission.getStatus().getValue()).isEqualTo("ACCEPTED");
+            assertThat(submission.getActionType().getValue()).isEqualTo("CARD");
+        });
+        assertThat(response.getMySpecialBudgets()).isEmpty();
+        assertThat(response.getMyObjectiveProgress()).isNull();
+    }
+
+    @Test
+    void toResponse_mapsAuthoritativeTerminalResult() {
+        var winnerId = UUID.randomUUID();
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID,
+                2,
+                Phase.GAME_ENDED,
+                "ERASERS",
+                List.of(),
+                null,
+                List.of(),
+                20,
+                List.of(),
+                List.of(),
+                null,
+                null,
+                null,
+                99,
+                null,
+                null,
+                null,
+                null,
+                null,
+                false,
+                false,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                new TerminalResult(
+                        GAME_ID,
+                        "SCORE_THRESHOLD",
+                        List.of(new TerminalResult.TerminalWinner(winnerId, "WEAVERS")),
+                        List.of(new TerminalResult.TerminalScore(winnerId, "WEAVERS", 20))));
+
+        var response = ProjectionRestMapper.toResponse(result);
+
+        assertThat(response.getResult()).satisfies(terminal -> {
+            assertThat(terminal.getEndReason().getValue()).isEqualTo("SCORE_THRESHOLD");
+            assertThat(terminal.getWinners()).singleElement().satisfies(winner -> {
+                assertThat(winner.getPlayerId()).isEqualTo(winnerId);
+                assertThat(winner.getFaction()).isEqualTo("WEAVERS");
+            });
+            assertThat(terminal.getFinalScores()).singleElement().satisfies(score -> {
+                assertThat(score.getPlayerId()).isEqualTo(winnerId);
+                assertThat(score.getScore()).isEqualTo(20);
+            });
+            assertThat(terminal.getRevealBoundary().getValue()).isEqualTo("FACTIONS_AND_SCORES_PUBLIC");
+        });
+    }
+
+    @Test
+    void toResponse_unmappableEndReasonOmitsResultRatherThanFabricatingOne() {
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID,
+                2,
+                Phase.GAME_ENDED,
+                "ERASERS",
+                List.of(),
+                null,
+                List.of(),
+                20,
+                List.of(),
+                List.of(),
+                null,
+                null,
+                null,
+                99,
+                null,
+                null,
+                null,
+                null,
+                null,
+                false,
+                false,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                new TerminalResult(GAME_ID, "FACTION_OBJECTIVE", List.of(), List.of()));
+
+        var response = ProjectionRestMapper.toResponse(result);
+
+        assertThat(response.getResult()).isNull();
     }
 
     private static GetPlayerGameStateUseCase.Result resultWithFaction(String faction) {

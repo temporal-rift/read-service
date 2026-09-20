@@ -14,6 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.messaging.support.MessageBuilder;
 import tools.jackson.databind.ObjectMapper;
 
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.AdjustedBandsPublishedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainBrokenPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainCompletedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainLinkAddedPayload;
@@ -58,15 +59,22 @@ class TimelineEventsKafkaConsumerTest {
     }
 
     @Test
-    void handle_adjustedBandsPublished_isKnownButNotDispatched() {
+    void handle_adjustedBandsPublished_dispatchesTheGeneratedPayload() {
         var eventId = UUID.randomUUID();
+        var payload = new AdjustedBandsPublishedPayload(UUID.randomUUID(), 1, List.of());
+        var message = MessageBuilder.withPayload((Object) payload)
+                .setHeader("eventId", eventId.toString())
+                .setHeader("eventType", "AdjustedBandsPublished")
+                .setHeader("occurredAt", "2026-09-16T00:00:00Z")
+                .setHeader("version", "1")
+                .build();
         given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(true);
+        given(objectMapper.convertValue(payload, AdjustedBandsPublishedPayload.class))
+                .willReturn(payload);
 
-        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics)
-                .handle(KafkaTestMessages.withEventIdAndEventType(eventId, "AdjustedBandsPublished"));
+        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics).handle(message);
 
-        then(processedEvents).should().claim(eventId, "projection.timeline-events");
-        verifyNoInteractions(applier);
+        then(applier).should().applyAdjustedBandsPublished(payload);
     }
 
     @Test

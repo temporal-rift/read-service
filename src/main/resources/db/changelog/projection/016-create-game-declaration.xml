@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+  <!-- Public declarations of record per game era, at most one per player. -->
+  <changeSet id="016-create-game-declaration" author="read-service">
+    <createTable tableName="game_declaration">
+      <column name="id" type="UUID">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="game_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="era_number" type="INT">
+        <constraints nullable="false"/>
+      </column>
+      <column name="player_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="mode" type="VARCHAR(16)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="target_event_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="target_outcome_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
+
+    <addUniqueConstraint
+        tableName="game_declaration"
+        columnNames="game_id, era_number, player_id"
+        constraintName="uq_game_declaration_identity"/>
+  </changeSet>
+
+</databaseChangeLog>

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -25,20 +26,28 @@ import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
 import io.github.temporalrift.read.projection.domain.model.Phase;
 import io.github.temporalrift.read.projection.domain.model.PlayerGameState;
 import io.github.temporalrift.read.projection.domain.model.PlayerNotInGameException;
+import io.github.temporalrift.read.projection.domain.model.PlayerSubmission;
+import io.github.temporalrift.read.projection.domain.model.PublicBand;
 import io.github.temporalrift.read.projection.domain.model.RevealedHandCard;
 import io.github.temporalrift.read.projection.domain.model.RevealedHandCardIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedInfluenceIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
 import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
+import io.github.temporalrift.read.projection.domain.model.TerminalResult;
+import io.github.temporalrift.read.projection.domain.port.out.ExposeFactRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameChainRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameProjectionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PlayerGameStateRepository;
+import io.github.temporalrift.read.projection.domain.port.out.PlayerSubmissionRepository;
+import io.github.temporalrift.read.projection.domain.port.out.PublicBandRepository;
+import io.github.temporalrift.read.projection.domain.port.out.PublicDeclarationRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedHandCardIntelRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedInfluenceIntelRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedProbabilityIntelRepository;
+import io.github.temporalrift.read.projection.domain.port.out.TerminalResultRepository;
 
 @ExtendWith(MockitoExtension.class)
 class GetPlayerGameStateQueryHandlerTest {
@@ -67,6 +76,21 @@ class GetPlayerGameStateQueryHandlerTest {
     @Mock
     GameChainRepository gameChains;
 
+    @Mock
+    PublicBandRepository publicBands;
+
+    @Mock
+    PublicDeclarationRepository publicDeclarations;
+
+    @Mock
+    ExposeFactRepository exposeFacts;
+
+    @Mock
+    PlayerSubmissionRepository playerSubmissions;
+
+    @Mock
+    TerminalResultRepository terminalResults;
+
     private GetPlayerGameStateQueryHandler handler;
 
     private final UUID gameId = UUID.randomUUID();
@@ -82,7 +106,12 @@ class GetPlayerGameStateQueryHandlerTest {
                 revealedProbabilityIntel,
                 revealedInfluenceIntel,
                 revealedHandCardIntel,
-                gameChains);
+                gameChains,
+                publicBands,
+                publicDeclarations,
+                exposeFacts,
+                playerSubmissions,
+                terminalResults);
     }
 
     @Test
@@ -294,5 +323,80 @@ class GetPlayerGameStateQueryHandlerTest {
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> handler.get(gameId, playerId)).isInstanceOf(PlayerNotInGameException.class);
+    }
+
+    @Test
+    void get_midRound_populatesRecoverableCoordinatesDeadlinesAndPublicState() {
+        var roundExpiry = Instant.parse("2026-09-16T00:01:00Z");
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of())));
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(
+                        gameId,
+                        2,
+                        Phase.ACTION_ROUND_2,
+                        List.of(),
+                        null,
+                        2,
+                        roundExpiry,
+                        null,
+                        41,
+                        Instant.parse("2026-09-16T00:00:00Z"))));
+        given(gamePlayers.findByGameId(gameId)).willReturn(List.of());
+        given(gameActiveEvents.findByGameId(gameId)).willReturn(List.of());
+        var band = new PublicBand(gameId, 2, UUID.randomUUID(), 2, List.of());
+        given(publicBands.findByGameIdAndEraNumber(gameId, 2)).willReturn(List.of(band));
+        var submission = new PlayerSubmission(gameId, playerId, 2, 1, PlayerSubmission.SubmissionKind.ACTION, "CARD");
+        given(playerSubmissions.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(List.of(submission));
+
+        var result = handler.get(gameId, playerId);
+
+        assertThat(result.revision()).isEqualTo(41);
+        assertThat(result.lastUpdatedAt()).isEqualTo(Instant.parse("2026-09-16T00:00:00Z"));
+        assertThat(result.roundNumber()).isEqualTo(2);
+        assertThat(result.handSelectionExpiresAt()).isNull();
+        assertThat(result.actionRoundExpiresAt()).isEqualTo(roundExpiry);
+        assertThat(result.paradoxResolutionExpiresAt()).isNull();
+        assertThat(result.declarationOpen()).isFalse();
+        assertThat(result.paradoxOpen()).isFalse();
+        assertThat(result.publicBands()).containsExactly(band);
+        assertThat(result.mySubmissions()).containsExactly(submission);
+        assertThat(result.terminalResult()).isNull();
+    }
+
+    @Test
+    void get_outsidePlayablePhases_hidesRoundAndDeadlines() {
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of())));
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ERA_START)));
+        given(gamePlayers.findByGameId(gameId)).willReturn(List.of());
+        given(gameActiveEvents.findByGameId(gameId)).willReturn(List.of());
+
+        var result = handler.get(gameId, playerId);
+
+        assertThat(result.roundNumber()).isNull();
+        assertThat(result.actionRoundExpiresAt()).isNull();
+        assertThat(result.paradoxResolutionExpiresAt()).isNull();
+        assertThat(result.declarationOpen()).isTrue();
+    }
+
+    @Test
+    void get_endedGame_exposesTerminalResultOnlyThen() {
+        var terminal = new TerminalResult(gameId, "SCORE_THRESHOLD", List.of(), List.of());
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of())));
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.GAME_ENDED)));
+        given(gamePlayers.findByGameId(gameId)).willReturn(List.of());
+        given(gameActiveEvents.findByGameId(gameId)).willReturn(List.of());
+        given(terminalResults.findByGameId(gameId)).willReturn(Optional.of(terminal));
+
+        var result = handler.get(gameId, playerId);
+
+        assertThat(result.terminalResult()).isEqualTo(terminal);
+        assertThat(result.publicBands()).isEmpty();
+        assertThat(result.mySubmissions()).isEmpty();
     }
 }

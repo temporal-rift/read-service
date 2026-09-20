@@ -1,5 +1,6 @@
 package io.github.temporalrift.read.projection.infrastructure.adapter.out.persistence;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -42,6 +43,21 @@ class GameProjectionEntity {
     @Column(name = "last_round_summary_era_number")
     private Integer lastRoundSummaryEraNumber;
 
+    @Column(name = "current_round_number")
+    private Integer currentRoundNumber;
+
+    @Column(name = "action_round_expires_at")
+    private Instant actionRoundExpiresAt;
+
+    @Column(name = "paradox_resolution_expires_at")
+    private Instant paradoxResolutionExpiresAt;
+
+    @Column(name = "revision", nullable = false)
+    private long revision;
+
+    @Column(name = "last_updated_at")
+    private Instant lastUpdatedAt;
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "game_projection_last_round_summary_action", joinColumns = @JoinColumn(name = "game_id"))
     @OrderColumn(name = "action_position")
@@ -50,11 +66,25 @@ class GameProjectionEntity {
     protected GameProjectionEntity() {}
 
     GameProjectionEntity(
-            UUID gameId, int eraNumber, Phase phase, List<UUID> pendingParadoxIds, LastRoundSummary lastRoundSummary) {
+            UUID gameId,
+            int eraNumber,
+            Phase phase,
+            List<UUID> pendingParadoxIds,
+            LastRoundSummary lastRoundSummary,
+            Integer currentRoundNumber,
+            Instant actionRoundExpiresAt,
+            Instant paradoxResolutionExpiresAt,
+            long revision,
+            Instant lastUpdatedAt) {
         this.gameId = gameId;
         this.eraNumber = eraNumber;
         this.phase = phase.name();
         this.pendingParadoxIds = pendingParadoxIds;
+        this.currentRoundNumber = currentRoundNumber;
+        this.actionRoundExpiresAt = actionRoundExpiresAt;
+        this.paradoxResolutionExpiresAt = paradoxResolutionExpiresAt;
+        this.revision = revision;
+        this.lastUpdatedAt = lastUpdatedAt;
         setLastRoundSummary(lastRoundSummary);
     }
 
@@ -64,7 +94,12 @@ class GameProjectionEntity {
                 domain.eraNumber(),
                 domain.phase(),
                 domain.pendingParadoxIds(),
-                domain.lastRoundSummary());
+                domain.lastRoundSummary(),
+                domain.currentRoundNumber(),
+                domain.actionRoundExpiresAt(),
+                domain.paradoxResolutionExpiresAt(),
+                domain.revision(),
+                domain.lastUpdatedAt());
     }
 
     GameProjection toDomain() {
@@ -80,7 +115,12 @@ class GameProjectionEntity {
                                 lastRoundSummaryRoundNumber,
                                 lastRoundSummaryActions.stream()
                                         .map(LastRoundSummaryActionValue::toDomain)
-                                        .toList()));
+                                        .toList()),
+                currentRoundNumber,
+                actionRoundExpiresAt,
+                paradoxResolutionExpiresAt,
+                revision,
+                lastUpdatedAt);
     }
 
     UUID getGameId() {
@@ -97,6 +137,30 @@ class GameProjectionEntity {
 
     void setPendingParadoxIds(List<UUID> pendingParadoxIds) {
         this.pendingParadoxIds = pendingParadoxIds;
+    }
+
+    void setCurrentRoundNumber(Integer currentRoundNumber) {
+        this.currentRoundNumber = currentRoundNumber;
+    }
+
+    void setActionRoundExpiresAt(Instant actionRoundExpiresAt) {
+        this.actionRoundExpiresAt = actionRoundExpiresAt;
+    }
+
+    void setParadoxResolutionExpiresAt(Instant paradoxResolutionExpiresAt) {
+        this.paradoxResolutionExpiresAt = paradoxResolutionExpiresAt;
+    }
+
+    long getRevision() {
+        return revision;
+    }
+
+    void setRevision(long revision) {
+        this.revision = revision;
+    }
+
+    void setLastUpdatedAt(Instant lastUpdatedAt) {
+        this.lastUpdatedAt = lastUpdatedAt;
     }
 
     void setLastRoundSummary(LastRoundSummary lastRoundSummary) {

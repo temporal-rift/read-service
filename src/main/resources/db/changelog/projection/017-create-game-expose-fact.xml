@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+  <!-- Public Expose outcomes per game era, keyed by activist, target and round. -->
+  <changeSet id="017-create-game-expose-fact" author="read-service">
+    <createTable tableName="game_expose_fact">
+      <column name="id" type="UUID">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="game_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="era_number" type="INT">
+        <constraints nullable="false"/>
+      </column>
+      <column name="activist_player_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="target_player_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="round_number" type="INT">
+        <constraints nullable="false"/>
+      </column>
+      <column name="signature_type" type="VARCHAR(16)"/>
+      <column name="signature_target_event_id" type="UUID"/>
+      <column name="signature_source_outcome_id" type="UUID"/>
+      <column name="signature_target_outcome_id" type="UUID"/>
+      <column name="behavior_changed" type="BOOLEAN">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
+
+    <addUniqueConstraint
+        tableName="game_expose_fact"
+        columnNames="game_id, era_number, activist_player_id, target_player_id, round_number"
+        constraintName="uq_game_expose_fact_identity"/>
+  </changeSet>
+
+</databaseChangeLog>

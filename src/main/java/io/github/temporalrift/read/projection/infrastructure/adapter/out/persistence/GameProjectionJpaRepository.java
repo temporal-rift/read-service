@@ -14,8 +14,8 @@ interface GameProjectionJpaRepository extends JpaRepository<GameProjectionEntity
 
     @Modifying
     @Query(value = """
-                    INSERT INTO game_projection (game_id, era_number, phase)
-                    VALUES (:gameId, 0, 'LOBBY')
+                    INSERT INTO game_projection (game_id, era_number, phase, revision)
+                    VALUES (:gameId, 0, 'LOBBY', 0)
                     ON CONFLICT (game_id) DO NOTHING
                     """, nativeQuery = true)
     int insertAnchorIfAbsent(@Param("gameId") UUID gameId);
