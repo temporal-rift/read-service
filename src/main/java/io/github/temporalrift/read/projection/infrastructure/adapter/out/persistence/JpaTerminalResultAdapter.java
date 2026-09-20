@@ -32,8 +32,8 @@ class JpaTerminalResultAdapter implements TerminalResultRepository {
                         gameId,
                         header.getEndReason(),
                         winners.findByGameIdOrderByPlayerIdAsc(gameId).stream()
-                                .map(winner ->
-                                        new TerminalResult.TerminalWinner(winner.getPlayerId(), winner.getFaction()))
+                                .map(winner -> new TerminalResult.TerminalWinner(
+                                        winner.getPlayerId(), winner.getFaction(), winner.getWinType()))
                                 .toList(),
                         finalScores.findByGameIdOrderByPlayerIdAsc(gameId).stream()
                                 .map(score -> new TerminalResult.TerminalScore(
@@ -47,9 +47,12 @@ class JpaTerminalResultAdapter implements TerminalResultRepository {
         for (var winner : newWinners) {
             winners.findByGameIdAndPlayerId(gameId, winner.playerId())
                     .ifPresentOrElse(
-                            existing -> existing.setFaction(winner.faction()),
+                            existing -> {
+                                existing.setFaction(winner.faction());
+                                existing.setWinType(winner.winType());
+                            },
                             () -> winners.save(new TerminalWinnerEntity(
-                                    UUID.randomUUID(), gameId, winner.playerId(), winner.faction())));
+                                    UUID.randomUUID(), gameId, winner.playerId(), winner.faction(), winner.winType())));
         }
     }
 

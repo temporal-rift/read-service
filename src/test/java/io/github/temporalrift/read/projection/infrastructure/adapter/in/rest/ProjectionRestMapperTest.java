@@ -362,16 +362,78 @@ class ProjectionRestMapperTest {
     }
 
     @Test
-    void toResponse_mapsPublicBandsDeclarationsExposeFactsAndOwnSubmissions() {
+    void toResponse_mapsPublicBandsAndDeclarations() {
         var eventId = UUID.randomUUID();
         var outcomeId = UUID.randomUUID();
         var declarer = UUID.randomUUID();
         var targetEventId = UUID.randomUUID();
         var targetOutcomeId = UUID.randomUUID();
+        var result = resultWithRecoverable(
+                List.of(new PublicBand(
+                        GAME_ID, 2, eventId, 2, List.of(new PublicBand.OutcomeBand(outcomeId, "MEDIUM")))),
+                List.of(new PublicDeclaration(GAME_ID, 2, declarer, "MOMENTUM", targetEventId, targetOutcomeId)),
+                List.of(),
+                List.of());
+
+        var response = ProjectionRestMapper.toResponse(result);
+
+        assertThat(response.getPublicBands()).singleElement().satisfies(band -> {
+            assertThat(band.getEventId()).isEqualTo(eventId);
+            assertThat(band.getObservedInRound()).isEqualTo(2);
+            assertThat(band.getOutcomes()).singleElement().satisfies(outcome -> {
+                assertThat(outcome.getOutcomeId()).isEqualTo(outcomeId);
+                assertThat(outcome.getBand().getValue()).isEqualTo("MEDIUM");
+            });
+        });
+        assertThat(response.getDeclarations()).singleElement().satisfies(declaration -> {
+            assertThat(declaration.getPlayerId()).isEqualTo(declarer);
+            assertThat(declaration.getMode().getValue()).isEqualTo("MOMENTUM");
+            assertThat(declaration.getTargetEventId()).isEqualTo(targetEventId);
+            assertThat(declaration.getTargetOutcomeId()).isEqualTo(targetOutcomeId);
+            assertThat(declaration.getEraNumber()).isEqualTo(2);
+        });
+    }
+
+    @Test
+    void toResponse_mapsExposeFactsAndOwnSubmissionsWithoutBudgetsOrProgress() {
         var activist = UUID.randomUUID();
         var target = UUID.randomUUID();
+        var targetEventId = UUID.randomUUID();
+        var targetOutcomeId = UUID.randomUUID();
         var playerId = UUID.randomUUID();
-        var result = new GetPlayerGameStateUseCase.Result(
+        var result = resultWithRecoverable(
+                List.of(),
+                List.of(),
+                List.of(new ExposeFact(
+                        GAME_ID, 2, activist, target, 2, "SWING", targetEventId, null, targetOutcomeId, false)),
+                List.of(new PlayerSubmission(GAME_ID, playerId, 2, 1, PlayerSubmission.SubmissionKind.ACTION, "CARD")));
+
+        var response = ProjectionRestMapper.toResponse(result);
+
+        assertThat(response.getExposeFacts()).singleElement().satisfies(fact -> {
+            assertThat(fact.getActivistPlayerId()).isEqualTo(activist);
+            assertThat(fact.getTargetPlayerId()).isEqualTo(target);
+            assertThat(fact.getRoundNumber()).isEqualTo(2);
+            assertThat(fact.getSignature().getType().getValue()).isEqualTo("SWING");
+            assertThat(fact.getBehaviorChanged()).isFalse();
+        });
+        assertThat(response.getMySubmissions()).singleElement().satisfies(submission -> {
+            assertThat(submission.getEraNumber()).isEqualTo(2);
+            assertThat(submission.getRoundNumber()).isEqualTo(1);
+            assertThat(submission.getKind().getValue()).isEqualTo("ACTION");
+            assertThat(submission.getStatus().getValue()).isEqualTo("ACCEPTED");
+            assertThat(submission.getActionType().getValue()).isEqualTo("CARD");
+        });
+        assertThat(response.getMySpecialBudgets()).isEmpty();
+        assertThat(response.getMyObjectiveProgress()).isNull();
+    }
+
+    private static GetPlayerGameStateUseCase.Result resultWithRecoverable(
+            List<PublicBand> bands,
+            List<PublicDeclaration> declarations,
+            List<ExposeFact> exposeFacts,
+            List<PlayerSubmission> submissions) {
+        return new GetPlayerGameStateUseCase.Result(
                 GAME_ID,
                 2,
                 Phase.ACTION_ROUND_2,
@@ -394,47 +456,11 @@ class ProjectionRestMapperTest {
                 false,
                 false,
                 List.of(),
-                List.of(new PublicBand(
-                        GAME_ID, 2, eventId, 2, List.of(new PublicBand.OutcomeBand(outcomeId, "MEDIUM")))),
-                List.of(new PublicDeclaration(GAME_ID, 2, declarer, "MOMENTUM", targetEventId, targetOutcomeId)),
-                List.of(new ExposeFact(
-                        GAME_ID, 2, activist, target, 2, "SWING", targetEventId, null, targetOutcomeId, false)),
-                List.of(new PlayerSubmission(GAME_ID, playerId, 2, 1, PlayerSubmission.SubmissionKind.ACTION, "CARD")),
+                bands,
+                declarations,
+                exposeFacts,
+                submissions,
                 null);
-
-        var response = ProjectionRestMapper.toResponse(result);
-
-        assertThat(response.getPublicBands()).singleElement().satisfies(band -> {
-            assertThat(band.getEventId()).isEqualTo(eventId);
-            assertThat(band.getObservedInRound()).isEqualTo(2);
-            assertThat(band.getOutcomes()).singleElement().satisfies(outcome -> {
-                assertThat(outcome.getOutcomeId()).isEqualTo(outcomeId);
-                assertThat(outcome.getBand().getValue()).isEqualTo("MEDIUM");
-            });
-        });
-        assertThat(response.getDeclarations()).singleElement().satisfies(declaration -> {
-            assertThat(declaration.getPlayerId()).isEqualTo(declarer);
-            assertThat(declaration.getMode().getValue()).isEqualTo("MOMENTUM");
-            assertThat(declaration.getTargetEventId()).isEqualTo(targetEventId);
-            assertThat(declaration.getTargetOutcomeId()).isEqualTo(targetOutcomeId);
-            assertThat(declaration.getEraNumber()).isEqualTo(2);
-        });
-        assertThat(response.getExposeFacts()).singleElement().satisfies(fact -> {
-            assertThat(fact.getActivistPlayerId()).isEqualTo(activist);
-            assertThat(fact.getTargetPlayerId()).isEqualTo(target);
-            assertThat(fact.getRoundNumber()).isEqualTo(2);
-            assertThat(fact.getSignature().getType().getValue()).isEqualTo("SWING");
-            assertThat(fact.getBehaviorChanged()).isFalse();
-        });
-        assertThat(response.getMySubmissions()).singleElement().satisfies(submission -> {
-            assertThat(submission.getEraNumber()).isEqualTo(2);
-            assertThat(submission.getRoundNumber()).isEqualTo(1);
-            assertThat(submission.getKind().getValue()).isEqualTo("ACTION");
-            assertThat(submission.getStatus().getValue()).isEqualTo("ACCEPTED");
-            assertThat(submission.getActionType().getValue()).isEqualTo("CARD");
-        });
-        assertThat(response.getMySpecialBudgets()).isEmpty();
-        assertThat(response.getMyObjectiveProgress()).isNull();
     }
 
     @Test
@@ -523,6 +549,67 @@ class ProjectionRestMapperTest {
         var response = ProjectionRestMapper.toResponse(result);
 
         assertThat(response.getResult()).isNull();
+    }
+
+    @Test
+    void toResponse_winConditionMetWithUnanimousScoreThreshold_mapsScoreThreshold() {
+        var winnerId = UUID.randomUUID();
+        var response = ProjectionRestMapper.toResponse(resultWithTerminal(new TerminalResult(
+                GAME_ID,
+                "WIN_CONDITION_MET",
+                List.of(new TerminalResult.TerminalWinner(winnerId, "WEAVERS", "SCORE_THRESHOLD")),
+                List.of(new TerminalResult.TerminalScore(winnerId, "WEAVERS", 20)))));
+
+        assertThat(response.getResult()).satisfies(terminal -> {
+            assertThat(terminal.getEndReason().getValue()).isEqualTo("SCORE_THRESHOLD");
+            assertThat(terminal.getWinners()).singleElement().satisfies(winner -> {
+                assertThat(winner.getPlayerId()).isEqualTo(winnerId);
+            });
+        });
+    }
+
+    @Test
+    void toResponse_winConditionMetWithMixedWinTypes_omitsResult() {
+        var response = ProjectionRestMapper.toResponse(resultWithTerminal(new TerminalResult(
+                GAME_ID,
+                "WIN_CONDITION_MET",
+                List.of(
+                        new TerminalResult.TerminalWinner(UUID.randomUUID(), "WEAVERS", "SCORE_THRESHOLD"),
+                        new TerminalResult.TerminalWinner(UUID.randomUUID(), "REVISIONISTS", "FACTION_OBJECTIVE")),
+                List.of())));
+
+        assertThat(response.getResult()).isNull();
+    }
+
+    private static GetPlayerGameStateUseCase.Result resultWithTerminal(TerminalResult terminal) {
+        return new GetPlayerGameStateUseCase.Result(
+                GAME_ID,
+                2,
+                Phase.GAME_ENDED,
+                "ERASERS",
+                List.of(),
+                null,
+                List.of(),
+                20,
+                List.of(),
+                List.of(),
+                null,
+                null,
+                null,
+                99,
+                null,
+                null,
+                null,
+                null,
+                null,
+                false,
+                false,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                terminal);
     }
 
     private static GetPlayerGameStateUseCase.Result resultWithFaction(String faction) {

@@ -30,13 +30,17 @@ class TerminalWinnerEntity {
     @Column(name = "faction", nullable = false)
     private String faction;
 
+    @Column(name = "win_type")
+    private String winType;
+
     protected TerminalWinnerEntity() {}
 
-    TerminalWinnerEntity(UUID id, UUID gameId, UUID playerId, String faction) {
+    TerminalWinnerEntity(UUID id, UUID gameId, UUID playerId, String faction, String winType) {
         this.id = id;
         this.gameId = gameId;
         this.playerId = playerId;
         this.faction = faction;
+        this.winType = winType;
     }
 
     UUID getGameId() {
@@ -51,7 +55,15 @@ class TerminalWinnerEntity {
         return faction;
     }
 
+    String getWinType() {
+        return winType;
+    }
+
     void setFaction(String faction) {
         this.faction = faction;
+    }
+
+    void setWinType(String winType) {
+        this.winType = winType;
     }
 }

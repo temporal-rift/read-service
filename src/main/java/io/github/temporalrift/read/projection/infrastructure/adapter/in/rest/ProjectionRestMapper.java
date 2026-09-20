@@ -185,13 +185,15 @@ final class ProjectionRestMapper {
     /**
      * Terminal facts are exposed only for ended games (the handler already nulls them otherwise).
      * An owner reason with no contract representation omits the whole result rather than
-     * fabricating a reason — a known contract gap, not a mapping choice.
+     * fabricating a reason — a known contract gap, not a mapping choice. The one exception is
+     * {@code WIN_CONDITION_MET}: the owner publishes the trigger name instead of the cause, so the
+     * recorded qualifier win types decide — unanimously score-threshold means {@code SCORE_THRESHOLD}.
      */
     private static GameResult toGameResult(TerminalResult domain) {
         if (domain == null) {
             return null;
         }
-        var endReason = toEndReason(domain.endReason());
+        var endReason = toEndReason(domain.endReason(), domain.winners());
         if (endReason == null) {
             return null;
         }
@@ -206,10 +208,15 @@ final class ProjectionRestMapper {
                 GameResult.RevealBoundaryEnum.FACTIONS_AND_SCORES_PUBLIC);
     }
 
-    private static GameResult.EndReasonEnum toEndReason(String reason) {
+    private static GameResult.EndReasonEnum toEndReason(String reason, List<TerminalResult.TerminalWinner> winners) {
         try {
             return GameResult.EndReasonEnum.fromValue(reason);
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException _) {
+            if ("WIN_CONDITION_MET".equals(reason)
+                    && !winners.isEmpty()
+                    && winners.stream().allMatch(winner -> "SCORE_THRESHOLD".equals(winner.winType()))) {
+                return GameResult.EndReasonEnum.SCORE_THRESHOLD;
+            }
             return null;
         }
     }

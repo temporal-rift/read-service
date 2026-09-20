@@ -27,6 +27,7 @@
       <column name="faction" type="VARCHAR(16)">
         <constraints nullable="false"/>
       </column>
+      <column name="win_type" type="VARCHAR(32)"/>
     </createTable>
 
     <addUniqueConstraint
