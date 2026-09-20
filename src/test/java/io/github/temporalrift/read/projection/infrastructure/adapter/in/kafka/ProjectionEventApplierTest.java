@@ -80,6 +80,7 @@ import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.P
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolvedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedOutcomeState;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedPayload;
+import io.github.temporalrift.read.projection.application.ProjectionRepositories;
 import io.github.temporalrift.read.projection.domain.model.CarryOverState;
 import io.github.temporalrift.read.projection.domain.model.ChainStatus;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
@@ -174,19 +175,20 @@ class ProjectionEventApplierTest {
                 .when(gameProjections.findByGameIdForUpdate(gameId))
                 .thenReturn(Optional.of(new GameProjection(gameId, 0, Phase.LOBBY)));
         applier = new ProjectionEventApplier(
-                gameProjections,
-                gamePlayers,
-                gameActiveEvents,
-                playerGameStates,
-                revealedProbabilityIntel,
-                revealedInfluenceIntel,
-                revealedHandCardIntel,
-                gameChains,
-                publicBands,
-                publicDeclarations,
-                exposeFacts,
-                playerSubmissions,
-                terminalResults,
+                new ProjectionRepositories(
+                        gameProjections,
+                        gamePlayers,
+                        gameActiveEvents,
+                        playerGameStates,
+                        revealedProbabilityIntel,
+                        revealedInfluenceIntel,
+                        revealedHandCardIntel,
+                        gameChains,
+                        publicBands,
+                        publicDeclarations,
+                        exposeFacts,
+                        playerSubmissions,
+                        terminalResults),
                 bandCorrections);
     }
 

@@ -4,7 +4,6 @@ import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
@@ -21,20 +20,7 @@ import io.github.temporalrift.read.projection.domain.model.PlayerSubmission;
                 @UniqueConstraint(
                         name = "uq_player_submission_identity",
                         columnNames = {"game_id", "player_id", "era_number", "kind", "round_number"}))
-class PlayerSubmissionEntity {
-
-    @Id
-    @Column(name = "id", nullable = false)
-    private UUID id;
-
-    @Column(name = "game_id", nullable = false)
-    private UUID gameId;
-
-    @Column(name = "player_id", nullable = false)
-    private UUID playerId;
-
-    @Column(name = "era_number", nullable = false)
-    private int eraNumber;
+class PlayerSubmissionEntity extends PlayerScopedBaseEntity {
 
     @Column(name = "round_number", nullable = false)
     private int roundNumber;
@@ -48,10 +34,7 @@ class PlayerSubmissionEntity {
     protected PlayerSubmissionEntity() {}
 
     private PlayerSubmissionEntity(UUID id, PlayerSubmission submission) {
-        this.id = id;
-        this.gameId = submission.gameId();
-        this.playerId = submission.playerId();
-        this.eraNumber = submission.eraNumber();
+        super(id, submission.gameId(), submission.playerId(), submission.eraNumber());
         updateFrom(submission);
     }
 
@@ -61,9 +44,9 @@ class PlayerSubmissionEntity {
 
     PlayerSubmission toDomain() {
         return new PlayerSubmission(
-                gameId,
-                playerId,
-                eraNumber,
+                getGameId(),
+                getPlayerId(),
+                getEraNumber(),
                 roundNumber == 0 ? null : roundNumber,
                 PlayerSubmission.SubmissionKind.valueOf(kind),
                 actionType);

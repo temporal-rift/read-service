@@ -46,6 +46,7 @@ import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.P
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolutionPhaseStartedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolvedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedPayload;
+import io.github.temporalrift.read.projection.application.ProjectionRepositories;
 import io.github.temporalrift.read.projection.domain.model.CarryOverState;
 import io.github.temporalrift.read.projection.domain.model.ChainStatus;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
@@ -71,19 +72,6 @@ import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOu
 import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
 import io.github.temporalrift.read.projection.domain.model.TerminalResult;
 import io.github.temporalrift.read.projection.domain.port.out.BandCorrectionRepository;
-import io.github.temporalrift.read.projection.domain.port.out.ExposeFactRepository;
-import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRepository;
-import io.github.temporalrift.read.projection.domain.port.out.GameChainRepository;
-import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
-import io.github.temporalrift.read.projection.domain.port.out.GameProjectionRepository;
-import io.github.temporalrift.read.projection.domain.port.out.PlayerGameStateRepository;
-import io.github.temporalrift.read.projection.domain.port.out.PlayerSubmissionRepository;
-import io.github.temporalrift.read.projection.domain.port.out.PublicBandRepository;
-import io.github.temporalrift.read.projection.domain.port.out.PublicDeclarationRepository;
-import io.github.temporalrift.read.projection.domain.port.out.RevealedHandCardIntelRepository;
-import io.github.temporalrift.read.projection.domain.port.out.RevealedInfluenceIntelRepository;
-import io.github.temporalrift.read.projection.domain.port.out.RevealedProbabilityIntelRepository;
-import io.github.temporalrift.read.projection.domain.port.out.TerminalResultRepository;
 
 /**
  * Applies each consumed event to the read models per design.md Decisions 5–7. Package-scoped to
@@ -96,49 +84,11 @@ class ProjectionEventApplier {
 
     private static final Logger log = LoggerFactory.getLogger(ProjectionEventApplier.class);
 
-    private final GameProjectionRepository gameProjections;
-    private final GamePlayerRepository gamePlayers;
-    private final GameActiveEventRepository gameActiveEvents;
-    private final PlayerGameStateRepository playerGameStates;
-    private final RevealedProbabilityIntelRepository revealedProbabilityIntel;
-    private final RevealedInfluenceIntelRepository revealedInfluenceIntel;
-    private final RevealedHandCardIntelRepository revealedHandCardIntel;
-    private final GameChainRepository gameChains;
-    private final PublicBandRepository publicBands;
-    private final PublicDeclarationRepository publicDeclarations;
-    private final ExposeFactRepository exposeFacts;
-    private final PlayerSubmissionRepository playerSubmissions;
-    private final TerminalResultRepository terminalResults;
+    private final ProjectionRepositories stores;
     private final BandCorrectionRepository bandCorrections;
 
-    ProjectionEventApplier(
-            GameProjectionRepository gameProjections,
-            GamePlayerRepository gamePlayers,
-            GameActiveEventRepository gameActiveEvents,
-            PlayerGameStateRepository playerGameStates,
-            RevealedProbabilityIntelRepository revealedProbabilityIntel,
-            RevealedInfluenceIntelRepository revealedInfluenceIntel,
-            RevealedHandCardIntelRepository revealedHandCardIntel,
-            GameChainRepository gameChains,
-            PublicBandRepository publicBands,
-            PublicDeclarationRepository publicDeclarations,
-            ExposeFactRepository exposeFacts,
-            PlayerSubmissionRepository playerSubmissions,
-            TerminalResultRepository terminalResults,
-            BandCorrectionRepository bandCorrections) {
-        this.gameProjections = gameProjections;
-        this.gamePlayers = gamePlayers;
-        this.gameActiveEvents = gameActiveEvents;
-        this.playerGameStates = playerGameStates;
-        this.revealedProbabilityIntel = revealedProbabilityIntel;
-        this.revealedInfluenceIntel = revealedInfluenceIntel;
-        this.revealedHandCardIntel = revealedHandCardIntel;
-        this.gameChains = gameChains;
-        this.publicBands = publicBands;
-        this.publicDeclarations = publicDeclarations;
-        this.exposeFacts = exposeFacts;
-        this.playerSubmissions = playerSubmissions;
-        this.terminalResults = terminalResults;
+    ProjectionEventApplier(ProjectionRepositories stores, BandCorrectionRepository bandCorrections) {
+        this.stores = stores;
         this.bandCorrections = bandCorrections;
     }
 
@@ -149,8 +99,8 @@ class ProjectionEventApplier {
     void applyGameStarted(GameStartedPayload payload) {
         lockGame(payload.gameId());
         for (var playerId : payload.playerIds()) {
-            gamePlayers.save(payload.gameId(), findOrCreateGamePlayer(payload.gameId(), playerId));
-            playerGameStates.save(findOrCreatePlayerGameState(payload.gameId(), playerId));
+            stores.gamePlayers().save(payload.gameId(), findOrCreateGamePlayer(payload.gameId(), playerId));
+            stores.playerGameStates().save(findOrCreatePlayerGameState(payload.gameId(), playerId));
         }
     }
 
@@ -160,14 +110,15 @@ class ProjectionEventApplier {
     // game-service's own ActionStateProjectionEventListener.onHandDealt precedent for the same race.
     void applyFactionAssigned(FactionAssignedPayload payload) {
         var existing = findOrCreatePlayerGameState(payload.gameId(), payload.playerId());
-        playerGameStates.save(new PlayerGameState(
-                existing.gameId(),
-                existing.playerId(),
-                payload.faction().name(),
-                existing.myHand(),
-                existing.pendingHandSelection(),
-                existing.jammedEraNumber(),
-                existing.jammedUntilRound()));
+        stores.playerGameStates()
+                .save(new PlayerGameState(
+                        existing.gameId(),
+                        existing.playerId(),
+                        payload.faction().name(),
+                        existing.myHand(),
+                        existing.pendingHandSelection(),
+                        existing.jammedEraNumber(),
+                        existing.jammedUntilRound()));
     }
 
     // The suppressed player's private reveal (design.md "Store the raw jam fact; compute 'is it still active'
@@ -180,14 +131,15 @@ class ProjectionEventApplier {
             log.warn("PlayerJammed for past era {} in game {} — skipping", payload.eraNumber(), payload.gameId());
             return;
         }
-        playerGameStates.save(new PlayerGameState(
-                existing.gameId(),
-                existing.playerId(),
-                existing.myFaction(),
-                existing.myHand(),
-                existing.pendingHandSelection(),
-                payload.eraNumber(),
-                payload.jammedUntilRound()));
+        stores.playerGameStates()
+                .save(new PlayerGameState(
+                        existing.gameId(),
+                        existing.playerId(),
+                        existing.myFaction(),
+                        existing.myHand(),
+                        existing.pendingHandSelection(),
+                        payload.eraNumber(),
+                        payload.jammedUntilRound()));
     }
 
     void applyEraStarted(EraStartedPayload payload) {
@@ -200,8 +152,13 @@ class ProjectionEventApplier {
                     payload.gameId());
             return;
         }
-        gameProjections.save(new GameProjection(
-                payload.gameId(), payload.eraNumber(), Phase.ERA_START, List.of(), existing.lastRoundSummary()));
+        stores.gameProjections()
+                .save(new GameProjection(
+                        payload.gameId(),
+                        payload.eraNumber(),
+                        Phase.ERA_START,
+                        List.of(),
+                        existing.lastRoundSummary()));
     }
 
     void applyEventsDrawn(EventsDrawnPayload payload) {
@@ -211,23 +168,30 @@ class ProjectionEventApplier {
             return;
         }
         if (payload.eraNumber() > existing.eraNumber()) {
-            gameProjections.save(new GameProjection(
-                    payload.gameId(), payload.eraNumber(), Phase.ERA_START, List.of(), existing.lastRoundSummary()));
+            stores.gameProjections()
+                    .save(new GameProjection(
+                            payload.gameId(),
+                            payload.eraNumber(),
+                            Phase.ERA_START,
+                            List.of(),
+                            existing.lastRoundSummary()));
         }
         for (var event : payload.events()) {
-            if (gameActiveEvents.isResolved(payload.gameId(), event.eventId())) {
+            if (stores.gameActiveEvents().isResolved(payload.gameId(), event.eventId())) {
                 continue;
             }
             var outcomes = event.outcomes().stream()
                     .map(o -> new EventOutcome(o.outcomeId(), o.description()))
                     .toList();
-            gameActiveEvents.save(
-                    payload.gameId(),
-                    new GameActiveEvent(
-                            event.eventId(),
-                            event.title(),
-                            CarryOverState.valueOf(event.carryOverState().name()),
-                            outcomes));
+            stores.gameActiveEvents()
+                    .save(
+                            payload.gameId(),
+                            new GameActiveEvent(
+                                    event.eventId(),
+                                    event.title(),
+                                    CarryOverState.valueOf(
+                                            event.carryOverState().name()),
+                                    outcomes));
         }
     }
 
@@ -241,14 +205,15 @@ class ProjectionEventApplier {
                         card.grade().name(),
                         card.dealSlot()))
                 .toList();
-        playerGameStates.save(new PlayerGameState(
-                existing.gameId(),
-                existing.playerId(),
-                existing.myFaction(),
-                existing.myHand(),
-                new PendingHandSelection(pendingCards, payload.selectionExpiresAt()),
-                existing.jammedEraNumber(),
-                existing.jammedUntilRound()));
+        stores.playerGameStates()
+                .save(new PlayerGameState(
+                        existing.gameId(),
+                        existing.playerId(),
+                        existing.myFaction(),
+                        existing.myHand(),
+                        new PendingHandSelection(pendingCards, payload.selectionExpiresAt()),
+                        existing.jammedEraNumber(),
+                        existing.jammedUntilRound()));
     }
 
     void applyHandSelected(HandSelectedPayload payload) {
@@ -259,25 +224,27 @@ class ProjectionEventApplier {
                         card.cardType().name(),
                         card.grade().name()))
                 .toList();
-        playerGameStates.save(new PlayerGameState(
-                existing.gameId(),
-                existing.playerId(),
-                existing.myFaction(),
-                hand,
-                null,
-                existing.jammedEraNumber(),
-                existing.jammedUntilRound()));
-        playerSubmissions.upsert(new PlayerSubmission(
-                payload.gameId(),
-                payload.playerId(),
-                payload.eraNumber(),
-                null,
-                PlayerSubmission.SubmissionKind.HAND_SELECTION,
-                null));
+        stores.playerGameStates()
+                .save(new PlayerGameState(
+                        existing.gameId(),
+                        existing.playerId(),
+                        existing.myFaction(),
+                        hand,
+                        null,
+                        existing.jammedEraNumber(),
+                        existing.jammedUntilRound()));
+        stores.playerSubmissions()
+                .upsert(new PlayerSubmission(
+                        payload.gameId(),
+                        payload.playerId(),
+                        payload.eraNumber(),
+                        null,
+                        PlayerSubmission.SubmissionKind.HAND_SELECTION,
+                        null));
     }
 
     private PlayerGameState findOrCreatePlayerGameState(UUID gameId, UUID playerId) {
-        return playerGameStates
+        return stores.playerGameStates()
                 .findByGameIdAndPlayerId(gameId, playerId)
                 .orElseGet(() -> new PlayerGameState(gameId, playerId, null, List.of()));
     }
@@ -292,11 +259,12 @@ class ProjectionEventApplier {
 
     private void setConnected(UUID gameId, UUID playerId, boolean connected) {
         var existing = findOrCreateGamePlayer(gameId, playerId);
-        gamePlayers.save(gameId, new GamePlayer(existing.playerId(), existing.score(), connected, existing.faction()));
+        stores.gamePlayers()
+                .save(gameId, new GamePlayer(existing.playerId(), existing.score(), connected, existing.faction()));
     }
 
     private GamePlayer findOrCreateGamePlayer(UUID gameId, UUID playerId) {
-        return gamePlayers
+        return stores.gamePlayers()
                 .findByGameIdAndPlayerId(gameId, playerId)
                 .orElseGet(() -> new GamePlayer(playerId, 0, true, null));
     }
@@ -307,24 +275,25 @@ class ProjectionEventApplier {
             log.warn("EraEnded for past/ended era {} in game {} — skipping", payload.eraNumber(), payload.gameId());
             return;
         }
-        gameProjections.save(new GameProjection(
-                payload.gameId(), payload.eraNumber(), Phase.ERA_END, List.of(), existing.lastRoundSummary()));
-        revealedProbabilityIntel.deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
-        revealedInfluenceIntel.deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
-        revealedHandCardIntel.deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
+        stores.gameProjections()
+                .save(new GameProjection(
+                        payload.gameId(), payload.eraNumber(), Phase.ERA_END, List.of(), existing.lastRoundSummary()));
+        stores.revealedProbabilityIntel().deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
+        stores.revealedInfluenceIntel().deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
+        stores.revealedHandCardIntel().deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
         clearRecoverableEraState(payload.gameId(), payload.eraNumber());
         // Defensive clear — design.md Decision 6. Every drawn event currently gets an OutcomeApplied (no
         // cascade/paradox handling exists yet), so this is normally a no-op.
-        gameActiveEvents.deleteByGameId(payload.gameId());
+        stores.gameActiveEvents().deleteByGameId(payload.gameId());
     }
 
     /** Era-scoped recoverable rows never survive their era — a delayed fact must not repopulate them. */
     private void clearRecoverableEraState(UUID gameId, int eraNumber) {
-        publicBands.deleteByGameIdAndEraNumber(gameId, eraNumber);
+        stores.publicBands().deleteByGameIdAndEraNumber(gameId, eraNumber);
         bandCorrections.deleteByGameIdAndEraNumber(gameId, eraNumber);
-        publicDeclarations.deleteByGameIdAndEraNumber(gameId, eraNumber);
-        exposeFacts.deleteByGameIdAndEraNumber(gameId, eraNumber);
-        playerSubmissions.deleteByGameIdAndEraNumber(gameId, eraNumber);
+        stores.publicDeclarations().deleteByGameIdAndEraNumber(gameId, eraNumber);
+        stores.exposeFacts().deleteByGameIdAndEraNumber(gameId, eraNumber);
+        stores.playerSubmissions().deleteByGameIdAndEraNumber(gameId, eraNumber);
     }
 
     // A winner can end the game directly from the final era without an intervening EraEnded for that
@@ -338,49 +307,53 @@ class ProjectionEventApplier {
             return;
         }
         var eraNumber = existing.eraNumber();
-        gameProjections.save(new GameProjection(
-                payload.gameId(), eraNumber, Phase.GAME_ENDED, List.of(), existing.lastRoundSummary()));
-        revealedProbabilityIntel.deleteByGameId(payload.gameId());
-        revealedInfluenceIntel.deleteByGameId(payload.gameId());
-        revealedHandCardIntel.deleteByGameId(payload.gameId());
-        publicBands.deleteByGameId(payload.gameId());
+        stores.gameProjections()
+                .save(new GameProjection(
+                        payload.gameId(), eraNumber, Phase.GAME_ENDED, List.of(), existing.lastRoundSummary()));
+        stores.revealedProbabilityIntel().deleteByGameId(payload.gameId());
+        stores.revealedInfluenceIntel().deleteByGameId(payload.gameId());
+        stores.revealedHandCardIntel().deleteByGameId(payload.gameId());
+        stores.publicBands().deleteByGameId(payload.gameId());
         bandCorrections.deleteByGameId(payload.gameId());
-        publicDeclarations.deleteByGameId(payload.gameId());
-        exposeFacts.deleteByGameId(payload.gameId());
-        playerSubmissions.deleteByGameId(payload.gameId());
-        gameActiveEvents.deleteByGameId(payload.gameId());
-        gameChains.deleteByGameId(payload.gameId());
-        terminalResults.saveEndReasonAndScores(
-                payload.gameId(),
-                payload.endReason(),
-                payload.finalScores().stream()
-                        .map(score -> new TerminalResult.TerminalScore(
-                                score.playerId(), score.faction().name(), score.score()))
-                        .toList());
+        stores.publicDeclarations().deleteByGameId(payload.gameId());
+        stores.exposeFacts().deleteByGameId(payload.gameId());
+        stores.playerSubmissions().deleteByGameId(payload.gameId());
+        stores.gameActiveEvents().deleteByGameId(payload.gameId());
+        stores.gameChains().deleteByGameId(payload.gameId());
+        stores.terminalResults()
+                .saveEndReasonAndScores(
+                        payload.gameId(),
+                        payload.endReason(),
+                        payload.finalScores().stream()
+                                .map(score -> new TerminalResult.TerminalScore(
+                                        score.playerId(), score.faction().name(), score.score()))
+                                .toList());
         for (var finalScore : payload.finalScores()) {
-            gamePlayers
+            stores.gamePlayers()
                     .findByGameIdAndPlayerId(payload.gameId(), finalScore.playerId())
-                    .ifPresent(existingPlayer -> gamePlayers.save(
-                            payload.gameId(),
-                            new GamePlayer(
-                                    existingPlayer.playerId(),
-                                    finalScore.score(),
-                                    existingPlayer.isConnected(),
-                                    existingPlayer.faction())));
+                    .ifPresent(existingPlayer -> stores.gamePlayers()
+                            .save(
+                                    payload.gameId(),
+                                    new GamePlayer(
+                                            existingPlayer.playerId(),
+                                            finalScore.score(),
+                                            existingPlayer.isConnected(),
+                                            existingPlayer.faction())));
         }
     }
 
     void applyFactionRevealed(FactionRevealedPayload payload) {
         for (var reveal : payload.reveals()) {
-            gamePlayers
+            stores.gamePlayers()
                     .findByGameIdAndPlayerId(payload.gameId(), reveal.playerId())
-                    .ifPresent(existing -> gamePlayers.save(
-                            payload.gameId(),
-                            new GamePlayer(
-                                    existing.playerId(),
-                                    existing.score(),
-                                    existing.isConnected(),
-                                    reveal.faction().name())));
+                    .ifPresent(existing -> stores.gamePlayers()
+                            .save(
+                                    payload.gameId(),
+                                    new GamePlayer(
+                                            existing.playerId(),
+                                            existing.score(),
+                                            existing.isConnected(),
+                                            reveal.faction().name())));
         }
     }
 
@@ -394,17 +367,18 @@ class ProjectionEventApplier {
                     payload.gameId());
             return;
         }
-        gameProjections.save(new GameProjection(
-                payload.gameId(),
-                payload.eraNumber(),
-                Phase.RESOLUTION,
-                existing.pendingParadoxIds(),
-                existing.lastRoundSummary(),
-                null,
-                null,
-                null,
-                existing.revision(),
-                existing.lastUpdatedAt()));
+        stores.gameProjections()
+                .save(new GameProjection(
+                        payload.gameId(),
+                        payload.eraNumber(),
+                        Phase.RESOLUTION,
+                        existing.pendingParadoxIds(),
+                        existing.lastRoundSummary(),
+                        null,
+                        null,
+                        null,
+                        existing.revision(),
+                        existing.lastUpdatedAt()));
     }
 
     void applyActionRoundStarted(ActionRoundStartedPayload payload, Instant occurredAt) {
@@ -426,17 +400,18 @@ class ProjectionEventApplier {
         }
         // The round timer is an authoritative owner fact: expiry is opening time plus allotted seconds.
         var expiresAt = occurredAt == null ? null : occurredAt.plusSeconds(payload.timerSeconds());
-        gameProjections.save(new GameProjection(
-                payload.gameId(),
-                payload.eraNumber(),
-                phase,
-                existing.pendingParadoxIds(),
-                existing.lastRoundSummary(),
-                payload.roundNumber(),
-                expiresAt,
-                null,
-                existing.revision(),
-                existing.lastUpdatedAt()));
+        stores.gameProjections()
+                .save(new GameProjection(
+                        payload.gameId(),
+                        payload.eraNumber(),
+                        phase,
+                        existing.pendingParadoxIds(),
+                        existing.lastRoundSummary(),
+                        payload.roundNumber(),
+                        expiresAt,
+                        null,
+                        existing.revision(),
+                        existing.lastUpdatedAt()));
     }
 
     void applyCardPlayed(CardPlayedPayload payload) {
@@ -445,29 +420,31 @@ class ProjectionEventApplier {
         // needs the row. The era guard keeps a delayed card from resurrecting a submission that
         // EraEnded or GameEnded already cleared; the query only exposes the current era either way.
         if (!isStaleEra(payload.gameId(), payload.eraNumber(), "CardPlayed")) {
-            playerSubmissions.upsert(new PlayerSubmission(
-                    payload.gameId(),
-                    payload.playerId(),
-                    payload.eraNumber(),
-                    payload.roundNumber(),
-                    PlayerSubmission.SubmissionKind.ACTION,
-                    "CARD"));
+            stores.playerSubmissions()
+                    .upsert(new PlayerSubmission(
+                            payload.gameId(),
+                            payload.playerId(),
+                            payload.eraNumber(),
+                            payload.roundNumber(),
+                            PlayerSubmission.SubmissionKind.ACTION,
+                            "CARD"));
         }
-        playerGameStates
+        stores.playerGameStates()
                 .findByGameIdAndPlayerId(payload.gameId(), payload.playerId())
                 .ifPresentOrElse(
                         existing -> {
                             var hand = existing.myHand().stream()
                                     .filter(card -> !card.cardInstanceId().equals(payload.cardInstanceId()))
                                     .toList();
-                            playerGameStates.save(new PlayerGameState(
-                                    existing.gameId(),
-                                    existing.playerId(),
-                                    existing.myFaction(),
-                                    hand,
-                                    existing.pendingHandSelection(),
-                                    existing.jammedEraNumber(),
-                                    existing.jammedUntilRound()));
+                            stores.playerGameStates()
+                                    .save(new PlayerGameState(
+                                            existing.gameId(),
+                                            existing.playerId(),
+                                            existing.myFaction(),
+                                            hand,
+                                            existing.pendingHandSelection(),
+                                            existing.jammedEraNumber(),
+                                            existing.jammedUntilRound()));
                         },
                         () -> log.warn(
                                 "CardPlayed for unknown player {} in game {} — skipping hand removal",
@@ -479,13 +456,14 @@ class ProjectionEventApplier {
         if (isStaleEra(payload.gameId(), payload.eraNumber(), "SpecialActionPlayed")) {
             return;
         }
-        playerSubmissions.upsert(new PlayerSubmission(
-                payload.gameId(),
-                payload.playerId(),
-                payload.eraNumber(),
-                payload.roundNumber(),
-                PlayerSubmission.SubmissionKind.ACTION,
-                "SPECIAL"));
+        stores.playerSubmissions()
+                .upsert(new PlayerSubmission(
+                        payload.gameId(),
+                        payload.playerId(),
+                        payload.eraNumber(),
+                        payload.roundNumber(),
+                        PlayerSubmission.SubmissionKind.ACTION,
+                        "SPECIAL"));
         touchRevision(payload.gameId());
     }
 
@@ -493,13 +471,14 @@ class ProjectionEventApplier {
         if (isStaleEra(payload.gameId(), payload.eraNumber(), "ParadoxResolutionCardPlayed")) {
             return;
         }
-        playerSubmissions.upsert(new PlayerSubmission(
-                payload.gameId(),
-                payload.playerId(),
-                payload.eraNumber(),
-                null,
-                PlayerSubmission.SubmissionKind.PARADOX_CARD,
-                null));
+        stores.playerSubmissions()
+                .upsert(new PlayerSubmission(
+                        payload.gameId(),
+                        payload.playerId(),
+                        payload.eraNumber(),
+                        null,
+                        PlayerSubmission.SubmissionKind.PARADOX_CARD,
+                        null));
         touchRevision(payload.gameId());
     }
 
@@ -521,56 +500,59 @@ class ProjectionEventApplier {
                         .map(action -> new RoundActionSummary(
                                 action.playerId(), action.actionCategory(), action.actionFamily(), action.skipped()))
                         .toList());
-        gameProjections.save(new GameProjection(
-                existing.gameId(),
-                existing.eraNumber(),
-                existing.phase(),
-                existing.pendingParadoxIds(),
-                summary,
-                existing.currentRoundNumber(),
-                existing.actionRoundExpiresAt(),
-                existing.paradoxResolutionExpiresAt(),
-                existing.revision(),
-                existing.lastUpdatedAt()));
+        stores.gameProjections()
+                .save(new GameProjection(
+                        existing.gameId(),
+                        existing.eraNumber(),
+                        existing.phase(),
+                        existing.pendingParadoxIds(),
+                        summary,
+                        existing.currentRoundNumber(),
+                        existing.actionRoundExpiresAt(),
+                        existing.paradoxResolutionExpiresAt(),
+                        existing.revision(),
+                        existing.lastUpdatedAt()));
     }
 
     void applyScoresUpdated(ScoresUpdatedPayload payload) {
         for (var update : payload.updates()) {
-            gamePlayers
+            stores.gamePlayers()
                     .findByGameIdAndPlayerId(payload.gameId(), update.playerId())
-                    .ifPresent(existing -> gamePlayers.save(
-                            payload.gameId(),
-                            new GamePlayer(
-                                    existing.playerId(),
-                                    update.newTotal(),
-                                    existing.isConnected(),
-                                    existing.faction())));
+                    .ifPresent(existing -> stores.gamePlayers()
+                            .save(
+                                    payload.gameId(),
+                                    new GamePlayer(
+                                            existing.playerId(),
+                                            update.newTotal(),
+                                            existing.isConnected(),
+                                            existing.faction())));
         }
     }
 
     void applyOutcomeApplied(OutcomeAppliedPayload payload) {
         lockGame(payload.gameId());
-        gameActiveEvents.markResolved(payload.gameId(), payload.eventId());
-        gameActiveEvents.deleteByGameIdAndEventId(payload.gameId(), payload.eventId());
+        stores.gameActiveEvents().markResolved(payload.gameId(), payload.eventId());
+        stores.gameActiveEvents().deleteByGameIdAndEventId(payload.gameId(), payload.eventId());
     }
 
     void applyProbabilityStateRevealed(ProbabilityStateRevealedPayload payload) {
         if (isStaleEra(payload.gameId(), payload.eraNumber(), "ProbabilityStateRevealed")) {
             return;
         }
-        revealedProbabilityIntel.upsertLatest(new RevealedProbabilityIntel(
-                payload.gameId(),
-                payload.playerId(),
-                payload.eraNumber(),
-                payload.eventId(),
-                payload.roundNumber(),
-                payload.outcomes().stream()
-                        .map(outcome -> new RevealedProbabilityOutcome(
-                                outcome.outcomeId(),
-                                outcome.probability(),
-                                outcome.isAnnihilated(),
-                                outcome.isSealed()))
-                        .toList()));
+        stores.revealedProbabilityIntel()
+                .upsertLatest(new RevealedProbabilityIntel(
+                        payload.gameId(),
+                        payload.playerId(),
+                        payload.eraNumber(),
+                        payload.eventId(),
+                        payload.roundNumber(),
+                        payload.outcomes().stream()
+                                .map(outcome -> new RevealedProbabilityOutcome(
+                                        outcome.outcomeId(),
+                                        outcome.probability(),
+                                        outcome.isAnnihilated(),
+                                        outcome.isSealed()))
+                                .toList()));
     }
 
     private boolean isStaleEra(UUID gameId, int eraNumber, String eventType) {
@@ -588,20 +570,21 @@ class ProjectionEventApplier {
      * changes no coordinates and only bumps {@code revision}/{@code lastUpdatedAt} in the adapter.
      */
     private void touchRevision(UUID gameId) {
-        gameProjections.save(lockGame(gameId));
+        stores.gameProjections().save(lockGame(gameId));
     }
 
     void applyInfluenceTraced(InfluenceTracedPayload payload) {
         if (isStaleEra(payload.gameId(), payload.eraNumber(), "InfluenceTraced")) {
             return;
         }
-        revealedInfluenceIntel.upsertLatest(new RevealedInfluenceIntel(
-                payload.gameId(),
-                payload.playerId(),
-                payload.eraNumber(),
-                payload.targetEventId(),
-                payload.roundNumber(),
-                payload.influencerPlayerIds() == null ? List.of() : payload.influencerPlayerIds()));
+        stores.revealedInfluenceIntel()
+                .upsertLatest(new RevealedInfluenceIntel(
+                        payload.gameId(),
+                        payload.playerId(),
+                        payload.eraNumber(),
+                        payload.targetEventId(),
+                        payload.roundNumber(),
+                        payload.influencerPlayerIds() == null ? List.of() : payload.influencerPlayerIds()));
     }
 
     // Intercept is observe-only: the target's hand is never mutated here — only CardPlayed
@@ -618,13 +601,14 @@ class ProjectionEventApplier {
                                 card.cardType().name(),
                                 card.grade().name()))
                         .toList();
-        revealedHandCardIntel.upsertLatest(new RevealedHandCardIntel(
-                payload.gameId(),
-                payload.playerId(),
-                payload.eraNumber(),
-                payload.targetPlayerId(),
-                payload.roundNumber(),
-                cards));
+        stores.revealedHandCardIntel()
+                .upsertLatest(new RevealedHandCardIntel(
+                        payload.gameId(),
+                        payload.playerId(),
+                        payload.eraNumber(),
+                        payload.targetPlayerId(),
+                        payload.roundNumber(),
+                        cards));
     }
 
     // Neither band publication carries a round: the preview fires when Round 2 closes and the correction
@@ -646,21 +630,22 @@ class ProjectionEventApplier {
                     payload.gameId());
             return;
         }
-        publicBands.replaceAll(
-                payload.gameId(),
-                payload.eraNumber(),
-                payload.eventStates().stream()
-                        .map(event -> new PublicBand(
-                                payload.gameId(),
-                                payload.eraNumber(),
-                                event.eventId(),
-                                BAND_OBSERVED_IN_ROUND,
-                                event.outcomes().stream()
-                                        .map(outcome -> new PublicBand.OutcomeBand(
-                                                outcome.outcomeId(),
-                                                outcome.band().name()))
-                                        .toList()))
-                        .toList());
+        stores.publicBands()
+                .replaceAll(
+                        payload.gameId(),
+                        payload.eraNumber(),
+                        payload.eventStates().stream()
+                                .map(event -> new PublicBand(
+                                        payload.gameId(),
+                                        payload.eraNumber(),
+                                        event.eventId(),
+                                        BAND_OBSERVED_IN_ROUND,
+                                        event.outcomes().stream()
+                                                .map(outcome -> new PublicBand.OutcomeBand(
+                                                        outcome.outcomeId(),
+                                                        outcome.band().name()))
+                                                .toList()))
+                                .toList());
         touchRevision(payload.gameId());
     }
 
@@ -668,21 +653,22 @@ class ProjectionEventApplier {
         if (isStaleEra(payload.gameId(), payload.eraNumber(), "AdjustedBandsPublished")) {
             return;
         }
-        publicBands.replaceAll(
-                payload.gameId(),
-                payload.eraNumber(),
-                payload.eventStates().stream()
-                        .map(event -> new PublicBand(
-                                payload.gameId(),
-                                payload.eraNumber(),
-                                event.eventId(),
-                                BAND_OBSERVED_IN_ROUND,
-                                event.outcomes().stream()
-                                        .map(outcome -> new PublicBand.OutcomeBand(
-                                                outcome.outcomeId(),
-                                                outcome.band().name()))
-                                        .toList()))
-                        .toList());
+        stores.publicBands()
+                .replaceAll(
+                        payload.gameId(),
+                        payload.eraNumber(),
+                        payload.eventStates().stream()
+                                .map(event -> new PublicBand(
+                                        payload.gameId(),
+                                        payload.eraNumber(),
+                                        event.eventId(),
+                                        BAND_OBSERVED_IN_ROUND,
+                                        event.outcomes().stream()
+                                                .map(outcome -> new PublicBand.OutcomeBand(
+                                                        outcome.outcomeId(),
+                                                        outcome.band().name()))
+                                                .toList()))
+                                .toList());
         bandCorrections.markCorrectionApplied(payload.gameId(), payload.eraNumber());
         touchRevision(payload.gameId());
     }
@@ -691,20 +677,22 @@ class ProjectionEventApplier {
         if (isStaleEra(payload.gameId(), payload.eraNumber(), "ActivistDeclarationRecorded")) {
             return;
         }
-        publicDeclarations.upsert(new PublicDeclaration(
-                payload.gameId(),
-                payload.eraNumber(),
-                payload.playerId(),
-                payload.mode().name(),
-                payload.targetEventId(),
-                payload.targetOutcomeId()));
-        playerSubmissions.upsert(new PlayerSubmission(
-                payload.gameId(),
-                payload.playerId(),
-                payload.eraNumber(),
-                null,
-                PlayerSubmission.SubmissionKind.DECLARATION,
-                null));
+        stores.publicDeclarations()
+                .upsert(new PublicDeclaration(
+                        payload.gameId(),
+                        payload.eraNumber(),
+                        payload.playerId(),
+                        payload.mode().name(),
+                        payload.targetEventId(),
+                        payload.targetOutcomeId()));
+        stores.playerSubmissions()
+                .upsert(new PlayerSubmission(
+                        payload.gameId(),
+                        payload.playerId(),
+                        payload.eraNumber(),
+                        null,
+                        PlayerSubmission.SubmissionKind.DECLARATION,
+                        null));
         touchRevision(payload.gameId());
     }
 
@@ -713,17 +701,18 @@ class ProjectionEventApplier {
             return;
         }
         var signature = payload.signature();
-        exposeFacts.upsert(new ExposeFact(
-                payload.gameId(),
-                payload.eraNumber(),
-                payload.activistPlayerId(),
-                payload.targetPlayerId(),
-                payload.roundNumber(),
-                signature.type().name(),
-                signature.targetEventId(),
-                signature.sourceOutcomeId(),
-                signature.targetOutcomeId(),
-                false));
+        stores.exposeFacts()
+                .upsert(new ExposeFact(
+                        payload.gameId(),
+                        payload.eraNumber(),
+                        payload.activistPlayerId(),
+                        payload.targetPlayerId(),
+                        payload.roundNumber(),
+                        signature.type().name(),
+                        signature.targetEventId(),
+                        signature.sourceOutcomeId(),
+                        signature.targetOutcomeId(),
+                        false));
         touchRevision(payload.gameId());
     }
 
@@ -731,25 +720,27 @@ class ProjectionEventApplier {
         if (isStaleEra(payload.gameId(), payload.eraNumber(), "ExposeBehaviorChanged")) {
             return;
         }
-        exposeFacts.upsert(new ExposeFact(
-                payload.gameId(),
-                payload.eraNumber(),
-                payload.activistPlayerId(),
-                payload.targetPlayerId(),
-                payload.roundNumber(),
-                null,
-                null,
-                null,
-                null,
-                true));
+        stores.exposeFacts()
+                .upsert(new ExposeFact(
+                        payload.gameId(),
+                        payload.eraNumber(),
+                        payload.activistPlayerId(),
+                        payload.targetPlayerId(),
+                        payload.roundNumber(),
+                        null,
+                        null,
+                        null,
+                        null,
+                        true));
         touchRevision(payload.gameId());
     }
 
     void applyWinConditionMet(WinConditionMetPayload payload) {
-        terminalResults.addWinners(
-                payload.gameId(),
-                List.of(new TerminalResult.TerminalWinner(
-                        payload.winnerId(), payload.faction().name(), payload.winType())));
+        stores.terminalResults()
+                .addWinners(
+                        payload.gameId(),
+                        List.of(new TerminalResult.TerminalWinner(
+                                payload.winnerId(), payload.faction().name(), payload.winType())));
         touchRevision(payload.gameId());
     }
 
@@ -757,22 +748,24 @@ class ProjectionEventApplier {
         if (isStaleEra(payload.gameId(), payload.eraNumber(), "TimelineCollapsed")) {
             return;
         }
-        terminalResults.addWinners(
-                payload.gameId(),
-                payload.winners().stream()
-                        .map(winner -> new TerminalResult.TerminalWinner(
-                                winner.playerId(), winner.faction().name()))
-                        .toList());
+        stores.terminalResults()
+                .addWinners(
+                        payload.gameId(),
+                        payload.winners().stream()
+                                .map(winner -> new TerminalResult.TerminalWinner(
+                                        winner.playerId(), winner.faction().name()))
+                                .toList());
         touchRevision(payload.gameId());
     }
 
     void applyTimelineStabilized(TimelineStabilizedPayload payload) {
-        terminalResults.addWinners(
-                payload.gameId(),
-                payload.winners().stream()
-                        .map(winner -> new TerminalResult.TerminalWinner(
-                                winner.playerId(), winner.faction().name()))
-                        .toList());
+        stores.terminalResults()
+                .addWinners(
+                        payload.gameId(),
+                        payload.winners().stream()
+                                .map(winner -> new TerminalResult.TerminalWinner(
+                                        winner.playerId(), winner.faction().name()))
+                                .toList());
         touchRevision(payload.gameId());
     }
 
@@ -785,7 +778,7 @@ class ProjectionEventApplier {
             log.warn("ChainLinkAdded for ended game {} — skipping", payload.gameId());
             return;
         }
-        var existing = gameChains.findByGameId(payload.gameId());
+        var existing = stores.gameChains().findByGameId(payload.gameId());
         if (isStaleChainMessage(existing, payload.chainId())) {
             log.warn("ChainLinkAdded for resolved chain {} in game {} — skipping", payload.chainId(), payload.gameId());
             return;
@@ -799,9 +792,10 @@ class ProjectionEventApplier {
                     payload.gameId());
             return;
         }
-        gameChains.save(
-                payload.gameId(),
-                new GameChain(payload.gameId(), payload.chainId(), ChainStatus.ACTIVE, payload.chainLength()));
+        stores.gameChains()
+                .save(
+                        payload.gameId(),
+                        new GameChain(payload.gameId(), payload.chainId(), ChainStatus.ACTIVE, payload.chainLength()));
     }
 
     void applyChainCompleted(ChainCompletedPayload payload) {
@@ -809,18 +803,19 @@ class ProjectionEventApplier {
             log.warn("ChainCompleted for ended game {} — skipping", payload.gameId());
             return;
         }
-        var existing = gameChains.findByGameId(payload.gameId());
+        var existing = stores.gameChains().findByGameId(payload.gameId());
         if (isStaleChainMessage(existing, payload.chainId())) {
             log.warn("ChainCompleted for resolved chain {} in game {} — skipping", payload.chainId(), payload.gameId());
             return;
         }
-        gameChains.save(
-                payload.gameId(),
-                new GameChain(
+        stores.gameChains()
+                .save(
                         payload.gameId(),
-                        payload.chainId(),
-                        ChainStatus.COMPLETED,
-                        payload.links().size()));
+                        new GameChain(
+                                payload.gameId(),
+                                payload.chainId(),
+                                ChainStatus.COMPLETED,
+                                payload.links().size()));
     }
 
     void applyChainBroken(ChainBrokenPayload payload) {
@@ -828,14 +823,16 @@ class ProjectionEventApplier {
             log.warn("ChainBroken for ended game {} — skipping", payload.gameId());
             return;
         }
-        var existing = gameChains.findByGameId(payload.gameId());
+        var existing = stores.gameChains().findByGameId(payload.gameId());
         if (isStaleChainMessage(existing, payload.chainId())) {
             log.warn("ChainBroken for resolved chain {} in game {} — skipping", payload.chainId(), payload.gameId());
             return;
         }
-        gameChains.save(
-                payload.gameId(),
-                new GameChain(payload.gameId(), payload.chainId(), ChainStatus.BROKEN, payload.chainLengthAtBreak()));
+        stores.gameChains()
+                .save(
+                        payload.gameId(),
+                        new GameChain(
+                                payload.gameId(), payload.chainId(), ChainStatus.BROKEN, payload.chainLengthAtBreak()));
     }
 
     private boolean isSameChain(Optional<GameChain> existing, UUID chainId) {
@@ -856,17 +853,18 @@ class ProjectionEventApplier {
             return;
         }
         var expiresAt = occurredAt == null ? null : occurredAt.plusSeconds(payload.timerSeconds());
-        gameProjections.save(new GameProjection(
-                existing.gameId(),
-                payload.eraNumber(),
-                Phase.PARADOX_RESOLUTION,
-                payload.paradoxIds(),
-                existing.lastRoundSummary(),
-                existing.currentRoundNumber(),
-                null,
-                expiresAt,
-                existing.revision(),
-                existing.lastUpdatedAt()));
+        stores.gameProjections()
+                .save(new GameProjection(
+                        existing.gameId(),
+                        payload.eraNumber(),
+                        Phase.PARADOX_RESOLUTION,
+                        payload.paradoxIds(),
+                        existing.lastRoundSummary(),
+                        existing.currentRoundNumber(),
+                        null,
+                        expiresAt,
+                        existing.revision(),
+                        existing.lastUpdatedAt()));
     }
 
     void applyParadoxResolved(ParadoxResolvedPayload payload) {
@@ -894,21 +892,22 @@ class ProjectionEventApplier {
         // The closing round leaves no open coordinate behind: expiry and round clear with the phase.
         var roundNumber = stillPending.isEmpty() ? null : existing.currentRoundNumber();
         var paradoxExpiresAt = stillPending.isEmpty() ? null : existing.paradoxResolutionExpiresAt();
-        gameProjections.save(new GameProjection(
-                existing.gameId(),
-                eraNumber,
-                phase,
-                stillPending,
-                existing.lastRoundSummary(),
-                roundNumber,
-                existing.actionRoundExpiresAt(),
-                paradoxExpiresAt,
-                existing.revision(),
-                existing.lastUpdatedAt()));
+        stores.gameProjections()
+                .save(new GameProjection(
+                        existing.gameId(),
+                        eraNumber,
+                        phase,
+                        stillPending,
+                        existing.lastRoundSummary(),
+                        roundNumber,
+                        existing.actionRoundExpiresAt(),
+                        paradoxExpiresAt,
+                        existing.revision(),
+                        existing.lastUpdatedAt()));
     }
 
     private GameProjection lockGame(UUID gameId) {
-        return gameProjections
+        return stores.gameProjections()
                 .findByGameIdForUpdate(gameId)
                 .orElseThrow(() -> new IllegalStateException("Game projection anchor was not created for " + gameId));
     }
