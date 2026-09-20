@@ -88,14 +88,26 @@ class GameEventsKafkaConsumer {
             io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PLAYER_ABANDONED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ERA_ENDED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GAME_ENDED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.TIMELINE_COLLAPSED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.TIMELINE_STABILIZED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.WIN_CONDITION_MET_EVENT_TYPE,
             io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.FACTION_REVEALED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.RESOLUTION_STARTED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ACTION_ROUND_STARTED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CARD_PLAYED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract
+                    .PARADOX_RESOLUTION_CARD_PLAYED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.SPECIAL_ACTION_PLAYED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ROUND_SUMMARY_PUBLISHED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.PLAYER_JAMMED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.INFLUENCE_TRACED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.HAND_CARD_INTERCEPTED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract
+                    .BANDED_PROBABILITY_PUBLISHED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract
+                    .ACTIVIST_DECLARATION_RECORDED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.EXPOSE_SIGNATURE_REVEALED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.EXPOSE_BEHAVIOR_CHANGED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.SCORES_UPDATED_EVENT_TYPE);
 
     private final ProcessedEventPort processedEvents;

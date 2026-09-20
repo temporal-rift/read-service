@@ -7,28 +7,42 @@ import java.util.List;
 import io.github.temporalrift.read.projection.application.port.in.GetGameHistoryUseCase;
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
 import io.github.temporalrift.read.projection.domain.model.DealtCard;
+import io.github.temporalrift.read.projection.domain.model.ExposeFact;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 import io.github.temporalrift.read.projection.domain.model.GameChain;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
 import io.github.temporalrift.read.projection.domain.model.Phase;
+import io.github.temporalrift.read.projection.domain.model.PlayerSubmission;
+import io.github.temporalrift.read.projection.domain.model.PublicBand;
+import io.github.temporalrift.read.projection.domain.model.PublicDeclaration;
 import io.github.temporalrift.read.projection.domain.model.RevealedHandCardIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedInfluenceIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedIntelEntry;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
+import io.github.temporalrift.read.projection.domain.model.TerminalResult;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActionSummary;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActiveEvent;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CardGrade;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CascadedEvent;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ChainState;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.Deadlines;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.DealtHandCard;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.EventOutcome;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ExposeSignature;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.FinalScore;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.GameHistoryEra;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.GameHistoryResponse;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.GameResult;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.GameWinner;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.HandCard;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.MySubmission;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PendingHandSelection;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PhaseContext;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerGameStateResponse;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerInGame;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PublicBandEvent;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PublicBandOutcome;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ResolvedOutcome;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.RevealedHandCard;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.RevealedIntel;
@@ -68,7 +82,140 @@ final class ProjectionRestMapper {
         response.setLastRoundSummary(
                 result.lastRoundSummary() == null ? null : toRoundSummary(result.lastRoundSummary()));
         response.setChain(result.chain() == null ? null : toChainState(result.chain()));
+        response.setRevision((int) result.revision());
+        response.setLastUpdatedAt(toOffsetDateTime(result.lastUpdatedAt()));
+        response.setRoundNumber(result.roundNumber());
+        response.setDeadlines(toDeadlines(result));
+        response.setPhaseContext(toPhaseContext(result));
+        response.setPublicBands(
+                result.publicBands().isEmpty()
+                        ? null
+                        : result.publicBands().stream()
+                                .map(ProjectionRestMapper::toPublicBandEvent)
+                                .toList());
+        response.setDeclarations(
+                result.declarations().isEmpty()
+                        ? null
+                        : result.declarations().stream()
+                                .map(ProjectionRestMapper::toPublicDeclaration)
+                                .toList());
+        response.setExposeFacts(
+                result.exposeFacts().isEmpty()
+                        ? null
+                        : result.exposeFacts().stream()
+                                .map(ProjectionRestMapper::toExposeFact)
+                                .toList());
+        response.setMySubmissions(
+                result.mySubmissions().isEmpty()
+                        ? null
+                        : result.mySubmissions().stream()
+                                .map(ProjectionRestMapper::toMySubmission)
+                                .toList());
+        // Budgets and objective progress stay absent: no owner fact supplies them (see use-case docs).
+        response.setResult(toGameResult(result.terminalResult()));
         return response;
+    }
+
+    private static Deadlines toDeadlines(GetPlayerGameStateUseCase.Result result) {
+        if (result.handSelectionExpiresAt() == null
+                && result.actionRoundExpiresAt() == null
+                && result.paradoxResolutionExpiresAt() == null) {
+            return null;
+        }
+        return new Deadlines()
+                .handSelectionExpiresAt(toOffsetDateTime(result.handSelectionExpiresAt()))
+                .actionRoundExpiresAt(toOffsetDateTime(result.actionRoundExpiresAt()))
+                .paradoxResolutionExpiresAt(toOffsetDateTime(result.paradoxResolutionExpiresAt()));
+    }
+
+    private static PhaseContext toPhaseContext(GetPlayerGameStateUseCase.Result result) {
+        var context = new PhaseContext(result.declarationOpen(), result.paradoxOpen());
+        if (result.paradoxOpen()) {
+            context.setParadoxIds(List.copyOf(result.openParadoxIds()));
+        }
+        return context;
+    }
+
+    private static PublicBandEvent toPublicBandEvent(PublicBand domain) {
+        return new PublicBandEvent(
+                domain.eventId(),
+                domain.observedInRound(),
+                domain.outcomes().stream()
+                        .map(outcome -> new PublicBandOutcome(
+                                outcome.outcomeId(), PublicBandOutcome.BandEnum.fromValue(outcome.band())))
+                        .toList());
+    }
+
+    private static io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PublicDeclaration
+            toPublicDeclaration(PublicDeclaration domain) {
+        return new io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PublicDeclaration(
+                domain.playerId(),
+                io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PublicDeclaration
+                        .ModeEnum.fromValue(domain.mode()),
+                domain.targetEventId(),
+                domain.targetOutcomeId(),
+                domain.eraNumber());
+    }
+
+    private static io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ExposeFact
+            toExposeFact(ExposeFact domain) {
+        var response = new io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ExposeFact(
+                domain.activistPlayerId(), domain.targetPlayerId(), domain.roundNumber(), domain.behaviorChanged());
+        if (domain.signatureType() != null) {
+            response.setSignature(new ExposeSignature(
+                            ExposeSignature.TypeEnum.fromValue(domain.signatureType()), domain.signatureTargetEventId())
+                    .sourceOutcomeId(domain.signatureSourceOutcomeId())
+                    .targetOutcomeId(domain.signatureTargetOutcomeId()));
+        }
+        return response;
+    }
+
+    private static MySubmission toMySubmission(PlayerSubmission domain) {
+        var response = new MySubmission(
+                domain.eraNumber(),
+                MySubmission.KindEnum.valueOf(domain.kind().name()),
+                MySubmission.StatusEnum.ACCEPTED);
+        response.setRoundNumber(domain.roundNumber());
+        if (domain.actionType() != null) {
+            response.setActionType(MySubmission.ActionTypeEnum.valueOf(domain.actionType()));
+        }
+        return response;
+    }
+
+    /**
+     * Terminal facts are exposed only for ended games (the handler already nulls them otherwise).
+     * An owner reason with no contract representation omits the whole result rather than
+     * fabricating a reason — a known contract gap, not a mapping choice.
+     */
+    private static GameResult toGameResult(TerminalResult domain) {
+        if (domain == null) {
+            return null;
+        }
+        var endReason = toEndReason(domain.endReason());
+        if (endReason == null) {
+            return null;
+        }
+        return new GameResult(
+                endReason,
+                domain.winners().stream()
+                        .map(winner -> new GameWinner(winner.playerId()).faction(winner.faction()))
+                        .toList(),
+                domain.finalScores().stream()
+                        .map(score -> new FinalScore(score.playerId(), score.score()))
+                        .toList(),
+                GameResult.RevealBoundaryEnum.FACTIONS_AND_SCORES_PUBLIC);
+    }
+
+    private static GameResult.EndReasonEnum toEndReason(String reason) {
+        try {
+            return GameResult.EndReasonEnum.fromValue(reason);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private static OffsetDateTime toOffsetDateTime(java.time.Instant instant) {
+        return instant == null ? null : OffsetDateTime.ofInstant(instant, ZoneOffset.UTC);
     }
 
     private static ChainState toChainState(GameChain domain) {

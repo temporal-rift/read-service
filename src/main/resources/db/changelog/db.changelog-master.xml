@@ -22,5 +22,11 @@
     <include file="db/changelog/projection/011-create-revealed-influence-intel.xml"/>
     <include file="db/changelog/projection/012-create-revealed-hand-card-intel.xml"/>
     <include file="db/changelog/projection/013-create-game-chain-projection.xml"/>
+    <include file="db/changelog/projection/014-widen-game-projection-recoverable-view.xml"/>
+    <include file="db/changelog/projection/015-create-game-public-band.xml"/>
+    <include file="db/changelog/projection/016-create-game-declaration.xml"/>
+    <include file="db/changelog/projection/017-create-game-expose-fact.xml"/>
+    <include file="db/changelog/projection/018-create-player-submission.xml"/>
+    <include file="db/changelog/projection/019-create-game-terminal-result.xml"/>
 
 </databaseChangeLog>

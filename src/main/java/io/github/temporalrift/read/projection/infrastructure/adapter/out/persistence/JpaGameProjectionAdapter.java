@@ -1,5 +1,6 @@
 package io.github.temporalrift.read.projection.infrastructure.adapter.out.persistence;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -37,8 +38,17 @@ class JpaGameProjectionAdapter implements GameProjectionRepository {
             entity.setPhase(gameProjection.phase());
             entity.setPendingParadoxIds(gameProjection.pendingParadoxIds());
             entity.setLastRoundSummary(gameProjection.lastRoundSummary());
+            entity.setCurrentRoundNumber(gameProjection.currentRoundNumber());
+            entity.setActionRoundExpiresAt(gameProjection.actionRoundExpiresAt());
+            entity.setParadoxResolutionExpiresAt(gameProjection.paradoxResolutionExpiresAt());
+            // Freshness marker for one game's projection only — never cross-game or cross-topic order.
+            entity.setRevision(entity.getRevision() + 1);
+            entity.setLastUpdatedAt(Instant.now());
         } else {
-            repository.save(GameProjectionEntity.fromDomain(gameProjection));
+            var entity = GameProjectionEntity.fromDomain(gameProjection);
+            entity.setRevision(0);
+            entity.setLastUpdatedAt(Instant.now());
+            repository.save(entity);
         }
     }
 }

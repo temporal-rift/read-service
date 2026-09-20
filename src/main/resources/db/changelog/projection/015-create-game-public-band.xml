@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+  <!-- Public band publications per game era; the adjusted correction replaces the preview wholesale. -->
+  <changeSet id="015-create-game-public-band" author="read-service">
+    <createTable tableName="game_public_band">
+      <column name="id" type="UUID">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="game_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="era_number" type="INT">
+        <constraints nullable="false"/>
+      </column>
+      <column name="event_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="observed_in_round" type="INT">
+        <constraints nullable="false"/>
+      </column>
+      <column name="outcomes" type="JSONB">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
+
+    <addUniqueConstraint
+        tableName="game_public_band"
+        columnNames="game_id, era_number, event_id"
+        constraintName="uq_game_public_band_identity"/>
+  </changeSet>
+
+</databaseChangeLog>

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+  <!-- Each player's own accepted decisions, at most one per decision slot. -->
+  <changeSet id="018-create-player-submission" author="read-service">
+    <createTable tableName="player_submission">
+      <column name="id" type="UUID">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="game_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="player_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="era_number" type="INT">
+        <constraints nullable="false"/>
+      </column>
+      <column name="round_number" type="INT">
+        <constraints nullable="false"/>
+      </column>
+      <column name="kind" type="VARCHAR(16)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="action_type" type="VARCHAR(16)"/>
+    </createTable>
+
+    <addUniqueConstraint
+        tableName="player_submission"
+        columnNames="game_id, player_id, era_number, kind, round_number"
+        constraintName="uq_player_submission_identity"/>
+  </changeSet>
+
+</databaseChangeLog>

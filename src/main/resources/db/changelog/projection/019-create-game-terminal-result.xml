@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+  <!-- Authoritative terminal facts of an ended game, assembled incrementally. -->
+  <changeSet id="019-create-game-terminal-result" author="read-service">
+    <createTable tableName="game_terminal_result">
+      <column name="game_id" type="UUID">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="end_reason" type="VARCHAR(32)"/>
+    </createTable>
+
+    <createTable tableName="game_terminal_winner">
+      <column name="id" type="UUID">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="game_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="player_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="faction" type="VARCHAR(16)">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
+
+    <addUniqueConstraint
+        tableName="game_terminal_winner"
+        columnNames="game_id, player_id"
+        constraintName="uq_game_terminal_winner_identity"/>
+
+    <createTable tableName="game_terminal_final_score">
+      <column name="id" type="UUID">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="game_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="player_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="faction" type="VARCHAR(16)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="score" type="INT">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
+
+    <addUniqueConstraint
+        tableName="game_terminal_final_score"
+        columnNames="game_id, player_id"
+        constraintName="uq_game_terminal_final_score_identity"/>
+  </changeSet>
+
+</databaseChangeLog>

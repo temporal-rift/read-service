@@ -14,12 +14,15 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Ha
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PlayerAbandonedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PlayerDisconnectedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ResolutionStartedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.TimelineCollapsedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.TimelineStabilizedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.WinConditionMetPayload;
 
 /**
  * The {@code session-event} slice of {@code game.events} that {@link ProjectionEventApplier} actually
  * projects (design.md "Migration addendum: consumer contract adoption"). Every other {@code session-event}
  * message type falls through to the generated {@code Consumer}'s default no-op — {@code session-event}
- * carries lobby/win-condition/chain facts this projection has no read model for.
+ * carries lobby facts this projection has no read model for.
  */
 class SessionEventDispatcher implements Consumer {
 
@@ -77,6 +80,21 @@ class SessionEventDispatcher implements Consumer {
     @Override
     public void onGameEnded(GameEndedPayload payload, EventHeaders headers) {
         applier.applyGameEnded(payload);
+    }
+
+    @Override
+    public void onTimelineCollapsed(TimelineCollapsedPayload payload, EventHeaders headers) {
+        applier.applyTimelineCollapsed(payload);
+    }
+
+    @Override
+    public void onTimelineStabilized(TimelineStabilizedPayload payload, EventHeaders headers) {
+        applier.applyTimelineStabilized(payload);
+    }
+
+    @Override
+    public void onWinConditionMet(WinConditionMetPayload payload, EventHeaders headers) {
+        applier.applyWinConditionMet(payload);
     }
 
     @Override

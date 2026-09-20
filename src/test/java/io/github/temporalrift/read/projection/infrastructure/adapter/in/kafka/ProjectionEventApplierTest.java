@@ -23,12 +23,24 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundStartedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActivistDeclarationMode;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActivistDeclarationRecordedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.BandedProbabilityEventBandState;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.BandedProbabilityOutcomeBandState;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.BandedProbabilityPublishedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ExposeBehaviorChangedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ExposeInfluenceSignature;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ExposeSignatureRevealedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.HandCardInterceptedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.InfluenceSignatureType;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.InfluenceTracedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.InterceptedHandCard;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ParadoxResolutionCardPlayedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.PlayerJammedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ProbabilityBand;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.RoundSummaryPublishedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.SpecialActionPlayedPayload;
 import io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.ScoreUpdate;
 import io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.ScoresUpdatedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardGrade;
@@ -51,6 +63,13 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Ha
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandSelectionOrigin;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PlayerDisconnectedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ResolutionStartedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.TimelineCollapsedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.TimelineStabilizedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.TimelineStabilizedPlayerFactionResult;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.WinConditionMetPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.AdjustedBandsPublishedEventBandState;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.AdjustedBandsPublishedOutcomeBandState;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.AdjustedBandsPublishedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainBrokenPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainCompletedChainLink;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainCompletedPayload;
@@ -64,6 +83,7 @@ import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.P
 import io.github.temporalrift.read.projection.domain.model.CarryOverState;
 import io.github.temporalrift.read.projection.domain.model.ChainStatus;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
+import io.github.temporalrift.read.projection.domain.model.ExposeFact;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 import io.github.temporalrift.read.projection.domain.model.GameChain;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
@@ -74,20 +94,29 @@ import io.github.temporalrift.read.projection.domain.model.PendingHandCard;
 import io.github.temporalrift.read.projection.domain.model.PendingHandSelection;
 import io.github.temporalrift.read.projection.domain.model.Phase;
 import io.github.temporalrift.read.projection.domain.model.PlayerGameState;
+import io.github.temporalrift.read.projection.domain.model.PlayerSubmission;
+import io.github.temporalrift.read.projection.domain.model.PublicBand;
+import io.github.temporalrift.read.projection.domain.model.PublicDeclaration;
 import io.github.temporalrift.read.projection.domain.model.RevealedHandCard;
 import io.github.temporalrift.read.projection.domain.model.RevealedHandCardIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedInfluenceIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
 import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
+import io.github.temporalrift.read.projection.domain.model.TerminalResult;
+import io.github.temporalrift.read.projection.domain.port.out.ExposeFactRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameChainRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameProjectionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PlayerGameStateRepository;
+import io.github.temporalrift.read.projection.domain.port.out.PlayerSubmissionRepository;
+import io.github.temporalrift.read.projection.domain.port.out.PublicBandRepository;
+import io.github.temporalrift.read.projection.domain.port.out.PublicDeclarationRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedHandCardIntelRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedInfluenceIntelRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedProbabilityIntelRepository;
+import io.github.temporalrift.read.projection.domain.port.out.TerminalResultRepository;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectionEventApplierTest {
@@ -116,6 +145,21 @@ class ProjectionEventApplierTest {
     @Mock
     GameChainRepository gameChains;
 
+    @Mock
+    PublicBandRepository publicBands;
+
+    @Mock
+    PublicDeclarationRepository publicDeclarations;
+
+    @Mock
+    ExposeFactRepository exposeFacts;
+
+    @Mock
+    PlayerSubmissionRepository playerSubmissions;
+
+    @Mock
+    TerminalResultRepository terminalResults;
+
     private ProjectionEventApplier applier;
 
     private final UUID gameId = UUID.randomUUID();
@@ -133,7 +177,12 @@ class ProjectionEventApplierTest {
                 revealedProbabilityIntel,
                 revealedInfluenceIntel,
                 revealedHandCardIntel,
-                gameChains);
+                gameChains,
+                publicBands,
+                publicDeclarations,
+                exposeFacts,
+                playerSubmissions,
+                terminalResults);
     }
 
     @Test
@@ -956,9 +1005,21 @@ class ProjectionEventApplierTest {
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
 
-        applier.applyActionRoundStarted(new ActionRoundStartedPayload(gameId, 1, 2, 45, List.of()));
+        applier.applyActionRoundStarted(new ActionRoundStartedPayload(gameId, 1, 2, 45, List.of()), Instant.EPOCH);
 
-        then(gameProjections).should().save(new GameProjection(gameId, 1, Phase.ACTION_ROUND_2));
+        then(gameProjections)
+                .should()
+                .save(new GameProjection(
+                        gameId,
+                        1,
+                        Phase.ACTION_ROUND_2,
+                        List.of(),
+                        null,
+                        2,
+                        Instant.EPOCH.plusSeconds(45),
+                        null,
+                        0,
+                        null));
     }
 
     @Test
@@ -966,7 +1027,7 @@ class ProjectionEventApplierTest {
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.GAME_ENDED)));
 
-        applier.applyActionRoundStarted(new ActionRoundStartedPayload(gameId, 2, 1, 45, List.of()));
+        applier.applyActionRoundStarted(new ActionRoundStartedPayload(gameId, 2, 1, 45, List.of()), Instant.EPOCH);
 
         then(gameProjections).should(never()).save(any());
     }
@@ -976,7 +1037,7 @@ class ProjectionEventApplierTest {
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.RESOLUTION)));
 
-        applier.applyActionRoundStarted(new ActionRoundStartedPayload(gameId, 1, 1, 45, List.of()));
+        applier.applyActionRoundStarted(new ActionRoundStartedPayload(gameId, 1, 1, 45, List.of()), Instant.EPOCH);
 
         then(gameProjections).should(never()).save(any());
     }
@@ -985,7 +1046,8 @@ class ProjectionEventApplierTest {
     void applyActionRoundStarted_unsupportedRoundNumber_throws() {
         var payload = new ActionRoundStartedPayload(gameId, 1, 4, 45, List.of());
 
-        assertThatThrownBy(() -> applier.applyActionRoundStarted(payload)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> applier.applyActionRoundStarted(payload, Instant.EPOCH))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -1087,9 +1149,21 @@ class ProjectionEventApplierTest {
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1, List.of(), summary)));
 
-        applier.applyActionRoundStarted(new ActionRoundStartedPayload(gameId, 1, 2, 45, List.of()));
+        applier.applyActionRoundStarted(new ActionRoundStartedPayload(gameId, 1, 2, 45, List.of()), Instant.EPOCH);
 
-        then(gameProjections).should().save(new GameProjection(gameId, 1, Phase.ACTION_ROUND_2, List.of(), summary));
+        then(gameProjections)
+                .should()
+                .save(new GameProjection(
+                        gameId,
+                        1,
+                        Phase.ACTION_ROUND_2,
+                        List.of(),
+                        summary,
+                        2,
+                        Instant.EPOCH.plusSeconds(45),
+                        null,
+                        0,
+                        null));
     }
 
     @Test
@@ -1150,11 +1224,21 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.RESOLUTION)));
 
         applier.applyParadoxResolutionPhaseStarted(
-                new ParadoxResolutionPhaseStartedPayload(gameId, 1, List.of(paradox1, paradox2), 60));
+                new ParadoxResolutionPhaseStartedPayload(gameId, 1, List.of(paradox1, paradox2), 60), Instant.EPOCH);
 
         then(gameProjections)
                 .should()
-                .save(new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradox1, paradox2)));
+                .save(new GameProjection(
+                        gameId,
+                        1,
+                        Phase.PARADOX_RESOLUTION,
+                        List.of(paradox1, paradox2),
+                        null,
+                        null,
+                        null,
+                        Instant.EPOCH.plusSeconds(60),
+                        0,
+                        null));
     }
 
     @Test
@@ -1217,11 +1301,21 @@ class ProjectionEventApplierTest {
         var paradoxId = UUID.randomUUID();
 
         applier.applyParadoxResolutionPhaseStarted(
-                new ParadoxResolutionPhaseStartedPayload(gameId, 1, List.of(paradoxId), 60));
+                new ParadoxResolutionPhaseStartedPayload(gameId, 1, List.of(paradoxId), 60), Instant.EPOCH);
 
         then(gameProjections)
                 .should()
-                .save(new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradoxId)));
+                .save(new GameProjection(
+                        gameId,
+                        1,
+                        Phase.PARADOX_RESOLUTION,
+                        List.of(paradoxId),
+                        null,
+                        null,
+                        null,
+                        Instant.EPOCH.plusSeconds(60),
+                        0,
+                        null));
     }
 
     @Test
@@ -1261,11 +1355,21 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
 
         applier.applyParadoxResolutionPhaseStarted(
-                new ParadoxResolutionPhaseStartedPayload(gameId, 2, List.of(paradoxId), 60));
+                new ParadoxResolutionPhaseStartedPayload(gameId, 2, List.of(paradoxId), 60), Instant.EPOCH);
 
         then(gameProjections)
                 .should()
-                .save(new GameProjection(gameId, 2, Phase.PARADOX_RESOLUTION, List.of(paradoxId)));
+                .save(new GameProjection(
+                        gameId,
+                        2,
+                        Phase.PARADOX_RESOLUTION,
+                        List.of(paradoxId),
+                        null,
+                        null,
+                        null,
+                        Instant.EPOCH.plusSeconds(60),
+                        0,
+                        null));
     }
 
     @Test
@@ -1274,7 +1378,7 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ERA_END)));
 
         applier.applyParadoxResolutionPhaseStarted(
-                new ParadoxResolutionPhaseStartedPayload(gameId, 1, List.of(UUID.randomUUID()), 60));
+                new ParadoxResolutionPhaseStartedPayload(gameId, 1, List.of(UUID.randomUUID()), 60), Instant.EPOCH);
 
         then(gameProjections).should(never()).save(any());
     }
@@ -1285,7 +1389,7 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));
 
         applier.applyParadoxResolutionPhaseStarted(
-                new ParadoxResolutionPhaseStartedPayload(gameId, 1, List.of(UUID.randomUUID()), 60));
+                new ParadoxResolutionPhaseStartedPayload(gameId, 1, List.of(UUID.randomUUID()), 60), Instant.EPOCH);
 
         then(gameProjections).should(never()).save(any());
     }
@@ -1311,5 +1415,294 @@ class ProjectionEventApplierTest {
                 new ParadoxCascadedPayload(gameId, 1, paradoxId, UUID.randomUUID(), List.of(), null));
 
         then(gameProjections).should(never()).save(any());
+    }
+
+    @Test
+    void applyBandedProbabilityPublished_storesPreviewWithRoundTwoAge() {
+        var eventId = UUID.randomUUID();
+        var outcomeId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_3)));
+
+        applier.applyBandedProbabilityPublished(new BandedProbabilityPublishedPayload(
+                gameId,
+                1,
+                List.of(new BandedProbabilityEventBandState(
+                        eventId, List.of(new BandedProbabilityOutcomeBandState(outcomeId, ProbabilityBand.HIGH))))));
+
+        var captor = ArgumentCaptor.forClass(List.class);
+        then(publicBands).should().replaceAll(eq(gameId), eq(1), captor.capture());
+        var bands = (List<PublicBand>) captor.getValue();
+        assertThat(bands).hasSize(1);
+        assertThat(bands.getFirst().eventId()).isEqualTo(eventId);
+        assertThat(bands.getFirst().observedInRound()).isEqualTo(2);
+        assertThat(bands.getFirst().outcomes()).containsExactly(new PublicBand.OutcomeBand(outcomeId, "HIGH"));
+    }
+
+    @Test
+    void applyAdjustedBandsPublished_replacesPreviewForSameGameAndEra() {
+        var eventId = UUID.randomUUID();
+        var outcomeId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_3)));
+
+        applier.applyAdjustedBandsPublished(new AdjustedBandsPublishedPayload(
+                gameId,
+                1,
+                List.of(new AdjustedBandsPublishedEventBandState(
+                        eventId,
+                        List.of(new AdjustedBandsPublishedOutcomeBandState(
+                                outcomeId,
+                                io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityBand
+                                        .LOW))))));
+
+        var captor = ArgumentCaptor.forClass(List.class);
+        then(publicBands).should().replaceAll(eq(gameId), eq(1), captor.capture());
+        var bands = (List<PublicBand>) captor.getValue();
+        assertThat(bands).hasSize(1);
+        assertThat(bands.getFirst().outcomes()).containsExactly(new PublicBand.OutcomeBand(outcomeId, "LOW"));
+    }
+
+    @Test
+    void applyBandedProbabilityPublished_forStaleEra_isSkipped() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));
+
+        applier.applyBandedProbabilityPublished(new BandedProbabilityPublishedPayload(gameId, 1, List.of()));
+
+        then(publicBands).should(never()).replaceAll(any(), anyInt(), any());
+    }
+
+    @Test
+    void applyActivistDeclarationRecorded_storesPublicFactAndOwnSubmission() {
+        var playerId = UUID.randomUUID();
+        var targetEventId = UUID.randomUUID();
+        var targetOutcomeId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
+
+        applier.applyActivistDeclarationRecorded(new ActivistDeclarationRecordedPayload(
+                gameId, 1, 1, playerId, ActivistDeclarationMode.RALLY, targetEventId, targetOutcomeId));
+
+        then(publicDeclarations)
+                .should()
+                .upsert(new PublicDeclaration(gameId, 1, playerId, "RALLY", targetEventId, targetOutcomeId));
+        then(playerSubmissions)
+                .should()
+                .upsert(new PlayerSubmission(
+                        gameId, playerId, 1, null, PlayerSubmission.SubmissionKind.DECLARATION, null));
+    }
+
+    @Test
+    void applyExposeSignatureRevealed_storesRoundTwoFactWithSignature() {
+        var activist = UUID.randomUUID();
+        var target = UUID.randomUUID();
+        var targetEventId = UUID.randomUUID();
+        var sourceOutcomeId = UUID.randomUUID();
+        var targetOutcomeId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_2)));
+
+        applier.applyExposeSignatureRevealed(new ExposeSignatureRevealedPayload(
+                gameId,
+                1,
+                2,
+                activist,
+                target,
+                new ExposeInfluenceSignature(
+                        InfluenceSignatureType.SWING, targetEventId, sourceOutcomeId, targetOutcomeId)));
+
+        then(exposeFacts)
+                .should()
+                .upsert(new ExposeFact(
+                        gameId,
+                        1,
+                        activist,
+                        target,
+                        2,
+                        "SWING",
+                        targetEventId,
+                        sourceOutcomeId,
+                        targetOutcomeId,
+                        false));
+    }
+
+    @Test
+    void applyExposeBehaviorChanged_storesRoundThreeFactWithoutSignature() {
+        var activist = UUID.randomUUID();
+        var target = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_3)));
+
+        applier.applyExposeBehaviorChanged(new ExposeBehaviorChangedPayload(gameId, 1, 3, activist, target));
+
+        then(exposeFacts).should().upsert(new ExposeFact(gameId, 1, activist, target, 3, null, null, null, null, true));
+    }
+
+    @Test
+    void applySpecialActionPlayed_recordsOwnSpecialSubmission() {
+        var playerId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
+
+        applier.applySpecialActionPlayed(new SpecialActionPlayedPayload(
+                gameId,
+                1,
+                1,
+                playerId,
+                io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.Faction.ERASERS,
+                io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.SpecialAction.ANNIHILATE,
+                null,
+                null,
+                null,
+                null,
+                null));
+
+        then(playerSubmissions)
+                .should()
+                .upsert(new PlayerSubmission(
+                        gameId, playerId, 1, 1, PlayerSubmission.SubmissionKind.ACTION, "SPECIAL"));
+    }
+
+    @Test
+    void applyParadoxResolutionCardPlayed_recordsOwnParadoxSubmission() {
+        var playerId = UUID.randomUUID();
+        var cardInstanceId = UUID.randomUUID();
+        var targetEventId = UUID.randomUUID();
+        var targetOutcomeId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(
+                        new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(UUID.randomUUID()))));
+
+        applier.applyParadoxResolutionCardPlayed(new ParadoxResolutionCardPlayedPayload(
+                gameId,
+                1,
+                playerId,
+                cardInstanceId,
+                io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardType.STABILIZE,
+                io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardGrade.I,
+                targetEventId,
+                targetOutcomeId));
+
+        then(playerSubmissions)
+                .should()
+                .upsert(new PlayerSubmission(
+                        gameId, playerId, 1, null, PlayerSubmission.SubmissionKind.PARADOX_CARD, null));
+    }
+
+    @Test
+    void applyHandSelected_recordsOwnHandSelectionSubmission() {
+        var playerId = UUID.randomUUID();
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of())));
+
+        applier.applyHandSelected(new HandSelectedPayload(
+                gameId,
+                1,
+                playerId,
+                HandSelectionOrigin.PLAYER,
+                List.of(
+                        new HandDealtCardInstance(
+                                UUID.randomUUID(),
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardType.PUSH,
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardGrade.I,
+                                1),
+                        new HandDealtCardInstance(
+                                UUID.randomUUID(),
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardType.SCAN,
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardGrade.I,
+                                2),
+                        new HandDealtCardInstance(
+                                UUID.randomUUID(),
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardType.TRACE,
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardGrade.I,
+                                3),
+                        new HandDealtCardInstance(
+                                UUID.randomUUID(),
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardType.JAM,
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardGrade.I,
+                                4),
+                        new HandDealtCardInstance(
+                                UUID.randomUUID(),
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardType.STALL,
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardGrade.I,
+                                5))));
+
+        then(playerSubmissions)
+                .should()
+                .upsert(new PlayerSubmission(
+                        gameId, playerId, 1, null, PlayerSubmission.SubmissionKind.HAND_SELECTION, null));
+    }
+
+    @Test
+    void applyEraEnded_clearsRecoverableEraState() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.RESOLUTION)));
+
+        applier.applyEraEnded(new EraEndedPayload(gameId, 1, 0, 2));
+
+        then(publicBands).should().deleteByGameIdAndEraNumber(gameId, 1);
+        then(publicDeclarations).should().deleteByGameIdAndEraNumber(gameId, 1);
+        then(exposeFacts).should().deleteByGameIdAndEraNumber(gameId, 1);
+        then(playerSubmissions).should().deleteByGameIdAndEraNumber(gameId, 1);
+    }
+
+    @Test
+    void applyGameEnded_recordsTerminalReasonAndScores() {
+        var playerId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.RESOLUTION)));
+
+        applier.applyGameEnded(new GameEndedPayload(
+                gameId, "SCORE_THRESHOLD", List.of(new GameEndedPlayerScoreResult(playerId, Faction.WEAVERS, 20))));
+
+        then(terminalResults)
+                .should()
+                .saveEndReasonAndScores(
+                        eq(gameId),
+                        eq("SCORE_THRESHOLD"),
+                        eq(List.of(new TerminalResult.TerminalScore(playerId, "WEAVERS", 20))));
+        then(publicBands).should().deleteByGameId(gameId);
+        then(playerSubmissions).should().deleteByGameId(gameId);
+    }
+
+    @Test
+    void applyWinConditionMet_addsWinnerAndAdvancesRevision() {
+        var winnerId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
+
+        applier.applyWinConditionMet(
+                new WinConditionMetPayload(gameId, winnerId, Faction.PROPHETS, 20, "SCORE_THRESHOLD"));
+
+        then(terminalResults)
+                .should()
+                .addWinners(eq(gameId), eq(List.of(new TerminalResult.TerminalWinner(winnerId, "PROPHETS"))));
+        then(gameProjections).should().save(any(GameProjection.class));
+    }
+
+    @Test
+    void applyTimelineStabilized_addsWinnersAndAdvancesRevision() {
+        var winnerId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
+
+        applier.applyTimelineStabilized(new TimelineStabilizedPayload(
+                gameId, List.of(new TimelineStabilizedPlayerFactionResult(winnerId, Faction.PROPHETS, 2)), List.of()));
+
+        then(terminalResults)
+                .should()
+                .addWinners(eq(gameId), eq(List.of(new TerminalResult.TerminalWinner(winnerId, "PROPHETS"))));
+        then(gameProjections).should().save(any(GameProjection.class));
+    }
+
+    @Test
+    void applyTimelineCollapsed_forStaleEra_isSkipped() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));
+
+        applier.applyTimelineCollapsed(new TimelineCollapsedPayload(gameId, 1, List.of(), List.of()));
+
+        then(terminalResults).should(never()).addWinners(any(), any());
     }
 }
