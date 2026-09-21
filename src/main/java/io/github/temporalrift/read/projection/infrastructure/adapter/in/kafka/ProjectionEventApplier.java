@@ -31,6 +31,7 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Ga
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GameStartedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandDealtPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandSelectedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandSelectionOrigin;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PlayerAbandonedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PlayerDisconnectedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ResolutionStartedPayload;
@@ -233,14 +234,21 @@ class ProjectionEventApplier {
                         null,
                         existing.jammedEraNumber(),
                         existing.jammedUntilRound()));
-        stores.playerSubmissions()
-                .upsert(new PlayerSubmission(
-                        payload.gameId(),
-                        payload.playerId(),
-                        payload.eraNumber(),
-                        null,
-                        PlayerSubmission.SubmissionKind.HAND_SELECTION,
-                        null));
+        // Only the player's own decision is recoverable as a submission: an automatic
+        // TIMEOUT_RANDOM selection still replaces the hand, but must not appear as an accepted
+        // decision, and a delayed selection must not resurrect what cleanup already removed.
+        if (payload.selectionOrigin() == HandSelectionOrigin.PLAYER
+                && !isStaleEra(payload.gameId(), payload.eraNumber(), "HandSelected")) {
+            stores.playerSubmissions()
+                    .upsert(new PlayerSubmission(
+                            payload.gameId(),
+                            payload.playerId(),
+                            payload.eraNumber(),
+                            null,
+                            PlayerSubmission.SubmissionKind.HAND_SELECTION,
+                            null));
+        }
+        touchRevision(payload.gameId());
     }
 
     private PlayerGameState findOrCreatePlayerGameState(UUID gameId, UUID playerId) {
@@ -428,6 +436,7 @@ class ProjectionEventApplier {
                             payload.roundNumber(),
                             PlayerSubmission.SubmissionKind.ACTION,
                             "CARD"));
+            touchRevision(payload.gameId());
         }
         stores.playerGameStates()
                 .findByGameIdAndPlayerId(payload.gameId(), payload.playerId())
