@@ -1695,10 +1695,8 @@ class ProjectionEventApplierTest {
     }
 
     @Test
-    void applyHandSelected_forStaleEra_replacesHandButSkipsSubmission() {
+    void applyHandSelected_forStaleEra_isSkippedEntirely() {
         var playerId = UUID.randomUUID();
-        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
-                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of())));
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));
 
@@ -1734,8 +1732,9 @@ class ProjectionEventApplierTest {
                                 io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardGrade.I,
                                 5))));
 
-        then(playerGameStates).should().save(any(PlayerGameState.class));
+        then(playerGameStates).shouldHaveNoInteractions();
         then(playerSubmissions).should(never()).upsert(any());
+        then(gameProjections).should(never()).save(any());
     }
 
     @Test

@@ -218,6 +218,12 @@ class ProjectionEventApplier {
     }
 
     void applyHandSelected(HandSelectedPayload payload) {
+        // A delayed selection for a past era must not overwrite the current hand: the era guard
+        // comes first, before any write. Future-era selections still proceed — the hand they
+        // carry becomes current once the projection reaches that era.
+        if (isStaleEra(payload.gameId(), payload.eraNumber(), "HandSelected")) {
+            return;
+        }
         var existing = findOrCreatePlayerGameState(payload.gameId(), payload.playerId());
         var hand = payload.cards().stream()
                 .map(card -> new HandCard(
@@ -236,9 +242,8 @@ class ProjectionEventApplier {
                         existing.jammedUntilRound()));
         // Only the player's own decision is recoverable as a submission: an automatic
         // TIMEOUT_RANDOM selection still replaces the hand, but must not appear as an accepted
-        // decision, and a delayed selection must not resurrect what cleanup already removed.
-        if (payload.selectionOrigin() == HandSelectionOrigin.PLAYER
-                && !isStaleEra(payload.gameId(), payload.eraNumber(), "HandSelected")) {
+        // decision. Staleness was already rejected above.
+        if (payload.selectionOrigin() == HandSelectionOrigin.PLAYER) {
             stores.playerSubmissions()
                     .upsert(new PlayerSubmission(
                             payload.gameId(),
