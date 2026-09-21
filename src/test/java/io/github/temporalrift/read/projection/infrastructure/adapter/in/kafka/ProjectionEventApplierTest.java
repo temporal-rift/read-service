@@ -339,6 +339,8 @@ class ProjectionEventApplierTest {
         var playedCard = new HandCard(UUID.randomUUID(), "PUSH");
         var existing = new PlayerGameState(gameId, playerId, "ERASERS", List.of(playedCard), null, 1, 2);
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.of(existing));
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
 
         applier.applyCardPlayed(new CardPlayedPayload(
                 gameId,
@@ -507,6 +509,8 @@ class ProjectionEventApplierTest {
                 List.of(new PendingHandCard(selectedCardId, "PUSH", "III", 1)), Instant.parse("2026-08-15T00:00:00Z"));
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
                 .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of(), pending)));
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ERA_START)));
 
         applier.applyHandSelected(new HandSelectedPayload(
                 gameId,
@@ -1066,6 +1070,8 @@ class ProjectionEventApplierTest {
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
                 .willReturn(
                         Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of(playedCard, otherCard))));
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_2)));
 
         applier.applyCardPlayed(new CardPlayedPayload(
                 gameId,
@@ -1602,6 +1608,8 @@ class ProjectionEventApplierTest {
         var playerId = UUID.randomUUID();
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
                 .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of())));
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ERA_START)));
 
         applier.applyHandSelected(new HandSelectedPayload(
                 gameId,
@@ -1639,6 +1647,95 @@ class ProjectionEventApplierTest {
                 .should()
                 .upsert(new PlayerSubmission(
                         gameId, playerId, 1, null, PlayerSubmission.SubmissionKind.HAND_SELECTION, null));
+    }
+
+    @Test
+    void applyHandSelected_timeoutRandom_replacesHandButSkipsSubmission() {
+        var playerId = UUID.randomUUID();
+        var selectedCardId = UUID.randomUUID();
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of())));
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ERA_START)));
+
+        applier.applyHandSelected(new HandSelectedPayload(
+                gameId,
+                1,
+                playerId,
+                HandSelectionOrigin.TIMEOUT_RANDOM,
+                List.of(
+                        new HandDealtCardInstance(
+                                selectedCardId,
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardType.PUSH,
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardGrade.I,
+                                1),
+                        new HandDealtCardInstance(
+                                UUID.randomUUID(),
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardType.SCAN,
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardGrade.I,
+                                2),
+                        new HandDealtCardInstance(
+                                UUID.randomUUID(),
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardType.TRACE,
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardGrade.I,
+                                3),
+                        new HandDealtCardInstance(
+                                UUID.randomUUID(),
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardType.JAM,
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardGrade.I,
+                                4),
+                        new HandDealtCardInstance(
+                                UUID.randomUUID(),
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardType.STALL,
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardGrade.I,
+                                5))));
+
+        then(playerGameStates).should().save(any(PlayerGameState.class));
+        then(playerSubmissions).should(never()).upsert(any());
+    }
+
+    @Test
+    void applyHandSelected_forStaleEra_replacesHandButSkipsSubmission() {
+        var playerId = UUID.randomUUID();
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of())));
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));
+
+        applier.applyHandSelected(new HandSelectedPayload(
+                gameId,
+                1,
+                playerId,
+                HandSelectionOrigin.PLAYER,
+                List.of(
+                        new HandDealtCardInstance(
+                                UUID.randomUUID(),
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardType.PUSH,
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardGrade.I,
+                                1),
+                        new HandDealtCardInstance(
+                                UUID.randomUUID(),
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardType.SCAN,
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardGrade.I,
+                                2),
+                        new HandDealtCardInstance(
+                                UUID.randomUUID(),
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardType.TRACE,
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardGrade.I,
+                                3),
+                        new HandDealtCardInstance(
+                                UUID.randomUUID(),
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardType.JAM,
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardGrade.I,
+                                4),
+                        new HandDealtCardInstance(
+                                UUID.randomUUID(),
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardType.STALL,
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardGrade.I,
+                                5))));
+
+        then(playerGameStates).should().save(any(PlayerGameState.class));
+        then(playerSubmissions).should(never()).upsert(any());
     }
 
     @Test
