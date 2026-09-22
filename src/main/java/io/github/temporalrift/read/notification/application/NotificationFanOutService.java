@@ -77,7 +77,7 @@ class NotificationFanOutService implements FanOutNotificationUseCase {
     private void deliver(NotificationSession session, NotificationMessage notification) {
         try {
             session.deliver(notification);
-        } catch (RuntimeException e) {
+        } catch (RuntimeException _) {
             sessions.unregister(session.sessionId());
             try {
                 session.close();
@@ -110,7 +110,7 @@ class NotificationFanOutService implements FanOutNotificationUseCase {
     private static UUID uuid(String value) {
         try {
             return value == null ? null : UUID.fromString(value);
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException _) {
             return null;
         }
     }
@@ -119,7 +119,7 @@ class NotificationFanOutService implements FanOutNotificationUseCase {
         var raw = header(message, "occurredAt");
         try {
             return raw == null ? null : Instant.parse(raw);
-        } catch (RuntimeException e) {
+        } catch (RuntimeException _) {
             return null;
         }
     }

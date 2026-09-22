@@ -13,6 +13,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import io.github.temporalrift.read.projection.application.port.in.GetGameHistoryUseCase;
+import io.github.temporalrift.read.projection.domain.model.CascadedEvent;
 import io.github.temporalrift.read.projection.domain.model.DealtCard;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
 import io.github.temporalrift.read.projection.domain.model.GameHistoryNotFoundException;
@@ -58,7 +60,7 @@ class GetGameHistoryQueryHandlerTest {
         var era = handler.get(gameId, playerId).eras().getFirst();
 
         assertThat(era.paradoxesCascaded()).isEqualTo(1);
-        assertThat(era.cascadedEvents()).extracting(event -> event.eventId()).containsExactly(eventId);
+        assertThat(era.cascadedEvents()).extracting(CascadedEvent::eventId).containsExactly(eventId);
     }
 
     @Test
@@ -70,7 +72,7 @@ class GetGameHistoryQueryHandlerTest {
                         List.of(history(2, secondEvent, UUID.randomUUID()), history(1, firstEvent, UUID.randomUUID())));
 
         assertThat(handler.get(gameId, playerId).eras())
-                .extracting(era -> era.eraNumber())
+                .extracting(GetGameHistoryUseCase.EraResult::eraNumber)
                 .containsExactly(1, 2);
     }
 

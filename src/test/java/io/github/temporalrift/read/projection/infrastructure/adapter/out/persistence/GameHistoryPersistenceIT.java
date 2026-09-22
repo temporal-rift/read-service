@@ -124,7 +124,8 @@ class GameHistoryPersistenceIT {
 
             firstManager.getTransaction().commit();
 
-            assertThatThrownBy(() -> secondManager.getTransaction().commit())
+            var secondTransaction = secondManager.getTransaction();
+            assertThatThrownBy(secondTransaction::commit)
                     .isInstanceOf(RollbackException.class)
                     .hasCauseInstanceOf(OptimisticLockException.class);
         } finally {

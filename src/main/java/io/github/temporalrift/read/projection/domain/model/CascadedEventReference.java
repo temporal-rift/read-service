@@ -8,7 +8,7 @@ import java.util.UUID;
 public record CascadedEventReference(UUID eventId, List<CarryForwardProbability> carryForwardProbabilityState) {
 
     public CascadedEventReference {
-        eventId = Objects.requireNonNull(eventId, "eventId must not be null");
+        Objects.requireNonNull(eventId, "eventId must not be null");
         carryForwardProbabilityState = List.copyOf(carryForwardProbabilityState);
     }
 }

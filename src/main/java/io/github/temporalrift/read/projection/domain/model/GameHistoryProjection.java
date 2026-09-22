@@ -26,7 +26,7 @@ public record GameHistoryProjection(
         boolean closed) {
 
     public GameHistoryProjection {
-        gameId = Objects.requireNonNull(gameId, "gameId must not be null");
+        Objects.requireNonNull(gameId, "gameId must not be null");
         if (eraNumber < 1) {
             throw new IllegalArgumentException("eraNumber must be at least 1");
         }

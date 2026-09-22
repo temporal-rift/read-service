@@ -36,7 +36,7 @@ public final class InboundEventClaim {
         }
         try {
             return UUID.fromString(raw);
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException _) {
             return null;
         }
     }
