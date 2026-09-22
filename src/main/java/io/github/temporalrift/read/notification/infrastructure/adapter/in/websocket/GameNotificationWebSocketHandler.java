@@ -42,7 +42,7 @@ public class GameNotificationWebSocketHandler extends TextWebSocketHandler {
                     gameId(session),
                     CurrentPlayer.id(session.getPrincipal()),
                     new WebSocketNotificationDeliveryAdapter(decoratedSession, objectMapper));
-        } catch (RuntimeException e) {
+        } catch (RuntimeException _) {
             session.close(CloseStatus.POLICY_VIOLATION);
         }
     }

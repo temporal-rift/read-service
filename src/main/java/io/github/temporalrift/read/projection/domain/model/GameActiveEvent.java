@@ -8,7 +8,7 @@ import java.util.UUID;
 public record GameActiveEvent(UUID eventId, String title, CarryOverState carryOverState, List<EventOutcome> outcomes) {
 
     public GameActiveEvent {
-        carryOverState = Objects.requireNonNull(carryOverState, "carryOverState must not be null");
+        Objects.requireNonNull(carryOverState, "carryOverState must not be null");
         outcomes = List.copyOf(outcomes);
     }
 }

@@ -15,8 +15,9 @@ import tools.jackson.databind.ObjectMapper;
 public class SecurityConfig {
 
     @Bean
+    @SuppressWarnings("java:S4502") // CSRF disabled: stateless JWT bearer resource server with no cookies
     public SecurityFilterChain securityFilterChain(
-            HttpSecurity http, ObjectMapper objectMapper, BearerTokenResolver bearerTokenResolver) throws Exception {
+            HttpSecurity http, ObjectMapper objectMapper, BearerTokenResolver bearerTokenResolver) {
         return http.csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.requestMatchers("/actuator/health/**", "/actuator/prometheus")

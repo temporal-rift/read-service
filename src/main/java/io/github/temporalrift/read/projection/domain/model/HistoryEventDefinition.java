@@ -8,11 +8,11 @@ import java.util.UUID;
 public record HistoryEventDefinition(UUID eventId, int revealIndex, String title, List<EventOutcome> outcomes) {
 
     public HistoryEventDefinition {
-        eventId = Objects.requireNonNull(eventId, "eventId must not be null");
+        Objects.requireNonNull(eventId, "eventId must not be null");
         if (revealIndex < 0) {
             throw new IllegalArgumentException("revealIndex must not be negative");
         }
-        title = Objects.requireNonNull(title, "title must not be null");
+        Objects.requireNonNull(title, "title must not be null");
         if (title.isBlank()) {
             throw new IllegalArgumentException("title must not be blank");
         }

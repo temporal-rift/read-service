@@ -7,7 +7,7 @@ import java.util.UUID;
 public record ResolvedOutcomeReference(UUID eventId, UUID winningOutcomeId) {
 
     public ResolvedOutcomeReference {
-        eventId = Objects.requireNonNull(eventId, "eventId must not be null");
-        winningOutcomeId = Objects.requireNonNull(winningOutcomeId, "winningOutcomeId must not be null");
+        Objects.requireNonNull(eventId, "eventId must not be null");
+        Objects.requireNonNull(winningOutcomeId, "winningOutcomeId must not be null");
     }
 }

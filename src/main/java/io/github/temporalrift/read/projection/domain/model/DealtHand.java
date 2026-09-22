@@ -8,7 +8,7 @@ import java.util.UUID;
 public record DealtHand(UUID playerId, List<DealtCard> cards) {
 
     public DealtHand {
-        playerId = Objects.requireNonNull(playerId, "playerId must not be null");
+        Objects.requireNonNull(playerId, "playerId must not be null");
         cards = List.copyOf(cards);
     }
 }

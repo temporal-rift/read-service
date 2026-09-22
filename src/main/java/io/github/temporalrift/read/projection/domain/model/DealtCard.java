@@ -7,9 +7,9 @@ import java.util.UUID;
 public record DealtCard(UUID cardInstanceId, String cardType, String grade, int dealSlot) {
 
     public DealtCard {
-        cardInstanceId = Objects.requireNonNull(cardInstanceId, "cardInstanceId must not be null");
-        cardType = Objects.requireNonNull(cardType, "cardType must not be null");
-        grade = Objects.requireNonNull(grade, "grade must not be null");
+        Objects.requireNonNull(cardInstanceId, "cardInstanceId must not be null");
+        Objects.requireNonNull(cardType, "cardType must not be null");
+        Objects.requireNonNull(grade, "grade must not be null");
     }
 
     public DealtCard(UUID cardInstanceId, String cardType) {

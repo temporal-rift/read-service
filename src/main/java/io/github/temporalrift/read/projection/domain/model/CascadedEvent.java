@@ -7,8 +7,8 @@ import java.util.UUID;
 public record CascadedEvent(UUID eventId, String title) {
 
     public CascadedEvent {
-        eventId = Objects.requireNonNull(eventId, "eventId must not be null");
-        title = Objects.requireNonNull(title, "title must not be null");
+        Objects.requireNonNull(eventId, "eventId must not be null");
+        Objects.requireNonNull(title, "title must not be null");
         if (title.isBlank()) {
             throw new IllegalArgumentException("title must not be blank");
         }

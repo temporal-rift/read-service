@@ -35,7 +35,8 @@ class NotificationSessionTest {
 
         session.deliver(NotificationMessage.event("ParadoxCascaded", null, null));
 
-        assertThatThrownBy(() -> session.deliver(NotificationMessage.event("OutcomeApplied", null, null)))
+        var overflow = NotificationMessage.event("OutcomeApplied", null, null);
+        assertThatThrownBy(() -> session.deliver(overflow))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Notification session initialization buffer is full");
     }

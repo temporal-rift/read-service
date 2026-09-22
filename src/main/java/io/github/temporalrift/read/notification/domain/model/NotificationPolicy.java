@@ -35,12 +35,6 @@ public final class NotificationPolicy {
             "HandCardIntercepted",
             "PlayerJammed",
             "ThreadRejected");
-    private static final Set<String> NEVER = Set.of(
-            "CardPlayed",
-            "SpecialActionPlayed",
-            "ParadoxResolutionCardPlayed",
-            "ProbabilityStateCalculated",
-            "EraResolutionCompleted");
     private static final Set<String> BROADCAST = Set.of(
             "LobbyCreated",
             "PlayerJoinedLobby",
