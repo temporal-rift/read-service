@@ -1303,7 +1303,8 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.RESOLUTION)));
 
         applier.applyParadoxResolutionPhaseStarted(
-                new ParadoxResolutionPhaseStartedPayload(gameId, 1, List.of(paradox1, paradox2), 60), Instant.EPOCH);
+                new ParadoxResolutionPhaseStartedPayload(gameId, 1, List.of(paradox1, paradox2), List.of(), 60),
+                Instant.EPOCH);
 
         then(gameProjections)
                 .should()
@@ -1380,7 +1381,7 @@ class ProjectionEventApplierTest {
         var paradoxId = UUID.randomUUID();
 
         applier.applyParadoxResolutionPhaseStarted(
-                new ParadoxResolutionPhaseStartedPayload(gameId, 1, List.of(paradoxId), 60), Instant.EPOCH);
+                new ParadoxResolutionPhaseStartedPayload(gameId, 1, List.of(paradoxId), List.of(), 60), Instant.EPOCH);
 
         then(gameProjections)
                 .should()
@@ -1434,7 +1435,7 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
 
         applier.applyParadoxResolutionPhaseStarted(
-                new ParadoxResolutionPhaseStartedPayload(gameId, 2, List.of(paradoxId), 60), Instant.EPOCH);
+                new ParadoxResolutionPhaseStartedPayload(gameId, 2, List.of(paradoxId), List.of(), 60), Instant.EPOCH);
 
         then(gameProjections)
                 .should()
@@ -1457,7 +1458,8 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ERA_END)));
 
         applier.applyParadoxResolutionPhaseStarted(
-                new ParadoxResolutionPhaseStartedPayload(gameId, 1, List.of(UUID.randomUUID()), 60), Instant.EPOCH);
+                new ParadoxResolutionPhaseStartedPayload(gameId, 1, List.of(UUID.randomUUID()), List.of(), 60),
+                Instant.EPOCH);
 
         then(gameProjections).should(never()).save(any());
     }
@@ -1468,7 +1470,8 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));
 
         applier.applyParadoxResolutionPhaseStarted(
-                new ParadoxResolutionPhaseStartedPayload(gameId, 1, List.of(UUID.randomUUID()), 60), Instant.EPOCH);
+                new ParadoxResolutionPhaseStartedPayload(gameId, 1, List.of(UUID.randomUUID()), List.of(), 60),
+                Instant.EPOCH);
 
         then(gameProjections).should(never()).save(any());
     }
