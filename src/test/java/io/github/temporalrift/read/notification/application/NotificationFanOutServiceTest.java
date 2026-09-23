@@ -43,6 +43,60 @@ class NotificationFanOutServiceTest {
         verify(recipient, times(1)).send(any());
     }
 
+    @Test
+    void broadcastsCascadeWithoutExactCarryForwardWeightsToEveryPlayer() {
+        var gameId = UUID.randomUUID();
+        var first = mock(NotificationDeliveryPort.class);
+        var second = mock(NotificationDeliveryPort.class);
+        var registry = new NotificationSessionRegistry();
+        registry.register(activeSession("first", gameId, UUID.randomUUID(), first));
+        registry.register(activeSession("second", gameId, UUID.randomUUID(), second));
+        var service = new NotificationFanOutService(new NotificationPolicy(), registry, new ObjectMapper());
+
+        service.fanOut(message(gameId, "ParadoxCascaded", """
+                {"affectedEventId":"%s","carryForwardProbabilityState":[
+                  {"outcomeId":"%s","probability":50}
+                ]}
+                """.formatted(UUID.randomUUID(), UUID.randomUUID())));
+
+        var firstNotification = ArgumentCaptor.forClass(NotificationMessage.class);
+        var secondNotification = ArgumentCaptor.forClass(NotificationMessage.class);
+        verify(first).send(firstNotification.capture());
+        verify(second).send(secondNotification.capture());
+        assertThat(firstNotification.getValue().payload().has("carryForwardProbabilityState"))
+                .isFalse();
+        assertThat(secondNotification.getValue().payload().has("carryForwardProbabilityState"))
+                .isFalse();
+    }
+
+    @Test
+    void broadcastsCarriedEventDrawWithoutExactWeights() {
+        var gameId = UUID.randomUUID();
+        var recipient = mock(NotificationDeliveryPort.class);
+        var registry = new NotificationSessionRegistry();
+        registry.register(activeSession("session", gameId, UUID.randomUUID(), recipient));
+        var service = new NotificationFanOutService(new NotificationPolicy(), registry, new ObjectMapper());
+
+        service.fanOut(message(gameId, "EventsDrawn", """
+                {"events":[
+                  {"carryOverState":"CASCADED","outcomes":[{"initialProbability":50}]},
+                  {"carryOverState":"FRESH","outcomes":[{"initialProbability":34}]}
+                ]}
+                """));
+
+        var notification = ArgumentCaptor.forClass(NotificationMessage.class);
+        verify(recipient).send(notification.capture());
+        var events = notification.getValue().payload().get("events");
+        assertThat(events.get(0).get("outcomes").get(0).has("initialProbability"))
+                .isFalse();
+        assertThat(events.get(1)
+                        .get("outcomes")
+                        .get(0)
+                        .get("initialProbability")
+                        .asInt())
+                .isEqualTo(34);
+    }
+
     @ParameterizedTest
     @ValueSource(
             strings = {"HandDealt", "ProbabilityStateRevealed", "PlayerJammed", "InfluenceTraced", "HandCardIntercepted"

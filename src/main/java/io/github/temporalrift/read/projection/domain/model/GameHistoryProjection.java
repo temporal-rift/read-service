@@ -72,14 +72,13 @@ public record GameHistoryProjection(
                 closed);
     }
 
-    public GameHistoryProjection recordCascade(
-            UUID eventId, List<CarryForwardProbability> carryForwardProbabilityState) {
+    public GameHistoryProjection recordCascade(UUID eventId) {
         if (cascadedEventReferences.stream()
                 .anyMatch(reference -> reference.eventId().equals(eventId))) {
             return this;
         }
         var references = new ArrayList<>(cascadedEventReferences);
-        references.add(new CascadedEventReference(eventId, carryForwardProbabilityState));
+        references.add(new CascadedEventReference(eventId));
         return copy(
                 eventDefinitions,
                 resolvedOutcomeReferences,

@@ -16,7 +16,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.ObjectMapper;
 
 import io.github.temporalrift.read.ReadServiceIntegrationTest;
-import io.github.temporalrift.read.projection.domain.model.CarryForwardProbability;
+import io.github.temporalrift.read.projection.domain.model.CascadedEventReference;
 import io.github.temporalrift.read.projection.domain.model.DealtCard;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
 import io.github.temporalrift.read.projection.domain.model.GameHistoryProjection;
@@ -46,10 +46,9 @@ class GameHistoryPersistenceIT {
         var gameId = UUID.randomUUID();
         var eventId = UUID.randomUUID();
         var outcomeId = UUID.randomUUID();
-        var carryForwardProbability = new CarryForwardProbability(outcomeId, 45);
         var history = history(gameId, 1, eventId, outcomeId)
                 .recordResolvedOutcome(eventId, outcomeId)
-                .recordCascade(eventId, List.of(carryForwardProbability))
+                .recordCascade(eventId)
                 .close(1);
 
         save(history);
@@ -58,8 +57,7 @@ class GameHistoryPersistenceIT {
         assertThat(restored.resolvedOutcomes().getFirst().winningOutcomeDescription())
                 .isEqualTo("Outcome 1");
         assertThat(restored.cascadedEvents().getFirst().title()).isEqualTo("Event 1");
-        assertThat(restored.cascadedEventReferences().getFirst().carryForwardProbabilityState())
-                .containsExactly(carryForwardProbability);
+        assertThat(restored.cascadedEventReferences()).containsExactly(new CascadedEventReference(eventId));
         assertThat(restored.paradoxesCascaded()).isEqualTo(1);
         assertThat(restored.closed()).isTrue();
     }
@@ -120,7 +118,7 @@ class GameHistoryPersistenceIT {
             var first = load(firstManager, gameId);
             var second = load(secondManager, gameId);
             first.updateFrom(first.toDomain(objectMapper).recordResolvedOutcome(eventId, outcomeId), objectMapper);
-            second.updateFrom(second.toDomain(objectMapper).recordCascade(eventId, List.of()), objectMapper);
+            second.updateFrom(second.toDomain(objectMapper).recordCascade(eventId), objectMapper);
 
             firstManager.getTransaction().commit();
 

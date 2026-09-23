@@ -25,7 +25,7 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Ha
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.OutcomeAppliedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedProbabilityState;
-import io.github.temporalrift.read.projection.domain.model.CarryForwardProbability;
+import io.github.temporalrift.read.projection.domain.model.CascadedEventReference;
 import io.github.temporalrift.read.projection.domain.model.DealtCard;
 import io.github.temporalrift.read.projection.domain.model.GameHistoryProjection;
 import io.github.temporalrift.read.projection.domain.port.out.GameHistoryRepository;
@@ -67,8 +67,7 @@ class GameHistoryEventApplierTest {
 
         assertThat(history().cascadedEvents()).hasSize(1);
         assertThat(history().paradoxesCascaded()).isEqualTo(1);
-        assertThat(history().cascadedEventReferences().getFirst().carryForwardProbabilityState())
-                .containsExactly(new CarryForwardProbability(outcomeId, 45));
+        assertThat(history().cascadedEventReferences()).containsExactly(new CascadedEventReference(eventId));
     }
 
     @Test

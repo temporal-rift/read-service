@@ -2,7 +2,6 @@ package io.github.temporalrift.read.notification.application;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.Set;
 import java.util.UUID;
 
 import org.slf4j.Logger;
@@ -11,7 +10,6 @@ import org.springframework.messaging.Message;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.node.ObjectNode;
 
 import io.github.temporalrift.read.notification.application.port.in.FanOutNotificationUseCase;
 import io.github.temporalrift.read.notification.domain.model.NotificationMessage;
@@ -53,7 +51,7 @@ class NotificationFanOutService implements FanOutNotificationUseCase {
             fanOutScoresUpdated(gameId, rawPayload, occurredAt);
             return;
         }
-        var payload = redact(rawPayload, policy.identityFieldsToRedact(eventType));
+        var payload = policy.publicPayloadFor(eventType, rawPayload);
         var notification = NotificationMessage.event(eventType, occurredAt, payload);
         var targetPlayerId = delivery == NotificationPolicy.Delivery.TARGETED ? uuid(payload, "playerId") : null;
         if (delivery == NotificationPolicy.Delivery.TARGETED && targetPlayerId == null) {
@@ -89,14 +87,6 @@ class NotificationFanOutService implements FanOutNotificationUseCase {
 
     private JsonNode payload(Object value) {
         return value instanceof byte[] bytes ? objectMapper.readTree(bytes) : objectMapper.valueToTree(value);
-    }
-
-    private static JsonNode redact(JsonNode payload, Set<String> fieldsToRedact) {
-        if (fieldsToRedact.isEmpty() || !(payload instanceof ObjectNode objectPayload)) {
-            return payload;
-        }
-        fieldsToRedact.forEach(objectPayload::remove);
-        return objectPayload;
     }
 
     private static UUID uuidHeader(Message<?> message, String name) {
