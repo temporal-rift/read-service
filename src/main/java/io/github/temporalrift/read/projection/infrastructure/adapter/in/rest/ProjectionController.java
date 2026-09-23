@@ -2,6 +2,7 @@ package io.github.temporalrift.read.projection.infrastructure.adapter.in.rest;
 
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -17,11 +18,15 @@ class ProjectionController implements ProjectionApi {
 
     private final GetPlayerGameStateUseCase getPlayerGameStateUseCase;
     private final GetGameHistoryUseCase getGameHistoryUseCase;
+    private final int maxEras;
 
     ProjectionController(
-            GetPlayerGameStateUseCase getPlayerGameStateUseCase, GetGameHistoryUseCase getGameHistoryUseCase) {
+            GetPlayerGameStateUseCase getPlayerGameStateUseCase,
+            GetGameHistoryUseCase getGameHistoryUseCase,
+            @Value("${game.rules.max-eras}") int maxEras) {
         this.getPlayerGameStateUseCase = getPlayerGameStateUseCase;
         this.getGameHistoryUseCase = getGameHistoryUseCase;
+        this.maxEras = maxEras;
     }
 
     @Override
@@ -33,6 +38,6 @@ class ProjectionController implements ProjectionApi {
     @Override
     public ResponseEntity<PlayerGameStateResponse> getGameState(UUID gameId) {
         var result = getPlayerGameStateUseCase.get(gameId, CurrentPlayer.id());
-        return ResponseEntity.ok(ProjectionRestMapper.toResponse(result));
+        return ResponseEntity.ok(ProjectionRestMapper.toResponse(result, maxEras));
     }
 }

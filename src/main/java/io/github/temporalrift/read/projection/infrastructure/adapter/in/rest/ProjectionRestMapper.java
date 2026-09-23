@@ -54,7 +54,7 @@ final class ProjectionRestMapper {
 
     private ProjectionRestMapper() {}
 
-    static PlayerGameStateResponse toResponse(GetPlayerGameStateUseCase.Result result) {
+    static PlayerGameStateResponse toResponse(GetPlayerGameStateUseCase.Result result, int maxEras) {
         var myRevealedIntel = result.myRevealedIntel().stream()
                 .map(ProjectionRestMapper::toRevealedIntel)
                 .toList();
@@ -64,7 +64,7 @@ final class ProjectionRestMapper {
                 io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.Phase.valueOf(
                         result.phase().name()),
                 result.myHand().stream()
-                        .map(card -> toHandCard(card, result.phase(), result.eraNumber()))
+                        .map(card -> toHandCard(card, result.phase(), result.eraNumber(), maxEras))
                         .toList(),
                 result.myScore(),
                 myRevealedIntel,
@@ -305,18 +305,22 @@ final class ProjectionRestMapper {
     }
 
     private static HandCard toHandCard(
-            io.github.temporalrift.read.projection.domain.model.HandCard domain, Phase phase, int eraNumber) {
+            io.github.temporalrift.read.projection.domain.model.HandCard domain,
+            Phase phase,
+            int eraNumber,
+            int maxEras) {
         return new HandCard(
                 domain.cardInstanceId(),
                 domain.cardType(),
                 toCardGrade(domain.grade()),
-                isPlayableThisRound(domain.cardType(), phase, eraNumber));
+                isPlayableThisRound(domain.cardType(), phase, eraNumber, maxEras));
     }
 
-    private static boolean isPlayableThisRound(String cardType, Phase phase, int eraNumber) {
+    private static boolean isPlayableThisRound(String cardType, Phase phase, int eraNumber, int maxEras) {
         return switch (cardType) {
             case "TRACE" -> !(phase == Phase.ACTION_ROUND_1 && eraNumber == 1);
             case "JAM", "SCAN", "INTERCEPT" -> phase != Phase.ACTION_ROUND_3;
+            case "STALL" -> eraNumber < maxEras;
             case "STABILIZE", "DETONATE" -> !isActionRound(phase);
             default -> true;
         };

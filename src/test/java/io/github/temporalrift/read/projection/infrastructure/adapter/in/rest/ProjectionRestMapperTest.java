@@ -28,10 +28,19 @@ import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIn
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
 import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
 import io.github.temporalrift.read.projection.domain.model.TerminalResult;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerGameStateResponse;
 
 class ProjectionRestMapperTest {
 
     private static final UUID GAME_ID = UUID.randomUUID();
+
+    private static PlayerGameStateResponse toResponse(GetPlayerGameStateUseCase.Result result) {
+        return ProjectionRestMapper.toResponse(result, 5);
+    }
+
+    private static PlayerGameStateResponse toResponse(GetPlayerGameStateUseCase.Result result, int maxEras) {
+        return ProjectionRestMapper.toResponse(result, maxEras);
+    }
 
     @ParameterizedTest
     @CsvSource({
@@ -46,6 +55,9 @@ class ProjectionRestMapperTest {
         "STABILIZE, ACTION_ROUND_2, 2, false",
         "STABILIZE, ACTION_ROUND_3, 2, false",
         "DETONATE, ACTION_ROUND_1, 2, false",
+        "STALL, ACTION_ROUND_1, 4, true",
+        "STALL, ACTION_ROUND_1, 5, false",
+        "STALL, ACTION_ROUND_3, 5, false",
         "PUSH, ACTION_ROUND_1, 1, true",
         "PUSH, ACTION_ROUND_3, 2, true",
         "PUSH, PARADOX_RESOLUTION, 2, true"
@@ -54,7 +66,7 @@ class ProjectionRestMapperTest {
         var card = new HandCard(UUID.randomUUID(), cardType);
         var result = resultWithHand(phase, eraNumber, List.of(card));
 
-        var response = ProjectionRestMapper.toResponse(result);
+        var response = toResponse(result);
 
         assertThat(response.getMyHand())
                 .singleElement()
@@ -65,11 +77,23 @@ class ProjectionRestMapperTest {
     @Test
     void toResponse_flagFlipsAsPhaseAdvancesWithoutANewHand() {
         var card = new HandCard(UUID.randomUUID(), "SCAN");
-        var round2 = ProjectionRestMapper.toResponse(resultWithHand(Phase.ACTION_ROUND_2, 1, List.of(card)));
-        var round3 = ProjectionRestMapper.toResponse(resultWithHand(Phase.ACTION_ROUND_3, 1, List.of(card)));
+        var round2 = toResponse(resultWithHand(Phase.ACTION_ROUND_2, 1, List.of(card)));
+        var round3 = toResponse(resultWithHand(Phase.ACTION_ROUND_3, 1, List.of(card)));
 
         assertThat(round2.getMyHand().getFirst().getIsPlayableThisRound()).isTrue();
         assertThat(round3.getMyHand().getFirst().getIsPlayableThisRound()).isFalse();
+    }
+
+    @Test
+    void toResponse_marksStallUnavailableAtConfiguredFinalEra() {
+        var card = new HandCard(UUID.randomUUID(), "STALL");
+
+        var beforeFinalEra = toResponse(resultWithHand(Phase.ACTION_ROUND_2, 1, List.of(card)), 2);
+        var finalEra = toResponse(resultWithHand(Phase.ACTION_ROUND_2, 2, List.of(card)), 2);
+
+        assertThat(beforeFinalEra.getMyHand().getFirst().getIsPlayableThisRound())
+                .isTrue();
+        assertThat(finalEra.getMyHand().getFirst().getIsPlayableThisRound()).isFalse();
     }
 
     @Test
@@ -86,7 +110,7 @@ class ProjectionRestMapperTest {
         var result = new GetPlayerGameStateUseCase.Result(
                 GAME_ID, 2, Phase.ACTION_ROUND_2, "ERASERS", List.of(), null, List.of(intel), 0, List.of(), List.of());
 
-        var response = ProjectionRestMapper.toResponse(result);
+        var response = toResponse(result);
 
         assertThat(response.getMyRevealedIntel()).singleElement().satisfies(revealed -> {
             assertThat(revealed.getKind().getValue()).isEqualTo("PROBABILITY");
@@ -103,7 +127,7 @@ class ProjectionRestMapperTest {
 
     @Test
     void toResponse_noIntelStillMapsAnEmptyList() {
-        var response = ProjectionRestMapper.toResponse(resultWithHand(Phase.ACTION_ROUND_2, 2, List.of()));
+        var response = toResponse(resultWithHand(Phase.ACTION_ROUND_2, 2, List.of()));
 
         assertThat(response.getMyRevealedIntel()).isEmpty();
     }
@@ -118,7 +142,7 @@ class ProjectionRestMapperTest {
         var result = new GetPlayerGameStateUseCase.Result(
                 GAME_ID, 2, Phase.ACTION_ROUND_2, "ERASERS", List.of(), null, List.of(intel), 0, List.of(), List.of());
 
-        var response = ProjectionRestMapper.toResponse(result);
+        var response = toResponse(result);
 
         assertThat(response.getMyRevealedIntel()).singleElement().satisfies(revealed -> {
             assertThat(revealed.getKind().getValue()).isEqualTo("INFLUENCE");
@@ -142,7 +166,7 @@ class ProjectionRestMapperTest {
         var result = new GetPlayerGameStateUseCase.Result(
                 GAME_ID, 2, Phase.ACTION_ROUND_2, "ERASERS", List.of(), null, List.of(intel), 0, List.of(), List.of());
 
-        var response = ProjectionRestMapper.toResponse(result);
+        var response = toResponse(result);
 
         assertThat(response.getMyRevealedIntel()).singleElement().satisfies(revealed -> {
             assertThat(revealed.getKind().getValue()).isEqualTo("HAND_CARD");
@@ -164,7 +188,7 @@ class ProjectionRestMapperTest {
         var result = new GetPlayerGameStateUseCase.Result(
                 GAME_ID, 2, Phase.ACTION_ROUND_2, "ERASERS", List.of(), null, List.of(intel), 0, List.of(), List.of());
 
-        var response = ProjectionRestMapper.toResponse(result);
+        var response = toResponse(result);
 
         assertThat(response.getMyRevealedIntel()).singleElement().satisfies(revealed -> {
             assertThat(revealed.getKind().getValue()).isEqualTo("HAND_CARD");
@@ -179,7 +203,7 @@ class ProjectionRestMapperTest {
         var result = new GetPlayerGameStateUseCase.Result(
                 GAME_ID, 2, Phase.ACTION_ROUND_2, "ERASERS", List.of(), null, List.of(intel), 0, List.of(), List.of());
 
-        var response = ProjectionRestMapper.toResponse(result);
+        var response = toResponse(result);
 
         assertThat(response.getMyRevealedIntel()).singleElement().satisfies(revealed -> {
             assertThat(revealed.getKind().getValue()).isEqualTo("INFLUENCE");
@@ -199,14 +223,14 @@ class ProjectionRestMapperTest {
             String faction, String first, String second, String third) {
         var result = resultWithFaction(faction);
 
-        var response = ProjectionRestMapper.toResponse(result);
+        var response = toResponse(result);
 
         assertThat(response.getMySpecialActions()).containsExactly(first, second, third);
     }
 
     @Test
     void toResponse_nullFactionYieldsEmptyMySpecialActions() {
-        var response = ProjectionRestMapper.toResponse(resultWithFaction(null));
+        var response = toResponse(resultWithFaction(null));
 
         assertThat(response.getMySpecialActions()).isEmpty();
     }
@@ -229,7 +253,7 @@ class ProjectionRestMapperTest {
                 null,
                 null);
 
-        var response = ProjectionRestMapper.toResponse(result);
+        var response = toResponse(result);
 
         assertThat(response.getLastRoundSummary()).satisfies(summary -> {
             assertThat(summary.getRoundNumber()).isEqualTo(2);
@@ -259,14 +283,14 @@ class ProjectionRestMapperTest {
                 3,
                 null);
 
-        var response = ProjectionRestMapper.toResponse(result);
+        var response = toResponse(result);
 
         assertThat(response.getMyJammedUntilRound()).isEqualTo(3);
     }
 
     @Test
     void toResponse_nullJammedUntilRoundMapsToNull() {
-        var response = ProjectionRestMapper.toResponse(resultWithHand(Phase.ACTION_ROUND_2, 2, List.of()));
+        var response = toResponse(resultWithHand(Phase.ACTION_ROUND_2, 2, List.of()));
 
         assertThat(response.getMyJammedUntilRound()).isNull();
     }
@@ -289,7 +313,7 @@ class ProjectionRestMapperTest {
                 null,
                 new GameChain(GAME_ID, chainId, ChainStatus.ACTIVE, 2));
 
-        var response = ProjectionRestMapper.toResponse(result);
+        var response = toResponse(result);
 
         assertThat(response.getChain()).satisfies(chain -> {
             assertThat(chain.getStatus().getValue()).isEqualTo("ACTIVE");
@@ -299,7 +323,7 @@ class ProjectionRestMapperTest {
 
     @Test
     void toResponse_noChainMapsToNull() {
-        var response = ProjectionRestMapper.toResponse(resultWithHand(Phase.ACTION_ROUND_2, 2, List.of()));
+        var response = toResponse(resultWithHand(Phase.ACTION_ROUND_2, 2, List.of()));
 
         assertThat(response.getChain()).isNull();
     }
@@ -336,7 +360,7 @@ class ProjectionRestMapperTest {
                 List.of(),
                 null);
 
-        var response = ProjectionRestMapper.toResponse(result);
+        var response = toResponse(result);
 
         assertThat(response.getRevision()).isEqualTo(41);
         assertThat(response.getLastUpdatedAt()).isEqualTo(OffsetDateTime.parse("2026-09-16T00:00:00Z"));
@@ -352,7 +376,7 @@ class ProjectionRestMapperTest {
 
     @Test
     void toResponse_absentRecoverableListsMapToNull() {
-        var response = ProjectionRestMapper.toResponse(resultWithHand(Phase.ACTION_ROUND_2, 2, List.of()));
+        var response = toResponse(resultWithHand(Phase.ACTION_ROUND_2, 2, List.of()));
 
         assertThat(response.getPublicBands()).isNull();
         assertThat(response.getDeclarations()).isNull();
@@ -375,7 +399,7 @@ class ProjectionRestMapperTest {
                 List.of(),
                 List.of());
 
-        var response = ProjectionRestMapper.toResponse(result);
+        var response = toResponse(result);
 
         assertThat(response.getPublicBands()).singleElement().satisfies(band -> {
             assertThat(band.getEventId()).isEqualTo(eventId);
@@ -408,7 +432,7 @@ class ProjectionRestMapperTest {
                         GAME_ID, 2, activist, target, 2, "SWING", targetEventId, null, targetOutcomeId, false)),
                 List.of(new PlayerSubmission(GAME_ID, playerId, 2, 1, PlayerSubmission.SubmissionKind.ACTION, "CARD")));
 
-        var response = ProjectionRestMapper.toResponse(result);
+        var response = toResponse(result);
 
         assertThat(response.getExposeFacts()).singleElement().satisfies(fact -> {
             assertThat(fact.getActivistPlayerId()).isEqualTo(activist);
@@ -499,7 +523,7 @@ class ProjectionRestMapperTest {
                         List.of(new TerminalResult.TerminalWinner(winnerId, "WEAVERS")),
                         List.of(new TerminalResult.TerminalScore(winnerId, "WEAVERS", 20))));
 
-        var response = ProjectionRestMapper.toResponse(result);
+        var response = toResponse(result);
 
         assertThat(response.getResult()).satisfies(terminal -> {
             assertThat(terminal.getEndReason().getValue()).isEqualTo("SCORE_THRESHOLD");
@@ -546,7 +570,7 @@ class ProjectionRestMapperTest {
                 List.of(),
                 new TerminalResult(GAME_ID, "FACTION_OBJECTIVE", List.of(), List.of()));
 
-        var response = ProjectionRestMapper.toResponse(result);
+        var response = toResponse(result);
 
         assertThat(response.getResult()).isNull();
     }
@@ -554,7 +578,7 @@ class ProjectionRestMapperTest {
     @Test
     void toResponse_winConditionMetWithUnanimousScoreThreshold_mapsScoreThreshold() {
         var winnerId = UUID.randomUUID();
-        var response = ProjectionRestMapper.toResponse(resultWithTerminal(new TerminalResult(
+        var response = toResponse(resultWithTerminal(new TerminalResult(
                 GAME_ID,
                 "WIN_CONDITION_MET",
                 List.of(new TerminalResult.TerminalWinner(winnerId, "WEAVERS", "SCORE_THRESHOLD")),
@@ -570,7 +594,7 @@ class ProjectionRestMapperTest {
 
     @Test
     void toResponse_winConditionMetWithMixedWinTypes_omitsResult() {
-        var response = ProjectionRestMapper.toResponse(resultWithTerminal(new TerminalResult(
+        var response = toResponse(resultWithTerminal(new TerminalResult(
                 GAME_ID,
                 "WIN_CONDITION_MET",
                 List.of(
