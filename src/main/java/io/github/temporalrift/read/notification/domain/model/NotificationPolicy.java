@@ -102,9 +102,10 @@ public final class NotificationPolicy {
         }
         var publicPayload = objectPayload.deepCopy();
         identityFieldsToRedact(eventType).forEach(publicPayload::remove);
-        switch (eventType) {
-            case "ParadoxCascaded" -> publicPayload.remove(CARRY_FORWARD_PROBABILITY_STATE_FIELD);
-            case "EventsDrawn" -> redactCarriedEventWeights(publicPayload);
+        if ("ParadoxCascaded".equals(eventType)) {
+            publicPayload.remove(CARRY_FORWARD_PROBABILITY_STATE_FIELD);
+        } else if ("EventsDrawn".equals(eventType)) {
+            redactCarriedEventWeights(publicPayload);
         }
         return publicPayload;
     }
