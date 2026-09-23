@@ -128,10 +128,12 @@ class GameHistoryEventApplierTest {
     }
 
     private ParadoxCascadedPayload paradoxCascaded() {
+        var firstParadoxId = UUID.randomUUID();
         return new ParadoxCascadedPayload(
                 gameId,
                 1,
-                UUID.randomUUID(),
+                firstParadoxId,
+                List.of(firstParadoxId, UUID.randomUUID()),
                 eventId,
                 List.of(new ParadoxCascadedProbabilityState(outcomeId, 45)),
                 null);
