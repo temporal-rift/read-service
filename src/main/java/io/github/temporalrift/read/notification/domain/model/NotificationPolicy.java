@@ -105,7 +105,6 @@ public final class NotificationPolicy {
         switch (eventType) {
             case "ParadoxCascaded" -> publicPayload.remove(CARRY_FORWARD_PROBABILITY_STATE_FIELD);
             case "EventsDrawn" -> redactCarriedEventWeights(publicPayload);
-            default -> {}
         }
         return publicPayload;
     }
