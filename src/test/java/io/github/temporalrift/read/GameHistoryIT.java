@@ -88,7 +88,7 @@ class GameHistoryIT {
                         "carryForwardProbabilityState",
                         List.of(Map.of("outcomeId", secondOutcomeId, "probability", 45))));
         awaitJsonArraySize(gameId, 2, "cascaded_event_references", 1);
-        awaitCarryForwardState(gameId, 2, secondOutcomeId, 45);
+        awaitNoCarryForwardState(gameId, 2);
         publish(
                 "game.events",
                 "EventsDrawn",
@@ -238,17 +238,14 @@ class GameHistoryIT {
                         .isEqualTo(expectedCount));
     }
 
-    private void awaitCarryForwardState(UUID gameId, int eraNumber, UUID outcomeId, int probability) {
+    private void awaitNoCarryForwardState(UUID gameId, int eraNumber) {
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
-            var state = jdbcTemplate.queryForMap("""
-                    SELECT cascaded_event_references #>> '{0,carryForwardProbabilityState,0,outcomeId}' AS outcome_id,
-                           cascaded_event_references #>> '{0,carryForwardProbabilityState,0,probability}' AS probability
+            var containsExactState = jdbcTemplate.queryForObject("""
+                    SELECT jsonb_exists(cascaded_event_references -> 0, 'carryForwardProbabilityState')
                     FROM game_history_projection
                     WHERE game_id = ? AND era_number = ?
-                    """, gameId, eraNumber);
-            assertThat(state)
-                    .containsEntry("outcome_id", outcomeId.toString())
-                    .containsEntry("probability", Integer.toString(probability));
+                    """, Boolean.class, gameId, eraNumber);
+            assertThat(containsExactState).isFalse();
         });
     }
 }

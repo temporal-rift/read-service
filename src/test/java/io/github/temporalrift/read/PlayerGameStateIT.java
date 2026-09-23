@@ -604,9 +604,10 @@ class PlayerGameStateIT {
     }
 
     @Test
-    void eventsDrawn_forFutureEra_advancesProjectionBeforeExposingEvents() throws Exception {
+    void carriedEventsDrawn_forFutureEraAdvanceProjectionWithoutExposingExactWeights() throws Exception {
         var gameId = UUID.randomUUID();
         var playerId = UUID.randomUUID();
+        var otherPlayerId = UUID.randomUUID();
         var activeEventId = UUID.randomUUID();
         var outcomeId = UUID.randomUUID();
 
@@ -620,7 +621,7 @@ class PlayerGameStateIT {
                         "lobbyId",
                         UUID.randomUUID(),
                         "playerIds",
-                        List.of(playerId),
+                        List.of(playerId, otherPlayerId),
                         "totalFactions",
                         3,
                         "deckSize",
@@ -638,7 +639,7 @@ class PlayerGameStateIT {
                         "carryOverEventIds",
                         List.of(),
                         "playerIds",
-                        List.of(playerId)));
+                        List.of(playerId, otherPlayerId)));
         awaitEraAndPhase(gameId, 1, "ERA_START");
         publish(
                 GAME_EVENTS_TOPIC,
@@ -664,7 +665,7 @@ class PlayerGameStateIT {
                                         "title",
                                         "Early next-era event",
                                         "carryOverState",
-                                        "FRESH",
+                                        "CASCADED",
                                         "outcomes",
                                         List.of(Map.of(
                                                 "outcomeId",
@@ -672,7 +673,7 @@ class PlayerGameStateIT {
                                                 "description",
                                                 "outcome",
                                                 "initialProbability",
-                                                100))))),
+                                                50))))),
                         eventsDrawnEventId)
                 .join();
         awaitProcessed(eventsDrawnEventId, "projection.game-events");
@@ -684,7 +685,17 @@ class PlayerGameStateIT {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.eraNumber").value(2))
                 .andExpect(jsonPath("$.phase").value("ERA_START"))
-                .andExpect(jsonPath("$.activeEvents[0].eventId").value(activeEventId.toString()));
+                .andExpect(jsonPath("$.activeEvents[0].eventId").value(activeEventId.toString()))
+                .andExpect(jsonPath("$.activeEvents[0].carryOverState").value("CASCADED"))
+                .andExpect(jsonPath("$.activeEvents[0].outcomes[0].initialProbability")
+                        .doesNotExist());
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(otherPlayerId)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.activeEvents[0].eventId").value(activeEventId.toString()))
+                .andExpect(jsonPath("$.activeEvents[0].outcomes[0].initialProbability")
+                        .doesNotExist());
 
         var delayedEraStartedEventId = UUID.randomUUID();
         publish(
@@ -699,7 +710,7 @@ class PlayerGameStateIT {
                                 "carryOverEventIds",
                                 List.of(),
                                 "playerIds",
-                                List.of(playerId)),
+                                List.of(playerId, otherPlayerId)),
                         delayedEraStartedEventId)
                 .join();
         awaitProcessed(delayedEraStartedEventId, "projection.game-events");

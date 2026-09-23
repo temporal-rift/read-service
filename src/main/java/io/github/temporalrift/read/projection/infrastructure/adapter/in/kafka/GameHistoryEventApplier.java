@@ -11,7 +11,6 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Ev
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandSelectedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.OutcomeAppliedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
-import io.github.temporalrift.read.projection.domain.model.CarryForwardProbability;
 import io.github.temporalrift.read.projection.domain.model.DealtCard;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
 import io.github.temporalrift.read.projection.domain.model.GameHistoryProjection;
@@ -52,13 +51,7 @@ class GameHistoryEventApplier {
     }
 
     void applyParadoxCascaded(ParadoxCascadedPayload payload) {
-        var carryForwardProbabilityState = payload.carryForwardProbabilityState().stream()
-                .map(state -> new CarryForwardProbability(state.outcomeId(), state.probability()))
-                .toList();
-        update(
-                payload.gameId(),
-                payload.eraNumber(),
-                history -> history.recordCascade(payload.affectedEventId(), carryForwardProbabilityState));
+        update(payload.gameId(), payload.eraNumber(), history -> history.recordCascade(payload.affectedEventId()));
     }
 
     void applyEraEnded(EraEndedPayload payload) {

@@ -60,6 +60,57 @@ class NotificationPolicyTest {
     }
 
     @Test
+    void publicCascadePayloadOmitsCarryForwardWeightsWithoutMutatingTheSource() {
+        var payload = objectMapper.readTree("""
+                {"affectedEventId":"%s","carryForwardProbabilityState":[
+                  {"outcomeId":"%s","probability":50}
+                ]}
+                """.formatted(UUID.randomUUID(), UUID.randomUUID()));
+
+        var publicPayload = policy.publicPayloadFor("ParadoxCascaded", payload);
+
+        assertThat(publicPayload.has("carryForwardProbabilityState")).isFalse();
+        assertThat(payload.has("carryForwardProbabilityState")).isTrue();
+    }
+
+    @Test
+    void publicEventDrawOmitsWeightsOnlyForCarriedEvents() {
+        var payload = objectMapper.readTree("""
+                {"events":[
+                  {"carryOverState":"CASCADED","outcomes":[{"initialProbability":50,"probability":50}]},
+                  {"carryOverState":"FRESH","outcomes":[{"initialProbability":34,"probability":34}]}
+                ]}
+                """);
+
+        var publicPayload = policy.publicPayloadFor("EventsDrawn", payload);
+
+        assertThat(publicPayload.get("events").get(0).get("outcomes").get(0).has("initialProbability"))
+                .isFalse();
+        assertThat(publicPayload.get("events").get(0).get("outcomes").get(0).has("probability"))
+                .isFalse();
+        assertThat(publicPayload
+                        .get("events")
+                        .get(1)
+                        .get("outcomes")
+                        .get(0)
+                        .get("initialProbability")
+                        .asInt())
+                .isEqualTo(34);
+    }
+
+    @Test
+    void privateProbabilityRevealRetainsExactWeights() {
+        var payload = objectMapper.readTree("""
+                {"playerId":"%s","outcomes":[{"outcomeId":"%s","probability":50}]}
+                """.formatted(UUID.randomUUID(), UUID.randomUUID()));
+
+        var privatePayload = policy.publicPayloadFor("ProbabilityStateRevealed", payload);
+
+        assertThat(privatePayload.get("outcomes").get(0).get("probability").asInt())
+                .isEqualTo(50);
+    }
+
+    @Test
     void scoresUpdatedKeepsFactionAndReasonOnlyForTheOwningEntry() {
         var owner = UUID.randomUUID();
         var opponent = UUID.randomUUID();

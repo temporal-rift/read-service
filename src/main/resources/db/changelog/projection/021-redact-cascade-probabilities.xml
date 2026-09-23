@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+  <changeSet id="021-redact-cascade-probabilities" author="read-service">
+    <sql>
+      UPDATE game_history_projection
+      SET cascaded_event_references = COALESCE(
+          (SELECT jsonb_agg(reference - 'carryForwardProbabilityState')
+           FROM jsonb_array_elements(cascaded_event_references) AS reference),
+          '[]'::jsonb)
+      WHERE EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements(cascaded_event_references) AS reference
+          WHERE jsonb_exists(reference, 'carryForwardProbabilityState'))
+    </sql>
+  </changeSet>
+
+</databaseChangeLog>
