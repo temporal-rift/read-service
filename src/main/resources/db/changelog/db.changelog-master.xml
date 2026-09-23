@@ -29,6 +29,5 @@
     <include file="db/changelog/projection/018-create-player-submission.xml"/>
     <include file="db/changelog/projection/019-create-game-terminal-result.xml"/>
     <include file="db/changelog/projection/020-create-game-band-correction.xml"/>
-    <include file="db/changelog/projection/021-redact-cascade-probabilities.xml"/>
 
 </databaseChangeLog>
