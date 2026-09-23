@@ -1341,9 +1341,52 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradoxId))));
 
         applier.applyParadoxCascaded(
-                new ParadoxCascadedPayload(gameId, 1, paradoxId, UUID.randomUUID(), List.of(), null));
+                new ParadoxCascadedPayload(gameId, 1, paradoxId, null, UUID.randomUUID(), List.of(), null));
 
         then(gameProjections).should().save(new GameProjection(gameId, 1, Phase.RESOLUTION, List.of()));
+    }
+
+    @Test
+    void applyParadoxCascaded_multipleFindingsOnOneEvent_closesAllAtOnce() {
+        var firstId = UUID.randomUUID();
+        var secondId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(
+                        new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(firstId, secondId))));
+
+        applier.applyParadoxCascaded(new ParadoxCascadedPayload(
+                gameId, 1, firstId, List.of(firstId, secondId), UUID.randomUUID(), List.of(), null));
+
+        then(gameProjections).should().save(new GameProjection(gameId, 1, Phase.RESOLUTION, List.of()));
+    }
+
+    @Test
+    void applyParadoxCascaded_otherEventAndNewFinding_keepsOnlyOtherEventPending() {
+        var firstEventId = UUID.randomUUID();
+        var secondEventId = UUID.randomUUID();
+        var newlyDetectedId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(
+                        new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(firstEventId, secondEventId))));
+
+        applier.applyParadoxCascaded(new ParadoxCascadedPayload(
+                gameId, 1, firstEventId, List.of(firstEventId, newlyDetectedId), UUID.randomUUID(), List.of(), null));
+
+        then(gameProjections)
+                .should()
+                .save(new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(secondEventId)));
+    }
+
+    @Test
+    void applyParadoxCascaded_replayedAfterClosure_doesNotReopenPhase() {
+        var paradoxId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.RESOLUTION, List.of())));
+
+        applier.applyParadoxCascaded(new ParadoxCascadedPayload(
+                gameId, 1, paradoxId, List.of(paradoxId), UUID.randomUUID(), List.of(), null));
+
+        then(gameProjections).should(never()).save(any());
     }
 
     @Test
@@ -1360,7 +1403,7 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradox2))));
 
         applier.applyParadoxCascaded(
-                new ParadoxCascadedPayload(gameId, 1, paradox2, UUID.randomUUID(), List.of(), null));
+                new ParadoxCascadedPayload(gameId, 1, paradox2, null, UUID.randomUUID(), List.of(), null));
 
         then(gameProjections).should().save(new GameProjection(gameId, 1, Phase.RESOLUTION, List.of()));
     }
@@ -1494,7 +1537,7 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ERA_END, List.of(paradoxId))));
 
         applier.applyParadoxCascaded(
-                new ParadoxCascadedPayload(gameId, 1, paradoxId, UUID.randomUUID(), List.of(), null));
+                new ParadoxCascadedPayload(gameId, 1, paradoxId, null, UUID.randomUUID(), List.of(), null));
 
         then(gameProjections).should(never()).save(any());
     }

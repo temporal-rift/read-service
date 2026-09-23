@@ -1,14 +1,17 @@
 package io.github.temporalrift.read.projection.infrastructure.adapter.in.kafka;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.messaging.support.MessageBuilder;
@@ -19,6 +22,7 @@ import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.C
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainCompletedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainLinkAddedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainReAnchoredPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedPayload;
 import io.github.temporalrift.read.shared.ProcessedEventPort;
 
@@ -76,6 +80,30 @@ class TimelineEventsKafkaConsumerTest {
         new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics).handle(message);
 
         then(applier).should().applyAdjustedBandsPublished(payload);
+    }
+
+    @Test
+    void handle_legacyParadoxCascade_withoutIdsDeserializesForSingleIdFallback() {
+        var eventId = UUID.randomUUID();
+        var gameId = UUID.randomUUID();
+        var paradoxId = UUID.randomUUID();
+        var affectedEventId = UUID.randomUUID();
+        var body = """
+                {"gameId":"%s","eraNumber":1,"paradoxId":"%s","affectedEventId":"%s","carryForwardProbabilityState":[]}
+                """.formatted(gameId, paradoxId, affectedEventId);
+        var message = MessageBuilder.withPayload((Object) body.getBytes(StandardCharsets.UTF_8))
+                .setHeader("eventId", eventId.toString())
+                .setHeader("eventType", "ParadoxCascaded")
+                .setHeader("version", "1")
+                .build();
+        given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(true);
+
+        new TimelineEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics).handle(message);
+
+        var captor = ArgumentCaptor.forClass(ParadoxCascadedPayload.class);
+        then(applier).should().applyParadoxCascaded(captor.capture());
+        assertThat(captor.getValue().paradoxId()).isEqualTo(paradoxId);
+        assertThat(captor.getValue().paradoxIds()).isNull();
     }
 
     @Test

@@ -903,25 +903,26 @@ class ProjectionEventApplier {
     }
 
     void applyParadoxResolved(ParadoxResolvedPayload payload) {
-        closeParadoxId(payload.gameId(), payload.eraNumber(), payload.paradoxId());
+        closeParadoxIds(payload.gameId(), payload.eraNumber(), List.of(payload.paradoxId()));
     }
 
     void applyParadoxCascaded(ParadoxCascadedPayload payload) {
-        closeParadoxId(payload.gameId(), payload.eraNumber(), payload.paradoxId());
+        var paradoxIds = payload.paradoxIds() == null ? List.of(payload.paradoxId()) : payload.paradoxIds();
+        closeParadoxIds(payload.gameId(), payload.eraNumber(), paradoxIds);
     }
 
-    private void closeParadoxId(UUID gameId, int eraNumber, UUID paradoxId) {
+    private void closeParadoxIds(UUID gameId, int eraNumber, List<UUID> paradoxIds) {
         var existing = lockGame(gameId);
         if (isSupersededOrGameEnded(eraNumber, existing)) {
             log.warn("Paradox resolution for past/ended era {} in game {} — skipping", eraNumber, gameId);
             return;
         }
-        if (!existing.pendingParadoxIds().contains(paradoxId)) {
-            log.warn("Paradox {} not pending for game {} — skipping", paradoxId, gameId);
+        if (existing.pendingParadoxIds().stream().noneMatch(paradoxIds::contains)) {
+            log.warn("Paradoxes {} not pending for game {} — skipping", paradoxIds, gameId);
             return;
         }
         var stillPending = existing.pendingParadoxIds().stream()
-                .filter(pending -> !pending.equals(paradoxId))
+                .filter(pending -> !paradoxIds.contains(pending))
                 .toList();
         var phase = stillPending.isEmpty() ? Phase.RESOLUTION : Phase.PARADOX_RESOLUTION;
         // The closing round leaves no open coordinate behind: expiry and round clear with the phase.
