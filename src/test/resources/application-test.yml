@@ -29,6 +29,10 @@ notification:
     send-buffer-size: 512KB
     max-pending-messages: 256
 
+game:
+  rules:
+    max-eras: 5
+
 logging:
   level:
     io.github.temporalrift: DEBUG
