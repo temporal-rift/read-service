@@ -396,13 +396,12 @@ class ProjectionEventApplier {
     }
 
     void applyActionRoundStarted(ActionRoundStartedPayload payload, Instant occurredAt) {
-        var phase =
-                switch (payload.roundNumber()) {
-                    case 1 -> Phase.ACTION_ROUND_1;
-                    case 2 -> Phase.ACTION_ROUND_2;
-                    case 3 -> Phase.ACTION_ROUND_3;
-                    default -> throw new IllegalArgumentException("Unsupported roundNumber " + payload.roundNumber());
-                };
+        var phase = switch (payload.roundNumber()) {
+            case 1 -> Phase.ACTION_ROUND_1;
+            case 2 -> Phase.ACTION_ROUND_2;
+            case 3 -> Phase.ACTION_ROUND_3;
+            default -> throw new IllegalArgumentException("Unsupported roundNumber " + payload.roundNumber());
+        };
         var existing = lockGame(payload.gameId());
         if (isSupersededOrGameEnded(payload.eraNumber(), existing)
                 || regressesPhaseWithinEra(existing, payload.eraNumber(), phase)) {
