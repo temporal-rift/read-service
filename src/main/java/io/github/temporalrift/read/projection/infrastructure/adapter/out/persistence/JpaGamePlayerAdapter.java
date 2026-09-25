@@ -38,6 +38,7 @@ class JpaGamePlayerAdapter implements GamePlayerRepository {
             entity.setScore(gamePlayer.score());
             entity.setConnected(gamePlayer.isConnected());
             entity.setFaction(gamePlayer.faction());
+            entity.setPlayerName(gamePlayer.playerName());
         } else {
             repository.save(GamePlayerEntity.fromDomain(UUID.randomUUID(), gameId, gamePlayer));
         }

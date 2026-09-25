@@ -100,9 +100,13 @@ class ProjectionEventApplier {
     // silently undoing the out-of-order handling below rather than complementing it.
     void applyGameStarted(GameStartedPayload payload) {
         lockGame(payload.gameId());
-        for (var playerId : payload.playerIds()) {
-            stores.gamePlayers().save(payload.gameId(), findOrCreateGamePlayer(payload.gameId(), playerId));
-            stores.playerGameStates().save(findOrCreatePlayerGameState(payload.gameId(), playerId));
+        for (var player : payload.players()) {
+            stores.gamePlayers()
+                    .save(
+                            payload.gameId(),
+                            findOrCreateGamePlayer(payload.gameId(), player.playerId())
+                                    .withPlayerName(player.playerName()));
+            stores.playerGameStates().save(findOrCreatePlayerGameState(payload.gameId(), player.playerId()));
         }
     }
 
@@ -273,8 +277,7 @@ class ProjectionEventApplier {
 
     private void setConnected(UUID gameId, UUID playerId, boolean connected) {
         var existing = findOrCreateGamePlayer(gameId, playerId);
-        stores.gamePlayers()
-                .save(gameId, new GamePlayer(existing.playerId(), existing.score(), connected, existing.faction()));
+        stores.gamePlayers().save(gameId, existing.withConnected(connected));
     }
 
     private GamePlayer findOrCreateGamePlayer(UUID gameId, UUID playerId) {
@@ -345,14 +348,8 @@ class ProjectionEventApplier {
         for (var finalScore : payload.finalScores()) {
             stores.gamePlayers()
                     .findByGameIdAndPlayerId(payload.gameId(), finalScore.playerId())
-                    .ifPresent(existingPlayer -> stores.gamePlayers()
-                            .save(
-                                    payload.gameId(),
-                                    new GamePlayer(
-                                            existingPlayer.playerId(),
-                                            finalScore.score(),
-                                            existingPlayer.isConnected(),
-                                            existingPlayer.faction())));
+                    .ifPresent(existingPlayer ->
+                            stores.gamePlayers().save(payload.gameId(), existingPlayer.withScore(finalScore.score())));
         }
     }
 
@@ -363,11 +360,7 @@ class ProjectionEventApplier {
                     .ifPresent(existing -> stores.gamePlayers()
                             .save(
                                     payload.gameId(),
-                                    new GamePlayer(
-                                            existing.playerId(),
-                                            existing.score(),
-                                            existing.isConnected(),
-                                            reveal.faction().name())));
+                                    existing.withFaction(reveal.faction().name())));
         }
     }
 
@@ -532,14 +525,8 @@ class ProjectionEventApplier {
         for (var update : payload.updates()) {
             stores.gamePlayers()
                     .findByGameIdAndPlayerId(payload.gameId(), update.playerId())
-                    .ifPresent(existing -> stores.gamePlayers()
-                            .save(
-                                    payload.gameId(),
-                                    new GamePlayer(
-                                            existing.playerId(),
-                                            update.newTotal(),
-                                            existing.isConnected(),
-                                            existing.faction())));
+                    .ifPresent(existing ->
+                            stores.gamePlayers().save(payload.gameId(), existing.withScore(update.newTotal())));
         }
     }
 

@@ -32,24 +32,35 @@ class GamePlayerEntity {
     @Column(name = "faction")
     private String faction;
 
+    @Column(name = "player_name")
+    private String playerName;
+
     protected GamePlayerEntity() {}
 
-    GamePlayerEntity(UUID id, UUID gameId, UUID playerId, int score, boolean isConnected, String faction) {
+    GamePlayerEntity(
+            UUID id, UUID gameId, UUID playerId, int score, boolean isConnected, String faction, String playerName) {
         this.id = id;
         this.gameId = gameId;
         this.playerId = playerId;
         this.score = score;
         this.isConnected = isConnected;
         this.faction = faction;
+        this.playerName = playerName;
     }
 
     static GamePlayerEntity fromDomain(UUID id, UUID gameId, GamePlayer domain) {
         return new GamePlayerEntity(
-                id, gameId, domain.playerId(), domain.score(), domain.isConnected(), domain.faction());
+                id,
+                gameId,
+                domain.playerId(),
+                domain.score(),
+                domain.isConnected(),
+                domain.faction(),
+                domain.playerName());
     }
 
     GamePlayer toDomain() {
-        return new GamePlayer(playerId, score, isConnected, faction);
+        return new GamePlayer(playerId, score, isConnected, faction, playerName);
     }
 
     UUID getId() {
@@ -70,6 +81,10 @@ class GamePlayerEntity {
 
     void setConnected(boolean connected) {
         isConnected = connected;
+    }
+
+    void setPlayerName(String playerName) {
+        this.playerName = playerName;
     }
 
     void setFaction(String faction) {

@@ -79,8 +79,8 @@ class PlayerGameStateIT {
                         gameId,
                         "lobbyId",
                         UUID.randomUUID(),
-                        "playerIds",
-                        List.of(player1, player2),
+                        "players",
+                        roster(player1, player2),
                         "totalFactions",
                         3,
                         "deckSize",
@@ -231,8 +231,8 @@ class PlayerGameStateIT {
                         gameId,
                         "lobbyId",
                         UUID.randomUUID(),
-                        "playerIds",
-                        List.of(player1, player2),
+                        "players",
+                        roster(player1, player2),
                         "totalFactions",
                         3,
                         "deckSize",
@@ -251,6 +251,10 @@ class PlayerGameStateIT {
         mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
                         .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(player2)))))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.players[?(@.playerId == '%s')].playerName", player1)
+                        .value(contains("Player 1")))
+                .andExpect(jsonPath("$.players[?(@.playerId == '%s')].playerName", player2)
+                        .value(contains("Player 2")))
                 // faction is omitted (default-property-inclusion: non_null), not present-with-null, when unset.
                 .andExpect(jsonPath("$.players[?(@.playerId=='" + player1 + "')].faction")
                         .isEmpty());
@@ -495,8 +499,8 @@ class PlayerGameStateIT {
                         gameId,
                         "lobbyId",
                         UUID.randomUUID(),
-                        "playerIds",
-                        List.of(player1),
+                        "players",
+                        roster(player1),
                         "totalFactions",
                         3,
                         "deckSize",
@@ -585,8 +589,8 @@ class PlayerGameStateIT {
                                 gameId,
                                 "lobbyId",
                                 UUID.randomUUID(),
-                                "playerIds",
-                                List.of(playerId),
+                                "players",
+                                roster(playerId),
                                 "totalFactions",
                                 3,
                                 "deckSize",
@@ -622,8 +626,8 @@ class PlayerGameStateIT {
                         gameId,
                         "lobbyId",
                         UUID.randomUUID(),
-                        "playerIds",
-                        List.of(playerId, otherPlayerId),
+                        "players",
+                        roster(playerId, otherPlayerId),
                         "totalFactions",
                         3,
                         "deckSize",
@@ -735,8 +739,8 @@ class PlayerGameStateIT {
                         gameId,
                         "lobbyId",
                         UUID.randomUUID(),
-                        "playerIds",
-                        List.of(suppressedPlayer, otherPlayer),
+                        "players",
+                        roster(suppressedPlayer, otherPlayer),
                         "totalFactions",
                         3,
                         "deckSize",
@@ -829,8 +833,8 @@ class PlayerGameStateIT {
                         gameId,
                         "lobbyId",
                         UUID.randomUUID(),
-                        "playerIds",
-                        List.of(player1, player2),
+                        "players",
+                        roster(player1, player2),
                         "totalFactions",
                         3,
                         "deckSize",
@@ -946,8 +950,8 @@ class PlayerGameStateIT {
                         gameId,
                         "lobbyId",
                         UUID.randomUUID(),
-                        "playerIds",
-                        List.of(participant),
+                        "players",
+                        roster(participant),
                         "totalFactions",
                         3,
                         "deckSize",
@@ -1014,8 +1018,8 @@ class PlayerGameStateIT {
                         gameId,
                         "lobbyId",
                         UUID.randomUUID(),
-                        "playerIds",
-                        List.of(scanningPlayerId, otherPlayerId),
+                        "players",
+                        roster(scanningPlayerId, otherPlayerId),
                         "totalFactions",
                         3,
                         "deckSize",
@@ -1111,8 +1115,8 @@ class PlayerGameStateIT {
                         gameId,
                         "lobbyId",
                         UUID.randomUUID(),
-                        "playerIds",
-                        List.of(tracingPlayerId, otherPlayerId),
+                        "players",
+                        roster(tracingPlayerId, otherPlayerId),
                         "totalFactions",
                         3,
                         "deckSize",
@@ -1212,8 +1216,8 @@ class PlayerGameStateIT {
                         gameId,
                         "lobbyId",
                         UUID.randomUUID(),
-                        "playerIds",
-                        List.of(interceptingPlayerId, targetPlayerId, otherPlayerId),
+                        "players",
+                        roster(interceptingPlayerId, targetPlayerId, otherPlayerId),
                         "totalFactions",
                         3,
                         "deckSize",
@@ -1722,5 +1726,12 @@ class PlayerGameStateIT {
                     eventId);
             assertThat(probability).isEqualTo(expectedProbability);
         });
+    }
+
+    private static List<Map<String, Object>> roster(UUID... playerIds) {
+        return java.util.stream.IntStream.range(0, playerIds.length)
+                .mapToObj(seat ->
+                        Map.<String, Object>of("playerId", playerIds[seat], "playerName", "Player " + (seat + 1)))
+                .toList();
     }
 }
