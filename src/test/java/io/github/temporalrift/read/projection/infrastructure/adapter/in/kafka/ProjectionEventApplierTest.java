@@ -227,6 +227,26 @@ class ProjectionEventApplierTest {
     }
 
     @Test
+    void applyGameStarted_withContractMaxLengthName_storesItUnchanged() {
+        var player1 = UUID.randomUUID();
+        var player2 = UUID.randomUUID();
+        var maxName = "A".repeat(32);
+        var otherMaxName = "B".repeat(32);
+        given(gamePlayers.findByGameIdAndPlayerId(eq(gameId), any())).willReturn(Optional.empty());
+        given(playerGameStates.findByGameIdAndPlayerId(eq(gameId), any())).willReturn(Optional.empty());
+
+        applier.applyGameStarted(new GameStartedPayload(
+                gameId,
+                UUID.randomUUID(),
+                List.of(new GameStartedPlayer(player1, maxName), new GameStartedPlayer(player2, otherMaxName)),
+                3,
+                30));
+
+        then(gamePlayers).should().save(gameId, new GamePlayer(player1, 0, true, null, maxName));
+        then(gamePlayers).should().save(gameId, new GamePlayer(player2, 0, true, null, otherMaxName));
+    }
+
+    @Test
     void applyGameStarted_afterActionRoundStartedAlreadyArrived_preservesNewerProjectionAndPlayerState() {
         var playerId = UUID.randomUUID();
         var existingProjection = new GameProjection(gameId, 1, Phase.ACTION_ROUND_1);
