@@ -13,6 +13,7 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Ha
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandSelectedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PlayerAbandonedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PlayerDisconnectedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PlayerJoinedLobbyPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ResolutionStartedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.TimelineCollapsedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.TimelineStabilizedPayload;
@@ -20,9 +21,8 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Wi
 
 /**
  * The {@code session-event} slice of {@code game.events} that {@link ProjectionEventApplier} actually
- * projects (design.md "Migration addendum: consumer contract adoption"). Every other {@code session-event}
- * message type falls through to the generated {@code Consumer}'s default no-op — {@code session-event}
- * carries lobby facts this projection has no read model for.
+ * projects. Every other {@code session-event}
+ * message type falls through to the generated {@code Consumer}'s default no-op.
  */
 class SessionEventDispatcher implements Consumer {
 
@@ -30,6 +30,11 @@ class SessionEventDispatcher implements Consumer {
 
     SessionEventDispatcher(ProjectionEventApplier applier) {
         this.applier = applier;
+    }
+
+    @Override
+    public void onPlayerJoinedLobby(PlayerJoinedLobbyPayload payload, EventHeaders headers) {
+        applier.applyPlayerJoinedLobby(payload, headers.gameId());
     }
 
     @Override

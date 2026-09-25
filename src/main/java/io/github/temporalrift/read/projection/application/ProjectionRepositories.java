@@ -8,6 +8,7 @@ import io.github.temporalrift.read.projection.domain.port.out.GameChainRepositor
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameProjectionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PlayerGameStateRepository;
+import io.github.temporalrift.read.projection.domain.port.out.PlayerNameRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PlayerSubmissionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PublicBandRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PublicDeclarationRepository;
@@ -18,7 +19,7 @@ import io.github.temporalrift.read.projection.domain.port.out.TerminalResultRepo
 
 /**
  * The driven-port bundle shared by the participant query and the event applier. Both read and
- * write the same thirteen projections, so both declare the same thirteen dependencies — this
+ * write the same projections, so both declare the same dependencies — this
  * record keeps that list in one place instead of duplicating it across constructors.
  */
 @Component
@@ -35,4 +36,5 @@ public record ProjectionRepositories(
         PublicDeclarationRepository publicDeclarations,
         ExposeFactRepository exposeFacts,
         PlayerSubmissionRepository playerSubmissions,
-        TerminalResultRepository terminalResults) {}
+        TerminalResultRepository terminalResults,
+        PlayerNameRepository playerNames) {}

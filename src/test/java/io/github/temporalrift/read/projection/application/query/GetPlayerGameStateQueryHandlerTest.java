@@ -7,6 +7,7 @@ import static org.mockito.BDDMockito.then;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -44,6 +45,7 @@ import io.github.temporalrift.read.projection.domain.port.out.GameChainRepositor
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameProjectionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PlayerGameStateRepository;
+import io.github.temporalrift.read.projection.domain.port.out.PlayerNameRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PlayerSubmissionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PublicBandRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PublicDeclarationRepository;
@@ -94,6 +96,9 @@ class GetPlayerGameStateQueryHandlerTest {
     @Mock
     TerminalResultRepository terminalResults;
 
+    @Mock
+    PlayerNameRepository playerNames;
+
     private GetPlayerGameStateQueryHandler handler;
 
     private final UUID gameId = UUID.randomUUID();
@@ -114,7 +119,8 @@ class GetPlayerGameStateQueryHandlerTest {
                 publicDeclarations,
                 exposeFacts,
                 playerSubmissions,
-                terminalResults));
+                terminalResults,
+                playerNames));
     }
 
     @Test
@@ -141,6 +147,25 @@ class GetPlayerGameStateQueryHandlerTest {
         assertThat(result.activeEvents()).isEqualTo(activeEvents);
         assertThat(result.lastRoundSummary()).isNull();
         assertThat(result.chain()).isNull();
+    }
+
+    @Test
+    void get_participant_attachesLobbyNamesAndLeavesUnknownNamesNull() {
+        var named = UUID.randomUUID();
+        var unnamed = UUID.randomUUID();
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of())));
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
+        given(gamePlayers.findByGameId(gameId))
+                .willReturn(List.of(new GamePlayer(named, 3, true, null), new GamePlayer(unnamed, 0, false, null)));
+        given(playerNames.findByGameId(gameId)).willReturn(Map.of(named, "Ada"));
+        given(gameActiveEvents.findByGameId(gameId)).willReturn(List.of());
+
+        var result = handler.get(gameId, playerId);
+
+        assertThat(result.players())
+                .containsExactly(new GamePlayer(named, 3, true, null, "Ada"), new GamePlayer(unnamed, 0, false, null));
     }
 
     @Test

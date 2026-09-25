@@ -33,7 +33,10 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
         var gameProjection = stores.gameProjections()
                 .findByGameId(gameId)
                 .orElseThrow(() -> new PlayerNotInGameException(gameId, playerId));
-        var players = stores.gamePlayers().findByGameId(gameId);
+        var names = stores.playerNames().findByGameId(gameId);
+        var players = stores.gamePlayers().findByGameId(gameId).stream()
+                .map(player -> player.withPlayerName(names.get(player.playerId())))
+                .toList();
         var myScore = players.stream()
                 .filter(p -> p.playerId().equals(playerId))
                 .findFirst()

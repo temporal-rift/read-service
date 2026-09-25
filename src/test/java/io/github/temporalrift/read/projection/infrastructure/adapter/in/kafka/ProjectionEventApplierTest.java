@@ -62,6 +62,7 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Ha
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandSelectedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandSelectionOrigin;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PlayerDisconnectedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PlayerJoinedLobbyPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ResolutionStartedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.TimelineCollapsedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.TimelineStabilizedPayload;
@@ -113,6 +114,7 @@ import io.github.temporalrift.read.projection.domain.port.out.GameChainRepositor
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameProjectionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PlayerGameStateRepository;
+import io.github.temporalrift.read.projection.domain.port.out.PlayerNameRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PlayerSubmissionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PublicBandRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PublicDeclarationRepository;
@@ -166,6 +168,9 @@ class ProjectionEventApplierTest {
     @Mock
     BandCorrectionRepository bandCorrections;
 
+    @Mock
+    PlayerNameRepository playerNames;
+
     private ProjectionEventApplier applier;
 
     private final UUID gameId = UUID.randomUUID();
@@ -189,8 +194,20 @@ class ProjectionEventApplierTest {
                         publicDeclarations,
                         exposeFacts,
                         playerSubmissions,
-                        terminalResults),
+                        terminalResults,
+                        playerNames),
                 bandCorrections);
+    }
+
+    @Test
+    void applyPlayerJoinedLobby_recordsTheNameUnderTheHeaderGameWithoutCreatingAPlayer() {
+        var playerId = UUID.randomUUID();
+
+        applier.applyPlayerJoinedLobby(new PlayerJoinedLobbyPayload(UUID.randomUUID(), playerId, "Ada"), gameId);
+
+        then(playerNames).should().upsert(gameId, playerId, "Ada");
+        then(gamePlayers).shouldHaveNoInteractions();
+        then(playerGameStates).shouldHaveNoInteractions();
     }
 
     @Test

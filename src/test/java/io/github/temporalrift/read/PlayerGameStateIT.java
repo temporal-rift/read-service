@@ -210,6 +210,60 @@ class PlayerGameStateIT {
     }
 
     @Test
+    void lobbyJoins_nameEveryStartedPlayer_andNeverAddLeavers() throws Exception {
+        var gameId = UUID.randomUUID();
+        var lobbyId = UUID.randomUUID();
+        var host = UUID.randomUUID();
+        var joiner = UUID.randomUUID();
+        var leaver = UUID.randomUUID();
+        var renamed = UUID.randomUUID();
+        var renameEventId = UUID.randomUUID();
+
+        publish(GAME_EVENTS_TOPIC, "PlayerJoinedLobby", gameId, lobbyJoin(lobbyId, host, "Ada"));
+        publish(GAME_EVENTS_TOPIC, "PlayerJoinedLobby", gameId, lobbyJoin(lobbyId, joiner, "Ben"));
+        publish(GAME_EVENTS_TOPIC, "PlayerJoinedLobby", gameId, lobbyJoin(lobbyId, leaver, "Lee"));
+        publish(GAME_EVENTS_TOPIC, "PlayerLeftLobby", gameId, Map.of("lobbyId", lobbyId, "playerId", leaver));
+        publish(GAME_EVENTS_TOPIC, "PlayerJoinedLobby", gameId, lobbyJoin(lobbyId, renamed, "Dee"));
+        publish(GAME_EVENTS_TOPIC, "PlayerJoinedLobby", gameId, lobbyJoin(lobbyId, renamed, "Dana"), renameEventId);
+        publish(GAME_EVENTS_TOPIC, "PlayerJoinedLobby", gameId, lobbyJoin(lobbyId, renamed, "Dana"), renameEventId);
+        publish(
+                GAME_EVENTS_TOPIC,
+                "GameStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "lobbyId",
+                        lobbyId,
+                        "playerIds",
+                        List.of(host, joiner, renamed),
+                        "totalFactions",
+                        3,
+                        "deckSize",
+                        30));
+        awaitPlayerGameStateRowExists(gameId, host);
+        awaitPlayerName(gameId, renamed, "Dana");
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(host)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.players.length()").value(3))
+                .andExpect(jsonPath("$.players[?(@.playerId == '%s')].playerName", host)
+                        .value(contains("Ada")))
+                .andExpect(jsonPath("$.players[?(@.playerId == '%s')].playerName", joiner)
+                        .value(contains("Ben")))
+                .andExpect(jsonPath("$.players[?(@.playerId == '%s')].playerName", renamed)
+                        .value(contains("Dana")))
+                .andExpect(jsonPath("$.players[?(@.playerId == '%s')]", leaver).isEmpty());
+        assertThat(jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM player_name WHERE game_id = ? AND player_id = ?",
+                        Integer.class,
+                        gameId,
+                        renamed))
+                .isEqualTo(1);
+    }
+
+    @Test
     void fullEventSequence_reflectsInGetState_andHidesFactionUntilRevealed() throws Exception {
         var gameId = UUID.randomUUID();
         var player1 = UUID.randomUUID();
@@ -1500,6 +1554,20 @@ class PlayerGameStateIT {
                                 eventId,
                                 consumer))
                         .isEqualTo(1));
+    }
+
+    private static Map<String, Object> lobbyJoin(UUID lobbyId, UUID playerId, String playerName) {
+        return Map.of("lobbyId", lobbyId, "playerId", playerId, "playerName", playerName);
+    }
+
+    private void awaitPlayerName(UUID gameId, UUID playerId, String playerName) {
+        await().atMost(Duration.ofSeconds(30))
+                .untilAsserted(() -> assertThat(jdbcTemplate.queryForList(
+                                "SELECT player_name FROM player_name WHERE game_id = ? AND player_id = ?",
+                                String.class,
+                                gameId,
+                                playerId))
+                        .containsExactly(playerName));
     }
 
     private void awaitPlayerGameStateRowExists(UUID gameId, UUID playerId) {

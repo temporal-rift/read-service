@@ -18,7 +18,7 @@ import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.Messag
 /**
  * Consumes {@code game.events} — session/action/scoring facts from game-service, spread across three
  * independently-owned {@code apis} contract modules that all publish to this one Kafka topic. Composes their
- * generated dispatchers (design.md "Migration addendum: consumer contract adoption") rather than collapsing
+ * generated dispatchers rather than collapsing
  * them into one generated artifact, so Kafka topic layout doesn't dictate dependency/code boundaries.
  */
 @Component
@@ -78,6 +78,7 @@ class GameEventsKafkaConsumer {
     // The subset of KNOWN_EVENT_TYPES that ProjectionEventApplier actually projects; gating dispatch() on
     // this avoids the generated dispatchers' eager deserialization for a known-but-unprojected type.
     private static final Set<String> APPLIED_EVENT_TYPES = Set.of(
+            io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.PLAYER_JOINED_LOBBY_EVENT_TYPE,
             io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GAME_STARTED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.FACTION_ASSIGNED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ERA_STARTED_EVENT_TYPE,
