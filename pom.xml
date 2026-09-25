@@ -54,7 +54,7 @@
         <sonar.exclusions>**/generated-sources/**/*</sonar.exclusions>
         <sonar.coverage.exclusions>**/generated-sources/**/*</sonar.coverage.exclusions>
 
-        <archunit-junit5.version>1.4.2</archunit-junit5.version>
+        <archunit-junit5.version>1.5.0</archunit-junit5.version>
         <projection-api.version>4.1.0</projection-api.version>
         <session-event.version>4.0.0</session-event.version>
         <action-event.version>4.0.1</action-event.version>
