@@ -30,6 +30,5 @@
     <include file="db/changelog/projection/019-create-game-terminal-result.xml"/>
     <include file="db/changelog/projection/020-create-game-band-correction.xml"/>
     <include file="db/changelog/projection/021-create-foresight-preview.xml"/>
-    <include file="db/changelog/projection/022-size-game-player-name-to-contract-bound.xml"/>
 
 </databaseChangeLog>
