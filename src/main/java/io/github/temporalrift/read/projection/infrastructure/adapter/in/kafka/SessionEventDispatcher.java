@@ -20,7 +20,7 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Wi
 
 /**
  * The {@code session-event} slice of {@code game.events} that {@link ProjectionEventApplier} actually
- * projects (design.md "Migration addendum: consumer contract adoption"). Every other {@code session-event}
+ * projects. Every other {@code session-event}
  * message type falls through to the generated {@code Consumer}'s default no-op — {@code session-event}
  * carries lobby facts this projection has no read model for.
  */

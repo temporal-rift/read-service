@@ -5,7 +5,7 @@
     xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
             https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
 
-  <!-- One row per (game_id, event_id) still awaiting resolution — removed on OutcomeApplied (design.md Decision 6). -->
+  <!-- One row per (game_id, event_id) still awaiting resolution — removed on OutcomeApplied. -->
   <changeSet id="003-create-game-active-event" author="read-service">
     <createTable tableName="game_active_event">
       <column name="id" type="UUID">

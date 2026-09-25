@@ -13,7 +13,7 @@ public interface GameActiveEventRepository {
 
     void deleteByGameIdAndEventId(UUID gameId, UUID eventId);
 
-    /** Defensive clear on era end — design.md Decision 6. */
+    /** Defensive clear on era end. */
     void deleteByGameId(UUID gameId);
 
     /** True once {@code OutcomeApplied} has resolved this event, regardless of cross-topic arrival order. */

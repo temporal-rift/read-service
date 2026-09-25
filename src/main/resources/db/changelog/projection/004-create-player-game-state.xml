@@ -6,7 +6,7 @@
             https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
 
   <!--
-      One row per (game_id, player_id) — the only genuinely private, per-viewer state (design.md Decision 1).
+      One row per (game_id, player_id) — the only genuinely private, per-viewer state.
       Its existence for a (game_id, player_id) pair is itself the "is this player a participant" signal.
   -->
   <changeSet id="004-create-player-game-state" author="read-service">
