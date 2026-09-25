@@ -424,8 +424,8 @@ class RecoverableParticipantViewIT {
                                 gameId,
                                 "lobbyId",
                                 UUID.randomUUID(),
-                                "playerIds",
-                                List.of(playerIds),
+                                "players",
+                                roster(playerIds),
                                 "totalFactions",
                                 3,
                                 "deckSize",
@@ -530,5 +530,12 @@ class RecoverableParticipantViewIT {
                                 playerId,
                                 eraNumber))
                         .isEqualTo(count));
+    }
+
+    private static List<Map<String, Object>> roster(UUID... playerIds) {
+        return java.util.stream.IntStream.range(0, playerIds.length)
+                .mapToObj(seat ->
+                        Map.<String, Object>of("playerId", playerIds[seat], "playerName", "Player " + (seat + 1)))
+                .toList();
     }
 }

@@ -376,6 +376,7 @@ final class ProjectionRestMapper {
     private static PlayerInGame toPlayerInGame(GamePlayer domain) {
         var playerInGame = new PlayerInGame(domain.playerId(), domain.score(), domain.isConnected());
         playerInGame.setFaction(domain.faction());
+        playerInGame.setPlayerName(domain.playerName());
         return playerInGame;
     }
 }

@@ -57,6 +57,7 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Fa
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GameEndedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GameEndedPlayerScoreResult;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GameStartedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GameStartedPlayer;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandDealtCardInstance;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandDealtPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandSelectedPayload;
@@ -194,17 +195,22 @@ class ProjectionEventApplierTest {
     }
 
     @Test
-    void applyGameStarted_usesEnsuredProjectionAnchorAndCreatesOneRowPerPlayer() {
+    void applyGameStarted_usesEnsuredProjectionAnchorAndCreatesOneNamedRowPerPlayer() {
         var player1 = UUID.randomUUID();
         var player2 = UUID.randomUUID();
         given(gamePlayers.findByGameIdAndPlayerId(eq(gameId), any())).willReturn(Optional.empty());
         given(playerGameStates.findByGameIdAndPlayerId(eq(gameId), any())).willReturn(Optional.empty());
 
-        applier.applyGameStarted(new GameStartedPayload(gameId, UUID.randomUUID(), List.of(player1, player2), 3, 30));
+        applier.applyGameStarted(new GameStartedPayload(
+                gameId,
+                UUID.randomUUID(),
+                List.of(new GameStartedPlayer(player1, "Ada"), new GameStartedPlayer(player2, "Ben")),
+                3,
+                30));
 
         then(gameProjections).should(never()).save(any());
-        then(gamePlayers).should().save(gameId, new GamePlayer(player1, 0, true, null));
-        then(gamePlayers).should().save(gameId, new GamePlayer(player2, 0, true, null));
+        then(gamePlayers).should().save(gameId, new GamePlayer(player1, 0, true, null, "Ada"));
+        then(gamePlayers).should().save(gameId, new GamePlayer(player2, 0, true, null, "Ben"));
         then(playerGameStates).should().save(new PlayerGameState(gameId, player1, null, List.of()));
         then(playerGameStates).should().save(new PlayerGameState(gameId, player2, null, List.of()));
     }
@@ -223,11 +229,12 @@ class ProjectionEventApplierTest {
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.of(existingPlayerState));
         given(gamePlayers.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.of(existingPlayer));
 
-        applier.applyGameStarted(new GameStartedPayload(gameId, UUID.randomUUID(), List.of(playerId), 3, 30));
+        applier.applyGameStarted(new GameStartedPayload(
+                gameId, UUID.randomUUID(), List.of(new GameStartedPlayer(playerId, "Ada")), 3, 30));
 
         then(gameProjections).should(never()).save(any());
         then(playerGameStates).should().save(existingPlayerState);
-        then(gamePlayers).should().save(gameId, existingPlayer);
+        then(gamePlayers).should().save(gameId, existingPlayer.withPlayerName("Ada"));
     }
 
     @Test
@@ -237,7 +244,8 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of())));
         given(gamePlayers.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
 
-        applier.applyGameStarted(new GameStartedPayload(gameId, UUID.randomUUID(), List.of(playerId), 3, 30));
+        applier.applyGameStarted(new GameStartedPayload(
+                gameId, UUID.randomUUID(), List.of(new GameStartedPlayer(playerId, "Ada")), 3, 30));
 
         then(playerGameStates).should().save(new PlayerGameState(gameId, playerId, "ERASERS", List.of()));
     }
@@ -250,7 +258,8 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new PlayerGameState(gameId, playerId, null, List.of(card))));
         given(gamePlayers.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
 
-        applier.applyGameStarted(new GameStartedPayload(gameId, UUID.randomUUID(), List.of(playerId), 3, 30));
+        applier.applyGameStarted(new GameStartedPayload(
+                gameId, UUID.randomUUID(), List.of(new GameStartedPlayer(playerId, "Ada")), 3, 30));
 
         then(playerGameStates).should().save(new PlayerGameState(gameId, playerId, null, List.of(card)));
     }
@@ -262,9 +271,10 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new GamePlayer(playerId, 0, false, null)));
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
 
-        applier.applyGameStarted(new GameStartedPayload(gameId, UUID.randomUUID(), List.of(playerId), 3, 30));
+        applier.applyGameStarted(new GameStartedPayload(
+                gameId, UUID.randomUUID(), List.of(new GameStartedPlayer(playerId, "Ada")), 3, 30));
 
-        then(gamePlayers).should().save(gameId, new GamePlayer(playerId, 0, false, null));
+        then(gamePlayers).should().save(gameId, new GamePlayer(playerId, 0, false, null, "Ada"));
     }
 
     @Test
