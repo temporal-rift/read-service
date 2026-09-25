@@ -24,7 +24,7 @@
         <constraints nullable="false"/>
       </column>
       <column name="faction" type="VARCHAR(30)"/>
-      <column name="player_name" type="VARCHAR(255)"/>
+      <column name="player_name" type="VARCHAR(32)"/>
     </createTable>
 
     <addUniqueConstraint
