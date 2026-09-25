@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.IntFunction;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.temporalrift.read.projection.application.ProjectionRepositories;
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
+import io.github.temporalrift.read.projection.domain.model.GameProjection;
 import io.github.temporalrift.read.projection.domain.model.Phase;
 import io.github.temporalrift.read.projection.domain.model.PlayerNotInGameException;
 import io.github.temporalrift.read.projection.domain.model.RevealedIntelEntry;
@@ -39,9 +41,8 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                 .findFirst()
                 .map(GamePlayer::score)
                 .orElse(0);
-        var eraOver = gameProjection.phase().isEraOver();
-        var myRevealedIntel =
-                eraOver ? List.<RevealedIntelEntry>of() : combinedIntel(gameId, playerId, gameProjection.eraNumber());
+        var myRevealedIntel = duringOpenEra(
+                gameProjection, era -> combinedIntel(gameId, playerId, era), List.<RevealedIntelEntry>of());
         var myJammedUntilRound =
                 playerGameState.effectiveJammedUntilRound(gameProjection.eraNumber(), gameProjection.phase());
         var inActionRound = isActionRound(gameProjection.phase());
@@ -83,23 +84,32 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                 gameProjection.phase() == Phase.ERA_START,
                 paradoxOpen,
                 paradoxOpen ? gameProjection.pendingParadoxIds() : List.of(),
-                eraOver ? List.of() : stores.publicBands().findByGameIdAndEraNumber(gameId, gameProjection.eraNumber()),
-                eraOver
-                        ? List.of()
-                        : stores.publicDeclarations().findByGameIdAndEraNumber(gameId, gameProjection.eraNumber()),
-                eraOver ? List.of() : stores.exposeFacts().findByGameIdAndEraNumber(gameId, gameProjection.eraNumber()),
-                eraOver
-                        ? List.of()
-                        : stores.playerSubmissions()
-                                .findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, gameProjection.eraNumber()),
+                duringOpenEra(
+                        gameProjection, era -> stores.publicBands().findByGameIdAndEraNumber(gameId, era), List.of()),
+                duringOpenEra(
+                        gameProjection,
+                        era -> stores.publicDeclarations().findByGameIdAndEraNumber(gameId, era),
+                        List.of()),
+                duringOpenEra(
+                        gameProjection, era -> stores.exposeFacts().findByGameIdAndEraNumber(gameId, era), List.of()),
+                duringOpenEra(
+                        gameProjection,
+                        era -> stores.playerSubmissions().findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, era),
+                        List.of()),
                 gameProjection.phase() == Phase.GAME_ENDED
                         ? stores.terminalResults().findByGameId(gameId).orElse(null)
                         : null,
-                eraOver
-                        ? null
-                        : stores.foresightPreviews()
-                                .findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, gameProjection.eraNumber())
-                                .orElse(null));
+                duringOpenEra(
+                        gameProjection,
+                        era -> stores.foresightPreviews()
+                                .findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, era)
+                                .orElse(null),
+                        null));
+    }
+
+    /** Era-scoped state is served only while its era is open; an ended era's rows are never read. */
+    private static <T> T duringOpenEra(GameProjection projection, IntFunction<T> currentEraRead, T whenEraOver) {
+        return projection.phase().isEraOver() ? whenEraOver : currentEraRead.apply(projection.eraNumber());
     }
 
     private static boolean isActionRound(Phase phase) {
