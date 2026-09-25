@@ -819,9 +819,9 @@ class ProjectionEventApplier {
                                 payload.links().size()));
     }
 
-    // REWEAVE replaces the chain's newest link rather than growing it, so chainLength stays equal to the
-    // tracked value rather than exceeding it — the growth-only staleness guard applyChainLinkAdded uses does not
-    // apply here; re-saving the same (chainId, ACTIVE, chainLength) shape on redelivery is already idempotent.
+    // REWEAVE only moves the pending link, so chainLength stays equal to the tracked value rather than exceeding
+    // it — the growth-only staleness guard applyChainLinkAdded uses does not apply here; re-saving the same
+    // (chainId, ACTIVE, chainLength) shape on redelivery is already idempotent.
     void applyChainReAnchored(ChainReAnchoredPayload payload) {
         if (lockGame(payload.gameId()).phase() == Phase.GAME_ENDED) {
             log.warn("ChainReAnchored for ended game {} — skipping", payload.gameId());

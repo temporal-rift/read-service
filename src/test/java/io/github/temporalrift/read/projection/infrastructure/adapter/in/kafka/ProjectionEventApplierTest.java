@@ -817,7 +817,7 @@ class ProjectionEventApplierTest {
         given(gameChains.findByGameId(gameId)).willReturn(Optional.empty());
 
         applier.applyChainLinkAdded(
-                new ChainLinkAddedPayload(gameId, chainId, playerId, UUID.randomUUID(), UUID.randomUUID(), 1, null));
+                new ChainLinkAddedPayload(gameId, chainId, playerId, UUID.randomUUID(), UUID.randomUUID(), 1, null, 1));
 
         then(gameChains).should().save(gameId, new GameChain(gameId, chainId, ChainStatus.ACTIVE, 1));
     }
@@ -831,7 +831,7 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new GameChain(gameId, chainId, ChainStatus.ACTIVE, 1)));
 
         applier.applyChainLinkAdded(new ChainLinkAddedPayload(
-                gameId, chainId, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 2, UUID.randomUUID()));
+                gameId, chainId, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 2, UUID.randomUUID(), 1));
 
         then(gameChains).should().save(gameId, new GameChain(gameId, chainId, ChainStatus.ACTIVE, 2));
     }
@@ -845,7 +845,7 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new GameChain(gameId, chainId, ChainStatus.ACTIVE, 2)));
 
         applier.applyChainLinkAdded(new ChainLinkAddedPayload(
-                gameId, chainId, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 2, UUID.randomUUID()));
+                gameId, chainId, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 2, UUID.randomUUID(), 1));
 
         then(gameChains).should(never()).save(any(), any());
     }
@@ -859,7 +859,7 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new GameChain(gameId, chainId, ChainStatus.BROKEN, 2)));
 
         applier.applyChainLinkAdded(new ChainLinkAddedPayload(
-                gameId, chainId, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 3, UUID.randomUUID()));
+                gameId, chainId, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 3, UUID.randomUUID(), 1));
 
         then(gameChains).should(never()).save(any(), any());
     }
@@ -874,7 +874,7 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new GameChain(gameId, oldChainId, ChainStatus.COMPLETED, 3)));
 
         applier.applyChainLinkAdded(new ChainLinkAddedPayload(
-                gameId, newChainId, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 1, null));
+                gameId, newChainId, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 1, null, 1));
 
         then(gameChains).should().save(gameId, new GameChain(gameId, newChainId, ChainStatus.ACTIVE, 1));
     }
@@ -886,7 +886,7 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.GAME_ENDED)));
 
         applier.applyChainLinkAdded(new ChainLinkAddedPayload(
-                gameId, chainId, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 1, null));
+                gameId, chainId, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 1, null, 1));
 
         then(gameChains).should(never()).findByGameId(any());
         then(gameChains).should(never()).save(any(), any());

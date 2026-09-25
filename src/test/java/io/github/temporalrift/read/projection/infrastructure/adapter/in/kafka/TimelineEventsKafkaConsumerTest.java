@@ -178,7 +178,14 @@ class TimelineEventsKafkaConsumerTest {
     void handle_chainLinkAdded_dispatchesTheGeneratedPayload() {
         var eventId = UUID.randomUUID();
         var payload = new ChainLinkAddedPayload(
-                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 1, null);
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                1,
+                null,
+                1);
         var message = MessageBuilder.withPayload((Object) payload)
                 .setHeader("eventId", eventId.toString())
                 .setHeader("eventType", "ChainLinkAdded")
