@@ -46,7 +46,7 @@ public record PlayerGameState(
             case ACTION_ROUND_1 -> 1;
             case ACTION_ROUND_2 -> 2;
             case ACTION_ROUND_3 -> 3;
-            case LOBBY, ERA_START -> 0;
+            case LOBBY, ERA_START, HAND_SELECTION -> 0;
             case PARADOX_RESOLUTION, RESOLUTION, ERA_END, GAME_ENDED -> 4;
         };
     }

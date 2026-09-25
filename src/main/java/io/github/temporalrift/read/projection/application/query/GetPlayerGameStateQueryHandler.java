@@ -48,10 +48,16 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
         var paradoxOpen = gameProjection.phase() == Phase.PARADOX_RESOLUTION
                 && !gameProjection.pendingParadoxIds().isEmpty();
 
+        // The projection tracks game-wide phase; the hand-selection window is per player.
+        var participantPhase =
+                gameProjection.phase() == Phase.ERA_START && playerGameState.pendingHandSelection() != null
+                        ? Phase.HAND_SELECTION
+                        : gameProjection.phase();
+
         return new Result(
                 gameId,
                 gameProjection.eraNumber(),
-                gameProjection.phase(),
+                participantPhase,
                 playerGameState.myFaction(),
                 playerGameState.myHand(),
                 playerGameState.pendingHandSelection(),

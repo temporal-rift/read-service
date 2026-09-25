@@ -317,6 +317,7 @@ class PlayerGameStateIT {
         mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
                         .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(player1)))))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.phase").value("HAND_SELECTION"))
                 .andExpect(jsonPath("$.myHand").isEmpty())
                 .andExpect(jsonPath("$.pendingHandSelection.cards.length()").value(7))
                 .andExpect(jsonPath("$.pendingHandSelection.cards[0].cardInstanceId")
@@ -352,6 +353,7 @@ class PlayerGameStateIT {
         mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
                         .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(player1)))))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.phase").value("ERA_START"))
                 .andExpect(jsonPath("$.pendingHandSelection").doesNotExist())
                 .andExpect(jsonPath("$.myHand.length()").value(5))
                 .andExpect(jsonPath("$.myHand[0].grade").value("II"));

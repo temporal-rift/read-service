@@ -971,7 +971,7 @@ class ProjectionEventApplier {
     private int phaseRank(Phase phase) {
         return switch (phase) {
             case LOBBY -> 0;
-            case ERA_START -> 1;
+            case ERA_START, HAND_SELECTION -> 1;
             case ACTION_ROUND_1 -> 2;
             case ACTION_ROUND_2 -> 3;
             case ACTION_ROUND_3 -> 4;

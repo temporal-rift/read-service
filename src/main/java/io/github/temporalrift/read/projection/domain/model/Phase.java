@@ -4,6 +4,7 @@ package io.github.temporalrift.read.projection.domain.model;
 public enum Phase {
     LOBBY,
     ERA_START,
+    HAND_SELECTION,
     ACTION_ROUND_1,
     ACTION_ROUND_2,
     ACTION_ROUND_3,
