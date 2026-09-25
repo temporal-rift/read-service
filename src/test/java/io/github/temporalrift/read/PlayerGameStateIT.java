@@ -971,6 +971,61 @@ class PlayerGameStateIT {
     }
 
     @Test
+    void gameStarted_withContractMaxLengthNames_projectsEveryPlayerUnchanged() throws Exception {
+        var gameId = UUID.randomUUID();
+        var player1 = UUID.randomUUID();
+        var player2 = UUID.randomUUID();
+        var maxName1 = "A".repeat(32);
+        var maxName2 = "B".repeat(32);
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "GameStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "lobbyId",
+                        UUID.randomUUID(),
+                        "players",
+                        List.of(
+                                Map.<String, Object>of("playerId", player1, "playerName", maxName1),
+                                Map.<String, Object>of("playerId", player2, "playerName", maxName2)),
+                        "totalFactions",
+                        3,
+                        "deckSize",
+                        30));
+        awaitPlayerGameStateRowExists(gameId, player1);
+        awaitPlayerGameStateRowExists(gameId, player2);
+
+        assertThat(jdbcTemplate.queryForObject(
+                        "SELECT player_name FROM game_player WHERE game_id = ? AND player_id = ?",
+                        String.class,
+                        gameId,
+                        player1))
+                .isEqualTo(maxName1);
+        assertThat(jdbcTemplate.queryForObject(
+                        "SELECT player_name FROM game_player WHERE game_id = ? AND player_id = ?",
+                        String.class,
+                        gameId,
+                        player2))
+                .isEqualTo(maxName2);
+        assertThat(jdbcTemplate.queryForObject(
+                        "SELECT character_maximum_length FROM information_schema.columns "
+                                + "WHERE table_name = 'game_player' AND column_name = 'player_name'",
+                        Integer.class))
+                .isEqualTo(32);
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(player1)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.players[?(@.playerId == '%s')].playerName", player1)
+                        .value(contains(maxName1)))
+                .andExpect(jsonPath("$.players[?(@.playerId == '%s')].playerName", player2)
+                        .value(contains(maxName2)));
+    }
+
+    @Test
     void publish_keysTheProducerRecordByGameId() {
         var gameId = UUID.randomUUID();
 

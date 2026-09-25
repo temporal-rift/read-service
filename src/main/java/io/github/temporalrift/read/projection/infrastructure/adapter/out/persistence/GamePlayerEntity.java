@@ -32,7 +32,7 @@ class GamePlayerEntity {
     @Column(name = "faction")
     private String faction;
 
-    @Column(name = "player_name")
+    @Column(name = "player_name", length = 32)
     private String playerName;
 
     protected GamePlayerEntity() {}
