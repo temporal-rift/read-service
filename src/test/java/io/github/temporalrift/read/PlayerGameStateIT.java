@@ -858,6 +858,8 @@ class PlayerGameStateIT {
                         "linkedOutcomeId",
                         UUID.randomUUID(),
                         "chainLength",
+                        1,
+                        "eraNumber",
                         1));
         awaitChainState(gameId, "ACTIVE", 1);
 
@@ -879,7 +881,9 @@ class PlayerGameStateIT {
                         "chainLength",
                         2,
                         "previousLinkEventId",
-                        UUID.randomUUID()));
+                        UUID.randomUUID(),
+                        "eraNumber",
+                        2));
         awaitChainState(gameId, "ACTIVE", 2);
 
         for (var playerId : List.of(player1, player2)) {
