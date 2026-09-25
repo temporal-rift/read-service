@@ -1897,12 +1897,18 @@ class PlayerGameStateIT {
     }
 
     private void awaitChainState(UUID gameId, String status, int length) {
-        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
-            var state = jdbcTemplate.queryForMap(
-                    "SELECT status, length FROM game_chain_projection WHERE game_id = ?", gameId);
-            assertThat(state).containsEntry("status", status);
-            assertThat(state).containsEntry("length", length);
-        });
+        // COUNT + assertion, not queryForMap: a missing row must retry for 30s like every other await
+        // helper here. queryForMap throws EmptyResultDataAccessException, which untilAsserted does not
+        // retry, so a slow consumer would fail this instantly instead of waiting.
+        await().atMost(Duration.ofSeconds(30))
+                .untilAsserted(() -> assertThat(jdbcTemplate.queryForObject(
+                                "SELECT COUNT(*) FROM game_chain_projection "
+                                        + "WHERE game_id = ? AND status = ? AND length = ?",
+                                Integer.class,
+                                gameId,
+                                status,
+                                length))
+                        .isEqualTo(1));
     }
 
     private void awaitProbabilityIntelProbability(
