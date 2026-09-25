@@ -39,6 +39,7 @@ public final class NotificationPolicy {
             "ProbabilityStateRevealed",
             "InfluenceTraced",
             "HandCardIntercepted",
+            "ForesightRevealed",
             "PlayerJammed",
             "ThreadRejected",
             "SpecialRejected",

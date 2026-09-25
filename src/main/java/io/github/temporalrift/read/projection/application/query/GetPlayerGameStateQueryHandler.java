@@ -94,7 +94,12 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                                 .findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, gameProjection.eraNumber()),
                 gameProjection.phase() == Phase.GAME_ENDED
                         ? stores.terminalResults().findByGameId(gameId).orElse(null)
-                        : null);
+                        : null,
+                eraOver
+                        ? null
+                        : stores.foresightPreviews()
+                                .findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, gameProjection.eraNumber())
+                                .orElse(null));
     }
 
     private static boolean isActionRound(Phase phase) {

@@ -3,6 +3,7 @@ package io.github.temporalrift.read.projection.application;
 import org.springframework.stereotype.Component;
 
 import io.github.temporalrift.read.projection.domain.port.out.ExposeFactRepository;
+import io.github.temporalrift.read.projection.domain.port.out.ForesightPreviewRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameChainRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
@@ -18,8 +19,8 @@ import io.github.temporalrift.read.projection.domain.port.out.TerminalResultRepo
 
 /**
  * The driven-port bundle shared by the participant query and the event applier. Both read and
- * write the same thirteen projections, so both declare the same thirteen dependencies — this
- * record keeps that list in one place instead of duplicating it across constructors.
+ * write the same projections, so both declare the same dependencies — this record keeps that
+ * list in one place instead of duplicating it across constructors.
  */
 @Component
 public record ProjectionRepositories(
@@ -30,6 +31,7 @@ public record ProjectionRepositories(
         RevealedProbabilityIntelRepository revealedProbabilityIntel,
         RevealedInfluenceIntelRepository revealedInfluenceIntel,
         RevealedHandCardIntelRepository revealedHandCardIntel,
+        ForesightPreviewRepository foresightPreviews,
         GameChainRepository gameChains,
         PublicBandRepository publicBands,
         PublicDeclarationRepository publicDeclarations,

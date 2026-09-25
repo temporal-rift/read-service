@@ -99,7 +99,13 @@ class NotificationFanOutServiceTest {
 
     @ParameterizedTest
     @ValueSource(
-            strings = {"HandDealt", "ProbabilityStateRevealed", "PlayerJammed", "InfluenceTraced", "HandCardIntercepted"
+            strings = {
+                "HandDealt",
+                "ProbabilityStateRevealed",
+                "PlayerJammed",
+                "InfluenceTraced",
+                "HandCardIntercepted",
+                "ForesightRevealed"
             })
     void targetsViewerScopedEventToPayloadPlayerOnly(String eventType) {
         var gameId = UUID.randomUUID();

@@ -8,6 +8,7 @@ import io.github.temporalrift.read.projection.application.port.in.GetGameHistory
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
 import io.github.temporalrift.read.projection.domain.model.DealtCard;
 import io.github.temporalrift.read.projection.domain.model.ExposeFact;
+import io.github.temporalrift.read.projection.domain.model.ForesightPreview;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 import io.github.temporalrift.read.projection.domain.model.GameChain;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
@@ -31,6 +32,8 @@ import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.EventOutcome;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ExposeSignature;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.FinalScore;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ForesightPreviewEvent;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ForesightPreviewOutcome;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.GameHistoryEra;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.GameHistoryResponse;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.GameResult;
@@ -40,6 +43,7 @@ import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PendingHandSelection;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PhaseContext;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerGameStateResponse;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerGameStateResponseMyForesightPreview;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerInGame;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PublicBandEvent;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PublicBandOutcome;
@@ -77,6 +81,8 @@ final class ProjectionRestMapper {
         response.setMyFaction(result.myFaction());
         response.setMySpecialActions(toSpecialActions(result.myFaction()));
         response.setMyJammedUntilRound(result.myJammedUntilRound());
+        response.setMyForesightPreview(
+                result.myForesightPreview() == null ? null : toForesightPreview(result.myForesightPreview()));
         response.setPendingHandSelection(
                 result.pendingHandSelection() == null ? null : toPendingHandSelection(result.pendingHandSelection()));
         response.setLastRoundSummary(
@@ -114,6 +120,21 @@ final class ProjectionRestMapper {
         // Budgets and objective progress stay absent: no owner fact supplies them (see use-case docs).
         response.setResult(toGameResult(result.terminalResult()));
         return response;
+    }
+
+    private static PlayerGameStateResponseMyForesightPreview toForesightPreview(ForesightPreview domain) {
+        return new PlayerGameStateResponseMyForesightPreview(
+                        domain.nextEraNumber(),
+                        domain.revealedEvents().stream()
+                                .map(event -> new ForesightPreviewEvent(
+                                        event.catalogEventId(),
+                                        event.title(),
+                                        event.outcomes().stream()
+                                                .map(outcome -> new ForesightPreviewOutcome(
+                                                        outcome.catalogOutcomeId(), outcome.description()))
+                                                .toList()))
+                                .toList())
+                .emptyReason(domain.emptyReason());
     }
 
     private static Deadlines toDeadlines(GetPlayerGameStateUseCase.Result result) {

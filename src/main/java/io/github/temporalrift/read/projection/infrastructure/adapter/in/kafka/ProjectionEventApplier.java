@@ -27,6 +27,7 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Er
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EventsDrawnPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.FactionAssignedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.FactionRevealedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ForesightRevealedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GameEndedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GameStartedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandDealtPayload;
@@ -53,6 +54,9 @@ import io.github.temporalrift.read.projection.domain.model.CarryOverState;
 import io.github.temporalrift.read.projection.domain.model.ChainStatus;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
 import io.github.temporalrift.read.projection.domain.model.ExposeFact;
+import io.github.temporalrift.read.projection.domain.model.ForesightPreview;
+import io.github.temporalrift.read.projection.domain.model.ForesightPreviewEvent;
+import io.github.temporalrift.read.projection.domain.model.ForesightPreviewOutcome;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 import io.github.temporalrift.read.projection.domain.model.GameChain;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
@@ -298,6 +302,7 @@ class ProjectionEventApplier {
         stores.revealedProbabilityIntel().deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
         stores.revealedInfluenceIntel().deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
         stores.revealedHandCardIntel().deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
+        stores.foresightPreviews().deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
         clearRecoverableEraState(payload.gameId(), payload.eraNumber());
         // Defensive clear. Every drawn event currently gets an OutcomeApplied (no
         // cascade/paradox handling exists yet), so this is normally a no-op.
@@ -330,6 +335,7 @@ class ProjectionEventApplier {
         stores.revealedProbabilityIntel().deleteByGameId(payload.gameId());
         stores.revealedInfluenceIntel().deleteByGameId(payload.gameId());
         stores.revealedHandCardIntel().deleteByGameId(payload.gameId());
+        stores.foresightPreviews().deleteByGameId(payload.gameId());
         stores.publicBands().deleteByGameId(payload.gameId());
         bandCorrections.deleteByGameId(payload.gameId());
         stores.publicDeclarations().deleteByGameId(payload.gameId());
@@ -610,6 +616,28 @@ class ProjectionEventApplier {
                         payload.targetPlayerId(),
                         payload.roundNumber(),
                         cards));
+    }
+
+    void applyForesightRevealed(ForesightRevealedPayload payload) {
+        if (isStaleEra(payload.gameId(), payload.eraNumber(), "ForesightRevealed")) {
+            return;
+        }
+        stores.foresightPreviews()
+                .upsert(new ForesightPreview(
+                        payload.gameId(),
+                        payload.playerId(),
+                        payload.eraNumber(),
+                        payload.nextEraNumber(),
+                        payload.revealedEvents().stream()
+                                .map(event -> new ForesightPreviewEvent(
+                                        event.catalogEventId(),
+                                        event.title(),
+                                        event.outcomes().stream()
+                                                .map(outcome -> new ForesightPreviewOutcome(
+                                                        outcome.catalogOutcomeId(), outcome.description()))
+                                                .toList()))
+                                .toList(),
+                        payload.emptyReason()));
     }
 
     // Neither band publication carries a round: the preview fires when Round 2 closes and the correction

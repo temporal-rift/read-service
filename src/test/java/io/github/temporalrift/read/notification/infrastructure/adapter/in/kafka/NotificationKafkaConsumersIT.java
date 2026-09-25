@@ -20,6 +20,8 @@ import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
 import tools.jackson.databind.ObjectMapper;
 
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ForesightRevealedEvent;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ForesightRevealedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedPayload;
 import io.github.temporalrift.read.ReadServiceIntegrationTest;
 import io.github.temporalrift.read.notification.domain.model.NotificationMessage;
@@ -84,6 +86,36 @@ class NotificationKafkaConsumersIT {
             assertThat(viewer.messages()).hasSize(1);
             assertThat(otherOne.messages()).isEmpty();
             assertThat(otherTwo.messages()).isEmpty();
+        });
+    }
+
+    @Test
+    void foresightRevealed_redeliveredWireRecordReachesOnlyTheViewerOnce() {
+        var gameId = UUID.randomUUID();
+        var viewerId = UUID.randomUUID();
+        var viewer = register(gameId, viewerId);
+        var other = register(gameId, UUID.randomUUID());
+        var eventId = UUID.randomUUID();
+        var payload = new ForesightRevealedPayload(
+                gameId,
+                1,
+                viewerId,
+                2,
+                List.of(new ForesightRevealedEvent(UUID.randomUUID(), "Rise", List.of())),
+                null);
+
+        publish("game.events", gameId, eventId, "ForesightRevealed", payload);
+        publish("game.events", gameId, eventId, "ForesightRevealed", payload);
+        // Same game key, same partition: once this later record is claimed, both copies above were handled.
+        var sentinelId = UUID.randomUUID();
+        publish("game.events", gameId, sentinelId, "Ignored", Map.of());
+
+        awaitClaim(sentinelId, "notification.game-events");
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
+            assertThat(viewer.messages())
+                    .singleElement()
+                    .satisfies(message -> assertThat(message.eventType()).isEqualTo("ForesightRevealed"));
+            assertThat(other.messages()).isEmpty();
         });
     }
 

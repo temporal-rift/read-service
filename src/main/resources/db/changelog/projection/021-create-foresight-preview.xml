@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+  <changeSet id="021-create-foresight-preview" author="read-service">
+    <createTable tableName="foresight_preview">
+      <column name="id" type="UUID">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="game_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="player_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="era_number" type="INT">
+        <constraints nullable="false"/>
+      </column>
+      <column name="next_era_number" type="INT">
+        <constraints nullable="false"/>
+      </column>
+      <column name="revealed_events" type="JSONB">
+        <constraints nullable="false"/>
+      </column>
+      <column name="empty_reason" type="TEXT"/>
+    </createTable>
+
+    <addUniqueConstraint
+        tableName="foresight_preview"
+        columnNames="game_id, player_id, era_number"
+        constraintName="uq_foresight_preview_identity"/>
+  </changeSet>
+</databaseChangeLog>
