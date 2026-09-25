@@ -26,6 +26,11 @@ class NotificationPolicyTest {
         assertThat(policy.deliveryFor("InfluenceTraced")).isEqualTo(NotificationPolicy.Delivery.TARGETED);
         assertThat(policy.deliveryFor("HandCardIntercepted")).isEqualTo(NotificationPolicy.Delivery.TARGETED);
         assertThat(policy.deliveryFor("ThreadRejected")).isEqualTo(NotificationPolicy.Delivery.TARGETED);
+        assertThat(policy.deliveryFor("SpecialRejected")).isEqualTo(NotificationPolicy.Delivery.TARGETED);
+        assertThat(policy.deliveryFor("ChainProtectionArmed")).isEqualTo(NotificationPolicy.Delivery.TARGETED);
+        assertThat(policy.deliveryFor("ChainProtectionConsumed")).isEqualTo(NotificationPolicy.Delivery.TARGETED);
+        assertThat(policy.deliveryFor("ChainLinkThreaded")).isEqualTo(NotificationPolicy.Delivery.BROADCAST);
+        assertThat(policy.deliveryFor("ChainReAnchored")).isEqualTo(NotificationPolicy.Delivery.BROADCAST);
         assertThat(policy.deliveryFor("ChainLinkInvalidated")).isEqualTo(NotificationPolicy.Delivery.BROADCAST);
         assertThat(policy.deliveryFor("EraResolutionCompleted")).isEqualTo(NotificationPolicy.Delivery.NEVER);
         assertThat(policy.deliveryFor("ProbabilityStateCalculated")).isEqualTo(NotificationPolicy.Delivery.NEVER);
@@ -42,11 +47,16 @@ class NotificationPolicyTest {
         assertThat(policy.deliveryFor("PlayerJammed")).isNotEqualTo(NotificationPolicy.Delivery.BROADCAST);
         assertThat(policy.deliveryFor("HandCardIntercepted")).isNotEqualTo(NotificationPolicy.Delivery.BROADCAST);
         assertThat(policy.deliveryFor("ThreadRejected")).isNotEqualTo(NotificationPolicy.Delivery.BROADCAST);
+        assertThat(policy.deliveryFor("SpecialRejected")).isNotEqualTo(NotificationPolicy.Delivery.BROADCAST);
+        assertThat(policy.deliveryFor("ChainProtectionArmed")).isNotEqualTo(NotificationPolicy.Delivery.BROADCAST);
+        assertThat(policy.deliveryFor("ChainProtectionConsumed")).isNotEqualTo(NotificationPolicy.Delivery.BROADCAST);
     }
 
     @Test
     void chainEventsRedactTheirIdentityFieldsOnly() {
+        assertThat(policy.identityFieldsToRedact("ChainLinkThreaded")).isEqualTo(Set.of("playerId"));
         assertThat(policy.identityFieldsToRedact("ChainLinkAdded")).isEqualTo(Set.of("playerId"));
+        assertThat(policy.identityFieldsToRedact("ChainReAnchored")).isEqualTo(Set.of("playerId"));
         assertThat(policy.identityFieldsToRedact("ChainCompleted")).isEqualTo(Set.of("playerId"));
         assertThat(policy.identityFieldsToRedact("ChainBroken"))
                 .isEqualTo(Set.of("playerId", "brokenByPlayerId", "targetPlayerId"));
