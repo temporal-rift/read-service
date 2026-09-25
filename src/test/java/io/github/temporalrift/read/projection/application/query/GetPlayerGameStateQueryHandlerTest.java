@@ -24,6 +24,8 @@ import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.GameProjection;
 import io.github.temporalrift.read.projection.domain.model.HandCard;
 import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
+import io.github.temporalrift.read.projection.domain.model.PendingHandCard;
+import io.github.temporalrift.read.projection.domain.model.PendingHandSelection;
 import io.github.temporalrift.read.projection.domain.model.Phase;
 import io.github.temporalrift.read.projection.domain.model.PlayerGameState;
 import io.github.temporalrift.read.projection.domain.model.PlayerNotInGameException;
@@ -377,9 +379,30 @@ class GetPlayerGameStateQueryHandlerTest {
 
         var result = handler.get(gameId, playerId);
 
+        assertThat(result.phase()).isEqualTo(Phase.ERA_START);
         assertThat(result.roundNumber()).isNull();
         assertThat(result.actionRoundExpiresAt()).isNull();
         assertThat(result.paradoxResolutionExpiresAt()).isNull();
+        assertThat(result.declarationOpen()).isTrue();
+    }
+
+    @Test
+    void get_pendingHandSelectionAtEraStart_reportsHandSelectionPhase() {
+        var expiresAt = Instant.parse("2026-01-01T00:01:00Z");
+        var pending =
+                new PendingHandSelection(List.of(new PendingHandCard(UUID.randomUUID(), "PUSH", "I", 1)), expiresAt);
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of(), pending)));
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ERA_START)));
+        given(gamePlayers.findByGameId(gameId)).willReturn(List.of());
+        given(gameActiveEvents.findByGameId(gameId)).willReturn(List.of());
+
+        var result = handler.get(gameId, playerId);
+
+        assertThat(result.phase()).isEqualTo(Phase.HAND_SELECTION);
+        assertThat(result.pendingHandSelection()).isEqualTo(pending);
+        assertThat(result.handSelectionExpiresAt()).isEqualTo(expiresAt);
         assertThat(result.declarationOpen()).isTrue();
     }
 
