@@ -37,6 +37,7 @@ public final class NotificationPolicy {
             "ProbabilityStateRevealed",
             "InfluenceTraced",
             "HandCardIntercepted",
+            "ForesightRevealed",
             "PlayerJammed",
             "ThreadRejected");
     private static final Set<String> BROADCAST = Set.of(

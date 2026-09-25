@@ -7,6 +7,7 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Ev
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EventsDrawnPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.FactionAssignedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.FactionRevealedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ForesightRevealedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GameEndedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GameStartedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandDealtPayload;
@@ -105,5 +106,10 @@ class SessionEventDispatcher implements Consumer {
     @Override
     public void onResolutionStarted(ResolutionStartedPayload payload, EventHeaders headers) {
         applier.applyResolutionStarted(payload);
+    }
+
+    @Override
+    public void onForesightRevealed(ForesightRevealedPayload payload, EventHeaders headers) {
+        applier.applyForesightRevealed(payload);
     }
 }

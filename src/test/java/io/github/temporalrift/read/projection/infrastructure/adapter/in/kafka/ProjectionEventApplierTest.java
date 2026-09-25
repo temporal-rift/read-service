@@ -54,6 +54,9 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Fa
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.FactionAssignedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.FactionRevealedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.FactionRevealedPlayerFactionResult;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ForesightRevealedEvent;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ForesightRevealedOutcome;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ForesightRevealedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GameEndedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GameEndedPlayerScoreResult;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.GameStartedPayload;
@@ -87,6 +90,9 @@ import io.github.temporalrift.read.projection.domain.model.CarryOverState;
 import io.github.temporalrift.read.projection.domain.model.ChainStatus;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
 import io.github.temporalrift.read.projection.domain.model.ExposeFact;
+import io.github.temporalrift.read.projection.domain.model.ForesightPreview;
+import io.github.temporalrift.read.projection.domain.model.ForesightPreviewEvent;
+import io.github.temporalrift.read.projection.domain.model.ForesightPreviewOutcome;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 import io.github.temporalrift.read.projection.domain.model.GameChain;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
@@ -109,6 +115,7 @@ import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
 import io.github.temporalrift.read.projection.domain.model.TerminalResult;
 import io.github.temporalrift.read.projection.domain.port.out.BandCorrectionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.ExposeFactRepository;
+import io.github.temporalrift.read.projection.domain.port.out.ForesightPreviewRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameChainRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
@@ -145,6 +152,9 @@ class ProjectionEventApplierTest {
 
     @Mock
     RevealedHandCardIntelRepository revealedHandCardIntel;
+
+    @Mock
+    ForesightPreviewRepository foresightPreviews;
 
     @Mock
     GameChainRepository gameChains;
@@ -185,6 +195,7 @@ class ProjectionEventApplierTest {
                         revealedProbabilityIntel,
                         revealedInfluenceIntel,
                         revealedHandCardIntel,
+                        foresightPreviews,
                         gameChains,
                         publicBands,
                         publicDeclarations,
@@ -565,6 +576,7 @@ class ProjectionEventApplierTest {
         then(revealedProbabilityIntel).should().deleteByGameIdAndEraNumber(gameId, 1);
         then(revealedInfluenceIntel).should().deleteByGameIdAndEraNumber(gameId, 1);
         then(revealedHandCardIntel).should().deleteByGameIdAndEraNumber(gameId, 1);
+        then(foresightPreviews).should().deleteByGameIdAndEraNumber(gameId, 1);
         then(gameActiveEvents).should().deleteByGameId(gameId);
     }
 
@@ -579,6 +591,7 @@ class ProjectionEventApplierTest {
         then(revealedProbabilityIntel).should(never()).deleteByGameIdAndEraNumber(any(), anyInt());
         then(revealedInfluenceIntel).should(never()).deleteByGameIdAndEraNumber(any(), anyInt());
         then(revealedHandCardIntel).should(never()).deleteByGameIdAndEraNumber(any(), anyInt());
+        then(foresightPreviews).should(never()).deleteByGameIdAndEraNumber(any(), anyInt());
         then(gameActiveEvents).should(never()).deleteByGameId(any());
     }
 
@@ -755,6 +768,69 @@ class ProjectionEventApplierTest {
     }
 
     @Test
+    void applyForesightRevealed_storesTheDeckOrderedPreviewForTheForetellingViewerOnly() {
+        var viewerId = UUID.randomUUID();
+        var first = UUID.randomUUID();
+        var second = UUID.randomUUID();
+        var outcome = UUID.randomUUID();
+
+        applier.applyForesightRevealed(new ForesightRevealedPayload(
+                gameId,
+                1,
+                viewerId,
+                2,
+                List.of(
+                        new ForesightRevealedEvent(
+                                first, "Collapse", List.of(new ForesightRevealedOutcome(outcome, "Falls"))),
+                        new ForesightRevealedEvent(second, "Rise", List.of())),
+                null));
+
+        then(foresightPreviews)
+                .should()
+                .upsert(new ForesightPreview(
+                        gameId,
+                        viewerId,
+                        1,
+                        2,
+                        List.of(
+                                new ForesightPreviewEvent(
+                                        first, "Collapse", List.of(new ForesightPreviewOutcome(outcome, "Falls"))),
+                                new ForesightPreviewEvent(second, "Rise", List.of())),
+                        null));
+        then(playerGameStates).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void applyForesightRevealed_finalEraEmptyPreviewKeepsItsReason() {
+        var viewerId = UUID.randomUUID();
+
+        applier.applyForesightRevealed(new ForesightRevealedPayload(gameId, 3, viewerId, 4, List.of(), "FINAL_ERA"));
+
+        then(foresightPreviews).should().upsert(new ForesightPreview(gameId, viewerId, 3, 4, List.of(), "FINAL_ERA"));
+    }
+
+    @Test
+    void applyForesightRevealed_forPriorEra_skipsIt() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));
+
+        applier.applyForesightRevealed(new ForesightRevealedPayload(gameId, 1, UUID.randomUUID(), 2, List.of(), null));
+
+        then(foresightPreviews).should(never()).upsert(any());
+    }
+
+    @Test
+    void applyForesightRevealed_afterGameEnd_skipsIt() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 3, Phase.GAME_ENDED)));
+
+        applier.applyForesightRevealed(
+                new ForesightRevealedPayload(gameId, 3, UUID.randomUUID(), 4, List.of(), "FINAL_ERA"));
+
+        then(foresightPreviews).should(never()).upsert(any());
+    }
+
+    @Test
     void applyGameEnded_preservesEraNumberAndUpdatesScores() {
         var playerId = UUID.randomUUID();
         given(gameProjections.findByGameIdForUpdate(gameId))
@@ -770,6 +846,7 @@ class ProjectionEventApplierTest {
         then(revealedProbabilityIntel).should().deleteByGameId(gameId);
         then(revealedInfluenceIntel).should().deleteByGameId(gameId);
         then(revealedHandCardIntel).should().deleteByGameId(gameId);
+        then(foresightPreviews).should().deleteByGameId(gameId);
         then(gameActiveEvents).should().deleteByGameId(gameId);
         then(gameChains).should().deleteByGameId(gameId);
     }

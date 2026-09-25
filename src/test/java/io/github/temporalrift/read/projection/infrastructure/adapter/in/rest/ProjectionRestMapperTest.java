@@ -14,6 +14,9 @@ import org.junit.jupiter.params.provider.CsvSource;
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
 import io.github.temporalrift.read.projection.domain.model.ChainStatus;
 import io.github.temporalrift.read.projection.domain.model.ExposeFact;
+import io.github.temporalrift.read.projection.domain.model.ForesightPreview;
+import io.github.temporalrift.read.projection.domain.model.ForesightPreviewEvent;
+import io.github.temporalrift.read.projection.domain.model.ForesightPreviewOutcome;
 import io.github.temporalrift.read.projection.domain.model.GameChain;
 import io.github.temporalrift.read.projection.domain.model.HandCard;
 import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
@@ -358,6 +361,7 @@ class ProjectionRestMapperTest {
                 List.of(),
                 List.of(),
                 List.of(),
+                null,
                 null);
 
         var response = toResponse(result);
@@ -484,6 +488,7 @@ class ProjectionRestMapperTest {
                 declarations,
                 exposeFacts,
                 submissions,
+                null,
                 null);
     }
 
@@ -521,7 +526,8 @@ class ProjectionRestMapperTest {
                         GAME_ID,
                         "SCORE_THRESHOLD",
                         List.of(new TerminalResult.TerminalWinner(winnerId, "WEAVERS")),
-                        List.of(new TerminalResult.TerminalScore(winnerId, "WEAVERS", 20))));
+                        List.of(new TerminalResult.TerminalScore(winnerId, "WEAVERS", 20))),
+                null);
 
         var response = toResponse(result);
 
@@ -568,7 +574,8 @@ class ProjectionRestMapperTest {
                 List.of(),
                 List.of(),
                 List.of(),
-                new TerminalResult(GAME_ID, "FACTION_OBJECTIVE", List.of(), List.of()));
+                new TerminalResult(GAME_ID, "FACTION_OBJECTIVE", List.of(), List.of()),
+                null);
 
         var response = toResponse(result);
 
@@ -633,7 +640,90 @@ class ProjectionRestMapperTest {
                 List.of(),
                 List.of(),
                 List.of(),
-                terminal);
+                terminal,
+                null);
+    }
+
+    @Test
+    void toResponse_mapsTheCallersForesightPreviewInDeckOrder() {
+        var first = UUID.randomUUID();
+        var second = UUID.randomUUID();
+        var outcome = UUID.randomUUID();
+
+        var response = toResponse(resultWithForesight(new ForesightPreview(
+                GAME_ID,
+                UUID.randomUUID(),
+                2,
+                3,
+                List.of(
+                        new ForesightPreviewEvent(
+                                first, "Collapse", List.of(new ForesightPreviewOutcome(outcome, "Falls"))),
+                        new ForesightPreviewEvent(second, "Rise", List.of())),
+                null)));
+
+        assertThat(response.getMyForesightPreview()).satisfies(preview -> {
+            assertThat(preview.getNextEraNumber()).isEqualTo(3);
+            assertThat(preview.getEmptyReason()).isNull();
+            assertThat(preview.getRevealedEvents())
+                    .extracting(event -> event.getCatalogEventId())
+                    .containsExactly(first, second);
+            assertThat(preview.getRevealedEvents().getFirst().getTitle()).isEqualTo("Collapse");
+            assertThat(preview.getRevealedEvents().getFirst().getOutcomes())
+                    .singleElement()
+                    .satisfies(mapped -> {
+                        assertThat(mapped.getCatalogOutcomeId()).isEqualTo(outcome);
+                        assertThat(mapped.getDescription()).isEqualTo("Falls");
+                    });
+        });
+    }
+
+    @Test
+    void toResponse_mapsTheFinalEraEmptyPreviewWithItsReason() {
+        var response = toResponse(
+                resultWithForesight(new ForesightPreview(GAME_ID, UUID.randomUUID(), 3, 4, List.of(), "FINAL_ERA")));
+
+        assertThat(response.getMyForesightPreview()).satisfies(preview -> {
+            assertThat(preview.getRevealedEvents()).isEmpty();
+            assertThat(preview.getEmptyReason()).isEqualTo("FINAL_ERA");
+        });
+    }
+
+    @Test
+    void toResponse_noForesightPreviewMapsToNull() {
+        assertThat(toResponse(resultWithFaction("PROPHETS")).getMyForesightPreview())
+                .isNull();
+    }
+
+    private static GetPlayerGameStateUseCase.Result resultWithForesight(ForesightPreview preview) {
+        return new GetPlayerGameStateUseCase.Result(
+                GAME_ID,
+                2,
+                Phase.ACTION_ROUND_2,
+                "PROPHETS",
+                List.of(),
+                null,
+                List.of(),
+                0,
+                List.of(),
+                List.of(),
+                null,
+                null,
+                null,
+                1,
+                null,
+                2,
+                null,
+                null,
+                null,
+                false,
+                false,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                null,
+                preview);
     }
 
     private static GetPlayerGameStateUseCase.Result resultWithFaction(String faction) {

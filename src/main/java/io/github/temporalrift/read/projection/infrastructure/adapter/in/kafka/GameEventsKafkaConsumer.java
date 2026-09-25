@@ -55,6 +55,7 @@ class GameEventsKafkaConsumer {
             io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HAND_DEALT_EVENT_TYPE,
             io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HAND_SELECTED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.RESOLUTION_STARTED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.FORESIGHT_REVEALED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ACTION_ROUND_STARTED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CARD_PLAYED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract
@@ -93,6 +94,7 @@ class GameEventsKafkaConsumer {
             io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.WIN_CONDITION_MET_EVENT_TYPE,
             io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.FACTION_REVEALED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.RESOLUTION_STARTED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.FORESIGHT_REVEALED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ACTION_ROUND_STARTED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CARD_PLAYED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract

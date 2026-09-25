@@ -18,6 +18,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import io.github.temporalrift.read.projection.application.ProjectionRepositories;
 import io.github.temporalrift.read.projection.domain.model.ChainStatus;
+import io.github.temporalrift.read.projection.domain.model.ForesightPreview;
+import io.github.temporalrift.read.projection.domain.model.ForesightPreviewEvent;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 import io.github.temporalrift.read.projection.domain.model.GameChain;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
@@ -39,6 +41,7 @@ import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOu
 import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
 import io.github.temporalrift.read.projection.domain.model.TerminalResult;
 import io.github.temporalrift.read.projection.domain.port.out.ExposeFactRepository;
+import io.github.temporalrift.read.projection.domain.port.out.ForesightPreviewRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameChainRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
@@ -77,6 +80,9 @@ class GetPlayerGameStateQueryHandlerTest {
     RevealedHandCardIntelRepository revealedHandCardIntel;
 
     @Mock
+    ForesightPreviewRepository foresightPreviews;
+
+    @Mock
     GameChainRepository gameChains;
 
     @Mock
@@ -109,6 +115,7 @@ class GetPlayerGameStateQueryHandlerTest {
                 revealedProbabilityIntel,
                 revealedInfluenceIntel,
                 revealedHandCardIntel,
+                foresightPreviews,
                 gameChains,
                 publicBands,
                 publicDeclarations,
@@ -279,6 +286,42 @@ class GetPlayerGameStateQueryHandlerTest {
         then(revealedProbabilityIntel).shouldHaveNoInteractions();
         then(revealedInfluenceIntel).shouldHaveNoInteractions();
         then(revealedHandCardIntel).shouldHaveNoInteractions();
+        then(foresightPreviews).shouldHaveNoInteractions();
+        assertThat(result.myForesightPreview()).isNull();
+    }
+
+    @Test
+    void get_activeEra_includesOnlyTheRequestingPlayersCurrentEraForesightPreview() {
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "PROPHETS", List.of())));
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_2)));
+        given(gamePlayers.findByGameId(gameId)).willReturn(List.of());
+        given(gameActiveEvents.findByGameId(gameId)).willReturn(List.of());
+        var preview = new ForesightPreview(
+                gameId, playerId, 2, 3, List.of(new ForesightPreviewEvent(UUID.randomUUID(), "Rise", List.of())), null);
+        given(foresightPreviews.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(Optional.of(preview));
+
+        var result = handler.get(gameId, playerId);
+
+        assertThat(result.myForesightPreview()).isEqualTo(preview);
+    }
+
+    @Test
+    void get_participantWithoutAForesightPreview_hasNone() {
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of())));
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_2)));
+        given(gamePlayers.findByGameId(gameId)).willReturn(List.of());
+        given(gameActiveEvents.findByGameId(gameId)).willReturn(List.of());
+        given(foresightPreviews.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(Optional.empty());
+
+        var result = handler.get(gameId, playerId);
+
+        assertThat(result.myForesightPreview()).isNull();
     }
 
     @Test

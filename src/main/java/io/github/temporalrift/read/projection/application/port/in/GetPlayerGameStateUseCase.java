@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 import io.github.temporalrift.read.projection.domain.model.ExposeFact;
+import io.github.temporalrift.read.projection.domain.model.ForesightPreview;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 import io.github.temporalrift.read.projection.domain.model.GameChain;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
@@ -56,7 +57,8 @@ public interface GetPlayerGameStateUseCase {
             List<PublicDeclaration> declarations,
             List<ExposeFact> exposeFacts,
             List<PlayerSubmission> mySubmissions,
-            TerminalResult terminalResult) {
+            TerminalResult terminalResult,
+            ForesightPreview myForesightPreview) {
 
         public Result(
                 UUID gameId,
@@ -126,6 +128,7 @@ public interface GetPlayerGameStateUseCase {
                     List.of(),
                     List.of(),
                     List.of(),
+                    null,
                     null);
         }
     }

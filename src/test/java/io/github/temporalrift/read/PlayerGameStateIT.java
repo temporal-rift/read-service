@@ -34,6 +34,9 @@ import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.Car
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.HandCardInterceptedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.InfluenceTracedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.InterceptedHandCard;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ForesightRevealedEvent;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ForesightRevealedOutcome;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ForesightRevealedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedOutcomeState;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedPayload;
 import io.github.temporalrift.read.shared.PlayerPrincipal;
@@ -1336,6 +1339,114 @@ class PlayerGameStateIT {
                 .andExpect(jsonPath("$.myRevealedIntel").isEmpty());
     }
 
+    @Test
+    void foresightPreview_isRecoverableOnlyByTheForetellerIgnoresRedeliveryAndExpiresWithItsEra() throws Exception {
+        var gameId = UUID.randomUUID();
+        var prophetId = UUID.randomUUID();
+        var otherPlayerId = UUID.randomUUID();
+        var firstEventId = UUID.randomUUID();
+        var secondEventId = UUID.randomUUID();
+        var outcomeId = UUID.randomUUID();
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "GameStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "lobbyId",
+                        UUID.randomUUID(),
+                        "players",
+                        roster(prophetId, otherPlayerId),
+                        "totalFactions",
+                        2,
+                        "deckSize",
+                        30));
+        awaitPlayerGameStateRowExists(gameId, prophetId);
+        publish(GAME_EVENTS_TOPIC, "EraStarted", gameId, eraStarted(gameId, 1, prophetId, otherPlayerId));
+        awaitEraAndPhase(gameId, 1, "ERA_START");
+
+        var revealEventId = UUID.randomUUID();
+        var reveal = new ForesightRevealedPayload(
+                gameId,
+                1,
+                prophetId,
+                2,
+                List.of(
+                        new ForesightRevealedEvent(
+                                firstEventId, "Collapse", List.of(new ForesightRevealedOutcome(outcomeId, "Falls"))),
+                        new ForesightRevealedEvent(secondEventId, "Rise", List.of())),
+                null);
+        publish(GAME_EVENTS_TOPIC, "ForesightRevealed", gameId, reveal, revealEventId)
+                .join();
+        awaitProcessed(revealEventId, "projection.game-events");
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(prophetId)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.myForesightPreview.nextEraNumber").value(2))
+                .andExpect(jsonPath("$.myForesightPreview.revealedEvents[*].catalogEventId")
+                        .value(contains(firstEventId.toString(), secondEventId.toString())))
+                .andExpect(
+                        jsonPath("$.myForesightPreview.revealedEvents[0].title").value("Collapse"))
+                .andExpect(jsonPath("$.myForesightPreview.revealedEvents[0].outcomes[0].catalogOutcomeId")
+                        .value(outcomeId.toString()))
+                .andExpect(jsonPath("$.myForesightPreview.revealedEvents[0].outcomes[0].description")
+                        .value("Falls"))
+                .andExpect(jsonPath("$.myForesightPreview.emptyReason").value(nullValue()));
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(otherPlayerId)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.myForesightPreview").value(nullValue()))
+                .andExpect(jsonPath("$.myRevealedIntel").isEmpty());
+
+        // A redelivered record is discarded by its claim; the later same-game record proves it was handled.
+        publish(GAME_EVENTS_TOPIC, "ForesightRevealed", gameId, reveal, revealEventId);
+        var sentinelEventId = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "PlayerDisconnected",
+                        gameId,
+                        Map.of("gameId", gameId, "playerId", otherPlayerId),
+                        sentinelEventId)
+                .join();
+        awaitProcessed(sentinelEventId, "projection.game-events");
+        assertThatForesightPreviewCount(gameId, prophetId, 1, 1);
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "EraEnded",
+                gameId,
+                Map.of("gameId", gameId, "eraNumber", 1, "cascadedParadoxCount", 0, "nextEraNumber", 2));
+        awaitPhase(gameId, "ERA_END");
+        assertThatForesightPreviewCount(gameId, prophetId, 1, 0);
+        publish(GAME_EVENTS_TOPIC, "EraStarted", gameId, eraStarted(gameId, 2, prophetId, otherPlayerId));
+        awaitEraAndPhase(gameId, 2, "ERA_START");
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(prophetId)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.myForesightPreview").value(nullValue()));
+
+        var finalEraRevealId = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "ForesightRevealed",
+                        gameId,
+                        new ForesightRevealedPayload(gameId, 2, prophetId, 3, List.of(), "FINAL_ERA"),
+                        finalEraRevealId)
+                .join();
+        awaitProcessed(finalEraRevealId, "projection.game-events");
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(prophetId)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.myForesightPreview.revealedEvents").isEmpty())
+                .andExpect(jsonPath("$.myForesightPreview.emptyReason").value("FINAL_ERA"));
+    }
+
     // game.events and timeline.events are independent consumer groups with no ordering guarantee between
     // them, so EraEnded and a same-era ProbabilityStateRevealed genuinely race on separate threads here —
     // this isn't simulated. Repeated across fresh games to actually exercise both interleavings rather than
@@ -1660,6 +1771,28 @@ class PlayerGameStateIT {
                         playerId,
                         eraNumber))
                 .isEqualTo(expected);
+    }
+
+    private void assertThatForesightPreviewCount(UUID gameId, UUID playerId, int eraNumber, int expected) {
+        assertThat(jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM foresight_preview WHERE game_id = ? AND player_id = ? AND era_number = ?",
+                        Integer.class,
+                        gameId,
+                        playerId,
+                        eraNumber))
+                .isEqualTo(expected);
+    }
+
+    private static Map<String, Object> eraStarted(UUID gameId, int eraNumber, UUID... playerIds) {
+        return Map.of(
+                "gameId",
+                gameId,
+                "eraNumber",
+                eraNumber,
+                "carryOverEventIds",
+                List.of(),
+                "playerIds",
+                List.of(playerIds));
     }
 
     private void awaitHandCardIntelCount(UUID gameId, UUID playerId, int eraNumber, int expected) {
