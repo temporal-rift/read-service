@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Game-scoped, shared-across-players state (design.md Decision 1). {@code pendingParadoxIds} is the set of
+ * Game-scoped, shared-across-players state. {@code pendingParadoxIds} is the set of
  * paradoxes still open in the game's current {@code PARADOX_RESOLUTION} phase, if any — empty otherwise.
  *
  * <p>{@code revision} is a monotonic freshness marker for one game's projection only — it never promises
