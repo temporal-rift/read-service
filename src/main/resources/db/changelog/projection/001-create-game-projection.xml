@@ -5,7 +5,7 @@
     xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
             https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
 
-  <!-- Game-scoped state shared by every player of a game — design.md Decision 1. -->
+  <!-- Game-scoped state shared by every player of a game. -->
   <changeSet id="001-create-game-projection" author="read-service">
     <createTable tableName="game_projection">
       <column name="game_id" type="UUID">

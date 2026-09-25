@@ -76,7 +76,7 @@ import io.github.temporalrift.read.projection.domain.model.TerminalResult;
 import io.github.temporalrift.read.projection.domain.port.out.BandCorrectionRepository;
 
 /**
- * Applies each consumed event to the read models per design.md Decisions 5–7. Package-scoped to
+ * Applies each consumed event to the read models. Package-scoped to
  * {@code infrastructure.adapter.in.kafka} because it operates directly on the wire-shaped payload records —
  * matching {@code timeline-service}'s precedent of translating payload to domain-port calls inline in the
  * consuming layer, not through a separate application-layer command handler.
@@ -123,8 +123,8 @@ class ProjectionEventApplier {
                         existing.jammedUntilRound()));
     }
 
-    // The suppressed player's private reveal (design.md "Store the raw jam fact; compute 'is it still active'
-    // at read time") — find-or-create matches applyFactionAssigned's precedent for the same out-of-order race.
+    // The suppressed player's private reveal stores the raw jam fact; whether it is still active is computed at
+    // read time. Find-or-create matches applyFactionAssigned's precedent for the same out-of-order race.
     // Eras never move backward within a game, so a payload older than the last-recorded jam era can only be a
     // delayed resubmission of a stale event; applying it would wrongly revert an already-superseded jam.
     void applyPlayerJammed(PlayerJammedPayload payload) {
@@ -296,7 +296,7 @@ class ProjectionEventApplier {
         stores.revealedInfluenceIntel().deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
         stores.revealedHandCardIntel().deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
         clearRecoverableEraState(payload.gameId(), payload.eraNumber());
-        // Defensive clear — design.md Decision 6. Every drawn event currently gets an OutcomeApplied (no
+        // Defensive clear. Every drawn event currently gets an OutcomeApplied (no
         // cascade/paradox handling exists yet), so this is normally a no-op.
         stores.gameActiveEvents().deleteByGameId(payload.gameId());
     }

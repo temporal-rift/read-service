@@ -17,7 +17,7 @@ import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.Spe
 
 /**
  * The {@code action-event} slice of {@code game.events} that {@link ProjectionEventApplier} actually
- * projects (design.md "Migration addendum: consumer contract adoption"). Every other {@code action-event}
+ * projects. Every other {@code action-event}
  * message type falls through to the generated {@code Consumer}'s default no-op — {@code action-event}
  * carries timer-expiry/skip/close facts this projection has no read model for.
  */

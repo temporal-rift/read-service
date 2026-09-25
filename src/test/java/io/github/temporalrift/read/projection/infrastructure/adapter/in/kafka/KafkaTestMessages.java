@@ -7,7 +7,7 @@ import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
 
 /**
- * Builds test messages carrying the {@code eventId} header this MVP1 slice reads (design.md Decision 2) and,
+ * Builds test messages carrying the {@code eventId} header this MVP1 slice reads and,
  * optionally, {@code eventType} for dispatch tests — {@code version} defaults to {@code "1"} whenever
  * {@code eventType} is set, since {@link UnsupportedEventGate} treats a recognized type at a missing/mismatched
  * version as unsupported. Other envelope headers (aggregateId, aggregateType, gameId, occurredAt) are still

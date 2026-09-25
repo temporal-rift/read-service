@@ -6,7 +6,7 @@ import io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.Sc
 
 /**
  * The {@code scoring-event} slice of {@code game.events} — one message type, and
- * {@link ProjectionEventApplier} projects it (design.md "Migration addendum: consumer contract adoption").
+ * {@link ProjectionEventApplier} projects it.
  */
 class ScoringEventDispatcher implements Consumer {
 

@@ -18,7 +18,7 @@ import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.Messag
 /**
  * Consumes {@code game.events} — session/action/scoring facts from game-service, spread across three
  * independently-owned {@code apis} contract modules that all publish to this one Kafka topic. Composes their
- * generated dispatchers (design.md "Migration addendum: consumer contract adoption") rather than collapsing
+ * generated dispatchers rather than collapsing
  * them into one generated artifact, so Kafka topic layout doesn't dictate dependency/code boundaries.
  */
 @Component
