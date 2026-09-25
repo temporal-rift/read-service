@@ -25,7 +25,9 @@ public final class NotificationPolicy {
     // contract revision can still arrive with those names, and the notification path forwards the raw
     // payload without schema validation.
     private static final Map<String, Set<String>> IDENTITY_REDACTIONS = Map.of(
+            "ChainLinkThreaded", Set.of(PLAYER_ID_FIELD),
             "ChainLinkAdded", Set.of(PLAYER_ID_FIELD),
+            "ChainReAnchored", Set.of(PLAYER_ID_FIELD),
             "ChainCompleted", Set.of(PLAYER_ID_FIELD),
             "ChainBroken", Set.of(PLAYER_ID_FIELD, "brokenByPlayerId", "targetPlayerId"),
             "ChainLinkInvalidated", Set.of(PLAYER_ID_FIELD));
@@ -38,7 +40,10 @@ public final class NotificationPolicy {
             "InfluenceTraced",
             "HandCardIntercepted",
             "PlayerJammed",
-            "ThreadRejected");
+            "ThreadRejected",
+            "SpecialRejected",
+            "ChainProtectionArmed",
+            "ChainProtectionConsumed");
     private static final Set<String> BROADCAST = Set.of(
             "LobbyCreated",
             "PlayerJoinedLobby",
@@ -78,7 +83,9 @@ public final class NotificationPolicy {
             "GameEndedAbnormally",
             "GameEnded",
             "FactionRevealed",
+            "ChainLinkThreaded",
             "ChainLinkAdded",
+            "ChainReAnchored",
             "ChainCompleted",
             "ChainBroken",
             "ChainLinkInvalidated");
