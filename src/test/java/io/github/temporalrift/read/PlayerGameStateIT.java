@@ -537,7 +537,15 @@ class PlayerGameStateIT {
                 TIMELINE_EVENTS_TOPIC,
                 "ParadoxResolved",
                 gameId,
-                Map.of("gameId", gameId, "eraNumber", 1, "paradoxId", paradox1, "resolvedByPlayerId", player1));
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "paradoxId",
+                        paradox1,
+                        "resolvedByPlayerIds",
+                        List.of(player1)));
         awaitPendingParadoxCount(gameId, 1);
 
         // One of two paradoxes still pending — phase must stay open.

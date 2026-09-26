@@ -1436,7 +1436,7 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(
                         new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradox1, paradox2))));
 
-        applier.applyParadoxResolved(new ParadoxResolvedPayload(gameId, 1, paradox1, UUID.randomUUID()));
+        applier.applyParadoxResolved(new ParadoxResolvedPayload(gameId, 1, paradox1, List.of(UUID.randomUUID())));
 
         then(gameProjections).should().save(new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradox2)));
     }
@@ -1504,7 +1504,7 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(
                         new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradox1, paradox2))));
 
-        applier.applyParadoxResolved(new ParadoxResolvedPayload(gameId, 1, paradox1, UUID.randomUUID()));
+        applier.applyParadoxResolved(new ParadoxResolvedPayload(gameId, 1, paradox1, List.of(UUID.randomUUID())));
 
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradox2))));
@@ -1521,7 +1521,7 @@ class ProjectionEventApplierTest {
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.RESOLUTION, List.of())));
 
-        applier.applyParadoxResolved(new ParadoxResolvedPayload(gameId, 1, paradoxId, UUID.randomUUID()));
+        applier.applyParadoxResolved(new ParadoxResolvedPayload(gameId, 1, paradoxId, List.of(UUID.randomUUID())));
 
         then(gameProjections).should(never()).save(any());
     }
@@ -1554,7 +1554,7 @@ class ProjectionEventApplierTest {
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradoxId))));
 
-        applier.applyParadoxResolved(new ParadoxResolvedPayload(gameId, 1, paradoxId, UUID.randomUUID()));
+        applier.applyParadoxResolved(new ParadoxResolvedPayload(gameId, 1, paradoxId, List.of(UUID.randomUUID())));
 
         then(gameProjections).should().save(new GameProjection(gameId, 1, Phase.RESOLUTION, List.of()));
     }
@@ -1632,7 +1632,7 @@ class ProjectionEventApplierTest {
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.GAME_ENDED, List.of(paradoxId))));
 
-        applier.applyParadoxResolved(new ParadoxResolvedPayload(gameId, 1, paradoxId, UUID.randomUUID()));
+        applier.applyParadoxResolved(new ParadoxResolvedPayload(gameId, 1, paradoxId, List.of(UUID.randomUUID())));
 
         then(gameProjections).should(never()).save(any());
     }
