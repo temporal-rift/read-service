@@ -53,7 +53,6 @@ class TimelineEventsKafkaConsumer {
             GeneratedChannelContract.THREAD_REJECTED_EVENT_TYPE,
             GeneratedChannelContract.CORRUPT_INVERSION_CONFIRMED_EVENT_TYPE,
             GeneratedChannelContract.RESOLUTION_FAILED_EVENT_TYPE,
-            GeneratedChannelContract.RESOLUTION_WARNING_EVENT_TYPE,
             // Private/tactical, no projection effect — same treatment as THREAD_REJECTED above.
             GeneratedChannelContract.SPECIAL_REJECTED_EVENT_TYPE,
             GeneratedChannelContract.CHAIN_PROTECTION_ARMED_EVENT_TYPE,
