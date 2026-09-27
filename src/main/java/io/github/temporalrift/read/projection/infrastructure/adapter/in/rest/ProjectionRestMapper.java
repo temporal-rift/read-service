@@ -22,8 +22,10 @@ import io.github.temporalrift.read.projection.domain.model.RevealedInfluenceInte
 import io.github.temporalrift.read.projection.domain.model.RevealedIntelEntry;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
 import io.github.temporalrift.read.projection.domain.model.TerminalResult;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActionFamily;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActionSummary;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActiveEvent;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CardCategory;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CardGrade;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CascadedEvent;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ChainState;
@@ -255,9 +257,17 @@ final class ProjectionRestMapper {
                 summary.roundNumber(),
                 summary.actionSummaries().stream()
                         .map(action -> new ActionSummary(action.playerId(), action.skipped())
-                                .actionCategory(action.actionCategory())
-                                .actionFamily(action.actionFamily()))
+                                .actionCategory(toCardCategory(action.actionCategory()))
+                                .actionFamily(toActionFamily(action.actionFamily())))
                         .toList());
+    }
+
+    private static CardCategory toCardCategory(String category) {
+        return category == null || category.equals("UNKNOWN") ? null : CardCategory.fromValue(category);
+    }
+
+    private static ActionFamily toActionFamily(String family) {
+        return family == null || family.equals("UNKNOWN") ? null : ActionFamily.fromValue(family);
     }
 
     private static RevealedIntel toRevealedIntel(RevealedIntelEntry domain) {

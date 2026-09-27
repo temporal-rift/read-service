@@ -22,12 +22,14 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionFamily;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundStartedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActivistDeclarationMode;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActivistDeclarationRecordedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.BandedProbabilityEventBandState;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.BandedProbabilityOutcomeBandState;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.BandedProbabilityPublishedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardCategory;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ExposeBehaviorChangedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ExposeInfluenceSignature;
@@ -394,6 +396,8 @@ class ProjectionEventApplierTest {
                 io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardGrade.II,
                 null,
                 List.of(),
+                null,
+                null,
                 null,
                 null,
                 null));
@@ -1258,6 +1262,8 @@ class ProjectionEventApplierTest {
                 targetEventIds,
                 null,
                 null,
+                null,
+                null,
                 null));
 
         var captor = ArgumentCaptor.forClass(PlayerGameState.class);
@@ -1277,7 +1283,7 @@ class ProjectionEventApplierTest {
                 1,
                 2,
                 List.of(new io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionSummary(
-                        playerId, "INFORMATION", "CARD", true)));
+                        playerId, CardCategory.INFORMATION, ActionFamily.CARD, true)));
 
         applier.applyRoundSummaryPublished(payload);
 
@@ -1305,7 +1311,7 @@ class ProjectionEventApplierTest {
                 1,
                 3,
                 List.of(new io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionSummary(
-                        playerId, "PROBABILITY_SHIFTER", "CARD", false))));
+                        playerId, CardCategory.PROBABILITY_SHIFTER, ActionFamily.CARD, false))));
 
         then(gameProjections).should(never()).save(any());
     }
@@ -1323,7 +1329,7 @@ class ProjectionEventApplierTest {
                 1,
                 3,
                 List.of(new io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionSummary(
-                        playerId, "INFORMATION", "CARD", false))));
+                        playerId, CardCategory.INFORMATION, ActionFamily.CARD, false))));
 
         then(gameProjections).should(never()).save(any());
     }
@@ -2046,6 +2052,8 @@ class ProjectionEventApplierTest {
                 playedCard.cardInstanceId(),
                 io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardType.PUSH,
                 io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardGrade.I,
+                null,
+                null,
                 null,
                 null,
                 null,

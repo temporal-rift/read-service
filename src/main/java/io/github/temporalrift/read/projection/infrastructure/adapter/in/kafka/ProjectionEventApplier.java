@@ -511,7 +511,14 @@ class ProjectionEventApplier {
                 payload.roundNumber(),
                 payload.actionSummaries().stream()
                         .map(action -> new RoundActionSummary(
-                                action.playerId(), action.actionCategory(), action.actionFamily(), action.skipped()))
+                                action.playerId(),
+                                action.actionCategory() == null
+                                        ? null
+                                        : action.actionCategory().name(),
+                                action.actionFamily() == null
+                                        ? null
+                                        : action.actionFamily().name(),
+                                action.skipped()))
                         .toList());
         stores.gameProjections()
                 .save(new GameProjection(

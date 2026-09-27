@@ -31,6 +31,8 @@ import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIn
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
 import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
 import io.github.temporalrift.read.projection.domain.model.TerminalResult;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActionFamily;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CardCategory;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerGameStateResponse;
 
 class ProjectionRestMapperTest {
@@ -252,7 +254,12 @@ class ProjectionRestMapperTest {
                 0,
                 List.of(),
                 List.of(),
-                new LastRoundSummary(2, 2, List.of(new RoundActionSummary(playerId, "INFORMATION", "CARD", false))),
+                new LastRoundSummary(
+                        2,
+                        2,
+                        List.of(
+                                new RoundActionSummary(playerId, "INFORMATION", "CARD", false),
+                                new RoundActionSummary(UUID.randomUUID(), "UNKNOWN", "UNKNOWN", true))),
                 null,
                 null);
 
@@ -260,12 +267,19 @@ class ProjectionRestMapperTest {
 
         assertThat(response.getLastRoundSummary()).satisfies(summary -> {
             assertThat(summary.getRoundNumber()).isEqualTo(2);
-            assertThat(summary.getActionSummaries()).singleElement().satisfies(action -> {
-                assertThat(action.getPlayerId()).isEqualTo(playerId);
-                assertThat(action.getActionCategory()).isEqualTo("INFORMATION");
-                assertThat(action.getActionFamily()).isEqualTo("CARD");
-                assertThat(action.getSkipped()).isFalse();
-            });
+            assertThat(summary.getActionSummaries())
+                    .satisfiesExactly(
+                            action -> {
+                                assertThat(action.getPlayerId()).isEqualTo(playerId);
+                                assertThat(action.getActionCategory()).isEqualTo(CardCategory.INFORMATION);
+                                assertThat(action.getActionFamily()).isEqualTo(ActionFamily.CARD);
+                                assertThat(action.getSkipped()).isFalse();
+                            },
+                            action -> {
+                                assertThat(action.getActionCategory()).isNull();
+                                assertThat(action.getActionFamily()).isNull();
+                                assertThat(action.getSkipped()).isTrue();
+                            });
         });
     }
 
