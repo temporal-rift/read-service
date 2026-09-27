@@ -259,7 +259,8 @@ class ProjectionRestMapperTest {
                         2,
                         List.of(
                                 new RoundActionSummary(playerId, "INFORMATION", "CARD", false),
-                                new RoundActionSummary(UUID.randomUUID(), "UNKNOWN", "UNKNOWN", true))),
+                                new RoundActionSummary(UUID.randomUUID(), "UNKNOWN", "UNKNOWN", true),
+                                new RoundActionSummary(UUID.randomUUID(), null, null, true))),
                 null,
                 null);
 
@@ -274,6 +275,11 @@ class ProjectionRestMapperTest {
                                 assertThat(action.getActionCategory()).isEqualTo(CardCategory.INFORMATION);
                                 assertThat(action.getActionFamily()).isEqualTo(ActionFamily.CARD);
                                 assertThat(action.getSkipped()).isFalse();
+                            },
+                            action -> {
+                                assertThat(action.getActionCategory()).isNull();
+                                assertThat(action.getActionFamily()).isNull();
+                                assertThat(action.getSkipped()).isTrue();
                             },
                             action -> {
                                 assertThat(action.getActionCategory()).isNull();
