@@ -18,7 +18,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.messaging.support.MessageBuilder;
 import tools.jackson.databind.ObjectMapper;
 
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionFamily;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundStartedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardCategory;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.HandCardInterceptedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.InfluenceTracedPayload;
@@ -233,8 +235,8 @@ class GameEventsKafkaConsumerTest {
         assertThat(payloadCaptor.getValue().roundNumber()).isEqualTo(2);
         assertThat(payloadCaptor.getValue().actionSummaries()).singleElement().satisfies(summary -> {
             assertThat(summary.playerId()).isEqualTo(playerId);
-            assertThat(summary.actionCategory()).isEqualTo("INFORMATION");
-            assertThat(summary.actionFamily()).isEqualTo("CARD");
+            assertThat(summary.actionCategory()).isEqualTo(CardCategory.INFORMATION);
+            assertThat(summary.actionFamily()).isEqualTo(ActionFamily.CARD);
             assertThat(summary.skipped()).isFalse();
         });
     }
