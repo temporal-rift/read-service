@@ -21,6 +21,9 @@
         <constraints nullable="false"/>
       </column>
       <column name="my_faction" type="VARCHAR(30)"/>
+      <column name="pending_hand_selection_expires_at" type="TIMESTAMP WITH TIME ZONE"/>
+      <column name="jammed_era_number" type="INT"/>
+      <column name="jammed_until_round" type="INT"/>
     </createTable>
 
     <addUniqueConstraint
@@ -39,6 +42,9 @@
         <constraints nullable="false"/>
       </column>
       <column name="card_type" type="VARCHAR(30)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="grade" type="VARCHAR(3)" defaultValue="I">
         <constraints nullable="false"/>
       </column>
     </createTable>

@@ -6,16 +6,6 @@
             https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
 
   <changeSet id="006-add-hand-selection-state" author="read-service">
-    <addColumn tableName="player_game_state_hand_card">
-      <column name="grade" type="VARCHAR(3)" defaultValue="I">
-        <constraints nullable="false"/>
-      </column>
-    </addColumn>
-
-    <addColumn tableName="player_game_state">
-      <column name="pending_hand_selection_expires_at" type="TIMESTAMP WITH TIME ZONE"/>
-    </addColumn>
-
     <createTable tableName="player_game_state_pending_hand_card">
       <column name="player_game_state_id" type="UUID">
         <constraints nullable="false"/>
