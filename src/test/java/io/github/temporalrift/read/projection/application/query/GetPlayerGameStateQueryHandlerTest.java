@@ -451,7 +451,7 @@ class GetPlayerGameStateQueryHandlerTest {
 
     @Test
     void get_endedGame_exposesTerminalResultOnlyThen() {
-        var terminal = new TerminalResult(gameId, "SCORE_THRESHOLD", List.of(), List.of());
+        var terminal = new TerminalResult(gameId, "WIN_CONDITION_MET", List.of(), List.of());
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
                 .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of())));
         given(gameProjections.findByGameId(gameId))

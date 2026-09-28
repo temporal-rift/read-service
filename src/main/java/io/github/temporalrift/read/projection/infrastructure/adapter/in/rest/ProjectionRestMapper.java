@@ -207,23 +207,22 @@ final class ProjectionRestMapper {
 
     /**
      * Terminal facts are exposed only for ended games (the handler already nulls them otherwise).
-     * An owner reason with no contract representation omits the whole result rather than
-     * fabricating a reason — a known contract gap, not a mapping choice. The one exception is
-     * {@code WIN_CONDITION_MET}: the owner publishes the trigger name instead of the cause, so the
-     * recorded qualifier win types decide — unanimously score-threshold means {@code SCORE_THRESHOLD}.
+     * An owner end reason outside the contract omits the whole result rather than fabricating one.
      */
     private static GameResult toGameResult(TerminalResult domain) {
         if (domain == null) {
             return null;
         }
-        var endReason = toEndReason(domain.endReason(), domain.winners());
+        var endReason = toEndReason(domain.endReason());
         if (endReason == null) {
             return null;
         }
         return new GameResult(
                 endReason,
                 domain.winners().stream()
-                        .map(winner -> new GameWinner(winner.playerId()).faction(winner.faction()))
+                        .map(winner -> new GameWinner(winner.playerId())
+                                .faction(winner.faction())
+                                .winType(toWinType(winner.winType())))
                         .toList(),
                 domain.finalScores().stream()
                         .map(score -> new FinalScore(score.playerId(), score.score()))
@@ -231,15 +230,21 @@ final class ProjectionRestMapper {
                 GameResult.RevealBoundaryEnum.FACTIONS_AND_SCORES_PUBLIC);
     }
 
-    private static GameResult.EndReasonEnum toEndReason(String reason, List<TerminalResult.TerminalWinner> winners) {
+    private static GameResult.EndReasonEnum toEndReason(String reason) {
         try {
             return GameResult.EndReasonEnum.fromValue(reason);
         } catch (IllegalArgumentException _) {
-            if ("WIN_CONDITION_MET".equals(reason)
-                    && !winners.isEmpty()
-                    && winners.stream().allMatch(winner -> "SCORE_THRESHOLD".equals(winner.winType()))) {
-                return GameResult.EndReasonEnum.SCORE_THRESHOLD;
-            }
+            return null;
+        }
+    }
+
+    private static GameWinner.WinTypeEnum toWinType(String winType) {
+        if (winType == null) {
+            return null;
+        }
+        try {
+            return GameWinner.WinTypeEnum.fromValue(winType);
+        } catch (IllegalArgumentException _) {
             return null;
         }
     }

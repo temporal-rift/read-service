@@ -1,6 +1,7 @@
 package io.github.temporalrift.read.projection.infrastructure.adapter.in.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -33,6 +34,9 @@ import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
 import io.github.temporalrift.read.projection.domain.model.TerminalResult;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActionFamily;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CardCategory;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.FinalScore;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.GameResult;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.GameWinner;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerGameStateResponse;
 
 class ProjectionRestMapperTest {
@@ -550,7 +554,7 @@ class ProjectionRestMapperTest {
                 List.of(),
                 new TerminalResult(
                         GAME_ID,
-                        "SCORE_THRESHOLD",
+                        "TIMELINE_COLLAPSED",
                         List.of(new TerminalResult.TerminalWinner(winnerId, "WEAVERS")),
                         List.of(new TerminalResult.TerminalScore(winnerId, "WEAVERS", 20))),
                 null);
@@ -558,10 +562,11 @@ class ProjectionRestMapperTest {
         var response = toResponse(result);
 
         assertThat(response.getResult()).satisfies(terminal -> {
-            assertThat(terminal.getEndReason().getValue()).isEqualTo("SCORE_THRESHOLD");
+            assertThat(terminal.getEndReason().getValue()).isEqualTo("TIMELINE_COLLAPSED");
             assertThat(terminal.getWinners()).singleElement().satisfies(winner -> {
                 assertThat(winner.getPlayerId()).isEqualTo(winnerId);
                 assertThat(winner.getFaction()).isEqualTo("WEAVERS");
+                assertThat(winner.getWinType()).isNull();
             });
             assertThat(terminal.getFinalScores()).singleElement().satisfies(score -> {
                 assertThat(score.getPlayerId()).isEqualTo(winnerId);
@@ -600,7 +605,7 @@ class ProjectionRestMapperTest {
                 List.of(),
                 List.of(),
                 List.of(),
-                new TerminalResult(GAME_ID, "FACTION_OBJECTIVE", List.of(), List.of()),
+                new TerminalResult(GAME_ID, "ALL_PLAYERS_ABANDONED", List.of(), List.of()),
                 null);
 
         var response = toResponse(result);
@@ -609,33 +614,59 @@ class ProjectionRestMapperTest {
     }
 
     @Test
-    void toResponse_winConditionMetWithUnanimousScoreThreshold_mapsScoreThreshold() {
-        var winnerId = UUID.randomUUID();
-        var response = toResponse(resultWithTerminal(new TerminalResult(
-                GAME_ID,
-                "WIN_CONDITION_MET",
-                List.of(new TerminalResult.TerminalWinner(winnerId, "WEAVERS", "SCORE_THRESHOLD")),
-                List.of(new TerminalResult.TerminalScore(winnerId, "WEAVERS", 20)))));
-
-        assertThat(response.getResult()).satisfies(terminal -> {
-            assertThat(terminal.getEndReason().getValue()).isEqualTo("SCORE_THRESHOLD");
-            assertThat(terminal.getWinners()).singleElement().satisfies(winner -> {
-                assertThat(winner.getPlayerId()).isEqualTo(winnerId);
-            });
-        });
-    }
-
-    @Test
-    void toResponse_winConditionMetWithMixedWinTypes_omitsResult() {
+    void toResponse_winConditionMetWithMixedWinTypes_mapsEachWinnersWinType() {
+        var scoreWinner = UUID.randomUUID();
+        var objectiveWinner = UUID.randomUUID();
         var response = toResponse(resultWithTerminal(new TerminalResult(
                 GAME_ID,
                 "WIN_CONDITION_MET",
                 List.of(
-                        new TerminalResult.TerminalWinner(UUID.randomUUID(), "WEAVERS", "SCORE_THRESHOLD"),
-                        new TerminalResult.TerminalWinner(UUID.randomUUID(), "REVISIONISTS", "FACTION_OBJECTIVE")),
+                        new TerminalResult.TerminalWinner(scoreWinner, "WEAVERS", "SCORE_THRESHOLD"),
+                        new TerminalResult.TerminalWinner(objectiveWinner, "REVISIONISTS", "FACTION_OBJECTIVE")),
                 List.of())));
 
-        assertThat(response.getResult()).isNull();
+        assertThat(response.getResult()).satisfies(terminal -> {
+            assertThat(terminal.getEndReason()).isEqualTo(GameResult.EndReasonEnum.WIN_CONDITION_MET);
+            assertThat(terminal.getWinners())
+                    .extracting(GameWinner::getPlayerId, GameWinner::getWinType)
+                    .containsExactly(
+                            tuple(scoreWinner, GameWinner.WinTypeEnum.SCORE_THRESHOLD),
+                            tuple(objectiveWinner, GameWinner.WinTypeEnum.FACTION_OBJECTIVE));
+        });
+    }
+
+    @Test
+    void toResponse_lastPlayerStanding_mapsTheWinnersWinType() {
+        var winnerId = UUID.randomUUID();
+        var response = toResponse(resultWithTerminal(new TerminalResult(
+                GAME_ID,
+                "WIN_CONDITION_MET",
+                List.of(new TerminalResult.TerminalWinner(winnerId, "ERASERS", "LAST_PLAYER_STANDING")),
+                List.of(new TerminalResult.TerminalScore(winnerId, "ERASERS", 7)))));
+
+        assertThat(response.getResult().getWinners())
+                .singleElement()
+                .extracting(GameWinner::getWinType)
+                .isEqualTo(GameWinner.WinTypeEnum.LAST_PLAYER_STANDING);
+    }
+
+    @Test
+    void toResponse_abnormalEnding_mapsReasonWithoutWinners() {
+        var playerId = UUID.randomUUID();
+        var response = toResponse(resultWithTerminal(new TerminalResult(
+                GAME_ID,
+                "DECK_EXHAUSTED",
+                List.of(),
+                List.of(new TerminalResult.TerminalScore(playerId, "PROPHETS", 12)))));
+
+        assertThat(response.getResult()).satisfies(terminal -> {
+            assertThat(terminal.getEndReason()).isEqualTo(GameResult.EndReasonEnum.DECK_EXHAUSTED);
+            assertThat(terminal.getWinners()).isEmpty();
+            assertThat(terminal.getFinalScores())
+                    .singleElement()
+                    .extracting(FinalScore::getScore)
+                    .isEqualTo(12);
+        });
     }
 
     private static GetPlayerGameStateUseCase.Result resultWithTerminal(TerminalResult terminal) {
