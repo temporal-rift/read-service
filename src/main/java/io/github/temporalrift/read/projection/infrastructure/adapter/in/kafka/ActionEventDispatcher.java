@@ -2,7 +2,6 @@ package io.github.temporalrift.read.projection.infrastructure.adapter.in.kafka;
 
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundStartedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActivistDeclarationRecordedPayload;
-import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.BandedProbabilityPublishedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.Consumer;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.EventHeaders;
@@ -67,11 +66,6 @@ class ActionEventDispatcher implements Consumer {
     @Override
     public void onHandCardIntercepted(HandCardInterceptedPayload payload, EventHeaders headers) {
         applier.applyHandCardIntercepted(payload);
-    }
-
-    @Override
-    public void onBandedProbabilityPublished(BandedProbabilityPublishedPayload payload, EventHeaders headers) {
-        applier.applyBandedProbabilityPublished(payload);
     }
 
     @Override

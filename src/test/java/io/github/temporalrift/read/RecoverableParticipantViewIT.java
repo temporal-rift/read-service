@@ -32,9 +32,9 @@ import io.github.temporalrift.read.shared.infrastructure.config.PlayerAuthentica
 
 /**
  * End-to-end proof of issue #92: publishes owner facts on {@code game.events}/{@code timeline.events}
- * and asserts {@code GET /state} recovers the participant view after reload — public bands with
- * correction, declarations, Expose facts, own submissions, deadlines, revision and terminal results —
- * while stale facts cannot regress state and opponents learn nothing private.
+ * and asserts {@code GET /state} recovers the participant view after reload — public bands from the
+ * timeline publication, declarations, Expose facts, own submissions, deadlines, revision and terminal
+ * results — while stale facts cannot regress state and opponents learn nothing private.
  */
 @ReadServiceIntegrationTest
 class RecoverableParticipantViewIT {
@@ -56,17 +56,17 @@ class RecoverableParticipantViewIT {
     ObjectMapper objectMapper;
 
     @Test
-    void bandPreview_recoveredThenReplacedByCorrectionAndStaleRedeliveryIgnored() throws Exception {
+    void timelineBands_recoveredReplacedAndStaleRedeliveryIgnored() throws Exception {
         var gameId = UUID.randomUUID();
         var playerId = UUID.randomUUID();
         var eventId = UUID.randomUUID();
         var outcomeId = UUID.randomUUID();
         startGame(gameId, playerId);
 
-        var previewId = UUID.randomUUID();
+        var publishedId = UUID.randomUUID();
         publish(
-                        GAME_EVENTS_TOPIC,
-                        "BandedProbabilityPublished",
+                        TIMELINE_EVENTS_TOPIC,
+                        "AdjustedBandsPublished",
                         gameId,
                         Map.of(
                                 "gameId",
@@ -79,9 +79,9 @@ class RecoverableParticipantViewIT {
                                         eventId,
                                         "outcomes",
                                         List.of(Map.of("outcomeId", outcomeId, "band", "MEDIUM"))))),
-                        previewId)
+                        publishedId)
                 .join();
-        awaitProcessed(previewId, "projection.game-events");
+        awaitProcessed(publishedId, "projection.timeline-events");
         awaitBandCount(gameId, 1, 1);
 
         mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
@@ -92,7 +92,35 @@ class RecoverableParticipantViewIT {
                 .andExpect(jsonPath("$.publicBands[0].observedInRound").value(2))
                 .andExpect(jsonPath("$.publicBands[0].outcomes[0].band").value("MEDIUM"));
 
-        var correctionId = UUID.randomUUID();
+        // A participant reconnecting during Action Round 3 reads the timeline's bands.
+        var roundId = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "ActionRoundStarted",
+                        gameId,
+                        Map.of(
+                                "gameId",
+                                gameId,
+                                "eraNumber",
+                                1,
+                                "roundNumber",
+                                3,
+                                "timerSeconds",
+                                45,
+                                "pendingPlayerIds",
+                                List.of(playerId)),
+                        roundId)
+                .join();
+        awaitProcessed(roundId, "projection.game-events");
+        awaitPhase(gameId, "ACTION_ROUND_3");
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(playerId)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.publicBands", hasSize(1)))
+                .andExpect(jsonPath("$.publicBands[0].outcomes[0].band").value("MEDIUM"));
+
+        var republicationId = UUID.randomUUID();
         publish(
                         TIMELINE_EVENTS_TOPIC,
                         "AdjustedBandsPublished",
@@ -108,9 +136,9 @@ class RecoverableParticipantViewIT {
                                         eventId,
                                         "outcomes",
                                         List.of(Map.of("outcomeId", outcomeId, "band", "HIGH"))))),
-                        correctionId)
+                        republicationId)
                 .join();
-        awaitProcessed(correctionId, "projection.timeline-events");
+        awaitProcessed(republicationId, "projection.timeline-events");
         awaitBandOutcome(gameId, eventId, outcomeId, "HIGH");
 
         mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
@@ -119,36 +147,7 @@ class RecoverableParticipantViewIT {
                 .andExpect(jsonPath("$.publicBands", hasSize(1)))
                 .andExpect(jsonPath("$.publicBands[0].outcomes[0].band").value("HIGH"));
 
-        // A reordered preview arriving after the correction must not overwrite it:
-        // the two travel on independent topics with no cross-topic ordering.
-        var reorderedId = UUID.randomUUID();
-        publish(
-                        GAME_EVENTS_TOPIC,
-                        "BandedProbabilityPublished",
-                        gameId,
-                        Map.of(
-                                "gameId",
-                                gameId,
-                                "eraNumber",
-                                1,
-                                "eventStates",
-                                List.of(Map.of(
-                                        "eventId",
-                                        eventId,
-                                        "outcomes",
-                                        List.of(Map.of("outcomeId", outcomeId, "band", "LOW"))))),
-                        reorderedId)
-                .join();
-        awaitProcessed(reorderedId, "projection.game-events");
-        awaitBandOutcome(gameId, eventId, outcomeId, "HIGH");
-
-        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
-                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(playerId)))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.publicBands", hasSize(1)))
-                .andExpect(jsonPath("$.publicBands[0].outcomes[0].band").value("HIGH"));
-
-        // Ending the era clears its bands; a redelivered preview for the ended era
+        // Ending the era clears its bands; a redelivered timeline publication for the ended era
         // must not repopulate them.
         var endedId = UUID.randomUUID();
         publish(
@@ -163,8 +162,8 @@ class RecoverableParticipantViewIT {
 
         var redeliveryId = UUID.randomUUID();
         publish(
-                        GAME_EVENTS_TOPIC,
-                        "BandedProbabilityPublished",
+                        TIMELINE_EVENTS_TOPIC,
+                        "AdjustedBandsPublished",
                         gameId,
                         Map.of(
                                 "gameId",
@@ -179,7 +178,7 @@ class RecoverableParticipantViewIT {
                                         List.of(Map.of("outcomeId", outcomeId, "band", "LOW"))))),
                         redeliveryId)
                 .join();
-        awaitProcessed(redeliveryId, "projection.game-events");
+        awaitProcessed(redeliveryId, "projection.timeline-events");
         awaitBandCount(gameId, 1, 0);
 
         mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)

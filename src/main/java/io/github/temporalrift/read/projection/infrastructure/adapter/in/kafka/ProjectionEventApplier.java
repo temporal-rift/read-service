@@ -11,7 +11,6 @@ import org.springframework.stereotype.Component;
 
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundStartedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActivistDeclarationRecordedPayload;
-import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.BandedProbabilityPublishedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ExposeBehaviorChangedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ExposeSignatureRevealedPayload;
@@ -77,7 +76,6 @@ import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIn
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
 import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
 import io.github.temporalrift.read.projection.domain.model.TerminalResult;
-import io.github.temporalrift.read.projection.domain.port.out.BandCorrectionRepository;
 
 /**
  * Applies each consumed event to the read models. Package-scoped to
@@ -91,11 +89,9 @@ class ProjectionEventApplier {
     private static final Logger log = LoggerFactory.getLogger(ProjectionEventApplier.class);
 
     private final ProjectionRepositories stores;
-    private final BandCorrectionRepository bandCorrections;
 
-    ProjectionEventApplier(ProjectionRepositories stores, BandCorrectionRepository bandCorrections) {
+    ProjectionEventApplier(ProjectionRepositories stores) {
         this.stores = stores;
-        this.bandCorrections = bandCorrections;
     }
 
     // Preserves rather than overwrites: a per-player event can arrive, and find-or-create a row,
@@ -312,7 +308,6 @@ class ProjectionEventApplier {
     /** Era-scoped recoverable rows never survive their era — a delayed fact must not repopulate them. */
     private void clearRecoverableEraState(UUID gameId, int eraNumber) {
         stores.publicBands().deleteByGameIdAndEraNumber(gameId, eraNumber);
-        bandCorrections.deleteByGameIdAndEraNumber(gameId, eraNumber);
         stores.publicDeclarations().deleteByGameIdAndEraNumber(gameId, eraNumber);
         stores.exposeFacts().deleteByGameIdAndEraNumber(gameId, eraNumber);
         stores.playerSubmissions().deleteByGameIdAndEraNumber(gameId, eraNumber);
@@ -337,7 +332,6 @@ class ProjectionEventApplier {
         stores.revealedHandCardIntel().deleteByGameId(payload.gameId());
         stores.foresightPreviews().deleteByGameId(payload.gameId());
         stores.publicBands().deleteByGameId(payload.gameId());
-        bandCorrections.deleteByGameId(payload.gameId());
         stores.publicDeclarations().deleteByGameId(payload.gameId());
         stores.exposeFacts().deleteByGameId(payload.gameId());
         stores.playerSubmissions().deleteByGameId(payload.gameId());
@@ -647,43 +641,10 @@ class ProjectionEventApplier {
                         payload.emptyReason()));
     }
 
-    // Neither band publication carries a round: the preview fires when Round 2 closes and the correction
-    // replays that same Round-2 close, so both are stored with observedInRound 2 rather than inventing a
-    // round from consumption order. The correction replaces the preview wholesale for the game and era.
+    // The timeline publication carries no round: it fires once per era after the Round 2
+    // resolution replay, so bands are stored with observedInRound 2 rather than inventing a
+    // round from consumption order. Each publication replaces the era's bands wholesale.
     private static final int BAND_OBSERVED_IN_ROUND = 2;
-
-    void applyBandedProbabilityPublished(BandedProbabilityPublishedPayload payload) {
-        if (isStaleEra(payload.gameId(), payload.eraNumber(), "BandedProbabilityPublished")) {
-            return;
-        }
-        // The correction supersedes the preview regardless of arrival order: the two travel on
-        // independent topics with no cross-topic ordering, so a reordered preview must not
-        // overwrite corrected bands.
-        if (bandCorrections.isCorrectionApplied(payload.gameId(), payload.eraNumber())) {
-            log.warn(
-                    "BandedProbabilityPublished for corrected era {} in game {} — skipping",
-                    payload.eraNumber(),
-                    payload.gameId());
-            return;
-        }
-        stores.publicBands()
-                .replaceAll(
-                        payload.gameId(),
-                        payload.eraNumber(),
-                        payload.eventStates().stream()
-                                .map(event -> new PublicBand(
-                                        payload.gameId(),
-                                        payload.eraNumber(),
-                                        event.eventId(),
-                                        BAND_OBSERVED_IN_ROUND,
-                                        event.outcomes().stream()
-                                                .map(outcome -> new PublicBand.OutcomeBand(
-                                                        outcome.outcomeId(),
-                                                        outcome.band().name()))
-                                                .toList()))
-                                .toList());
-        touchRevision(payload.gameId());
-    }
 
     void applyAdjustedBandsPublished(AdjustedBandsPublishedPayload payload) {
         if (isStaleEra(payload.gameId(), payload.eraNumber(), "AdjustedBandsPublished")) {
@@ -705,7 +666,6 @@ class ProjectionEventApplier {
                                                         outcome.band().name()))
                                                 .toList()))
                                 .toList());
-        bandCorrections.markCorrectionApplied(payload.gameId(), payload.eraNumber());
         touchRevision(payload.gameId());
     }
 

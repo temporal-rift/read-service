@@ -5,7 +5,7 @@
     xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
             https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
 
-  <!-- Public band publications per game era; the adjusted correction replaces the preview wholesale. -->
+  <!-- Public band publications per game era; each timeline publication replaces the era's bands wholesale. -->
   <changeSet id="015-create-game-public-band" author="read-service">
     <createTable tableName="game_public_band">
       <column name="id" type="UUID">
