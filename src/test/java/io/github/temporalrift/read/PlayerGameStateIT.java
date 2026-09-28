@@ -466,7 +466,7 @@ class PlayerGameStateIT {
                         "gameId",
                         gameId,
                         "endReason",
-                        "SCORE_THRESHOLD",
+                        "WIN_CONDITION_MET",
                         "finalScores",
                         List.of(
                                 Map.of("playerId", player1, "faction", "ERASERS", "score", 4),
@@ -941,7 +941,7 @@ class PlayerGameStateIT {
                 GAME_EVENTS_TOPIC,
                 "GameEnded",
                 gameId,
-                Map.of("gameId", gameId, "endReason", "SCORE_THRESHOLD", "finalScores", List.of()));
+                Map.of("gameId", gameId, "endReason", "WIN_CONDITION_MET", "finalScores", List.of()));
         awaitPhase(gameId, "GAME_ENDED");
 
         mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)

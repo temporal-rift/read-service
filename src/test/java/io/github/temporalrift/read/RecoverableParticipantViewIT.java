@@ -388,8 +388,6 @@ class RecoverableParticipantViewIT {
                         Map.of(
                                 "gameId",
                                 gameId,
-                                // The owner publishes the trigger name, not the cause: the recorded
-                                // qualifier win types resolve it to SCORE_THRESHOLD on read.
                                 "endReason",
                                 "WIN_CONDITION_MET",
                                 "finalScores",
@@ -406,8 +404,9 @@ class RecoverableParticipantViewIT {
                             .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(viewer)))))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.phase").value("GAME_ENDED"))
-                    .andExpect(jsonPath("$.result.endReason").value("SCORE_THRESHOLD"))
+                    .andExpect(jsonPath("$.result.endReason").value("WIN_CONDITION_MET"))
                     .andExpect(jsonPath("$.result.winners[0].playerId").value(winner.toString()))
+                    .andExpect(jsonPath("$.result.winners[0].winType").value("SCORE_THRESHOLD"))
                     .andExpect(jsonPath("$.result.finalScores", hasSize(2)))
                     .andExpect(jsonPath("$.result.revealBoundary").value("FACTIONS_AND_SCORES_PUBLIC"));
         }
