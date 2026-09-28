@@ -1274,6 +1274,7 @@ class ProjectionEventApplierTest {
     @Test
     void applyRoundSummaryPublished_replacesThePriorGameWideSummaryWithPublicFieldsOnly() {
         var playerId = UUID.randomUUID();
+        var specialPlayerId = UUID.randomUUID();
         var skippedPlayerId = UUID.randomUUID();
         var previous = new LastRoundSummary(
                 1, 1, List.of(new RoundActionSummary(playerId, "PROBABILITY_SHIFTER", "CARD", false)));
@@ -1286,6 +1287,8 @@ class ProjectionEventApplierTest {
                 List.of(
                         new io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionSummary(
                                 playerId, CardCategory.INFORMATION, ActionFamily.CARD, false),
+                        new io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionSummary(
+                                specialPlayerId, null, ActionFamily.SPECIAL, false),
                         new io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionSummary(
                                 skippedPlayerId, null, null, true)));
 
@@ -1303,6 +1306,7 @@ class ProjectionEventApplierTest {
                                 2,
                                 List.of(
                                         new RoundActionSummary(playerId, "INFORMATION", "CARD", false),
+                                        new RoundActionSummary(specialPlayerId, null, "SPECIAL", false),
                                         new RoundActionSummary(skippedPlayerId, null, null, true)))));
     }
 
