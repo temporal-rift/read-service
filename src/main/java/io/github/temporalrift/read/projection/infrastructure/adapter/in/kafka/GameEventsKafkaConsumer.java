@@ -69,8 +69,6 @@ class GameEventsKafkaConsumer {
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ACTION_ROUND_CLOSED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ROUND_SUMMARY_PUBLISHED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract
-                    .BANDED_PROBABILITY_PUBLISHED_EVENT_TYPE,
-            io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract
                     .ACTIVIST_DECLARATION_RECORDED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.EXPOSE_SIGNATURE_REVEALED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.EXPOSE_BEHAVIOR_CHANGED_EVENT_TYPE,
@@ -104,8 +102,6 @@ class GameEventsKafkaConsumer {
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.PLAYER_JAMMED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.INFLUENCE_TRACED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.HAND_CARD_INTERCEPTED_EVENT_TYPE,
-            io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract
-                    .BANDED_PROBABILITY_PUBLISHED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract
                     .ACTIVIST_DECLARATION_RECORDED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.EXPOSE_SIGNATURE_REVEALED_EVENT_TYPE,

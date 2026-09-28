@@ -26,9 +26,6 @@ import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.Act
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundStartedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActivistDeclarationMode;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActivistDeclarationRecordedPayload;
-import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.BandedProbabilityEventBandState;
-import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.BandedProbabilityOutcomeBandState;
-import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.BandedProbabilityPublishedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardCategory;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ExposeBehaviorChangedPayload;
@@ -40,7 +37,6 @@ import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.Inf
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.InterceptedHandCard;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ParadoxResolutionCardPlayedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.PlayerJammedPayload;
-import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ProbabilityBand;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.RoundSummaryPublishedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.SpecialActionPlayedPayload;
 import io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.ScoreUpdate;
@@ -115,7 +111,6 @@ import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIn
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
 import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
 import io.github.temporalrift.read.projection.domain.model.TerminalResult;
-import io.github.temporalrift.read.projection.domain.port.out.BandCorrectionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.ExposeFactRepository;
 import io.github.temporalrift.read.projection.domain.port.out.ForesightPreviewRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRepository;
@@ -176,9 +171,6 @@ class ProjectionEventApplierTest {
     @Mock
     TerminalResultRepository terminalResults;
 
-    @Mock
-    BandCorrectionRepository bandCorrections;
-
     private ProjectionEventApplier applier;
 
     private final UUID gameId = UUID.randomUUID();
@@ -188,23 +180,21 @@ class ProjectionEventApplierTest {
         lenient()
                 .when(gameProjections.findByGameIdForUpdate(gameId))
                 .thenReturn(Optional.of(new GameProjection(gameId, 0, Phase.LOBBY)));
-        applier = new ProjectionEventApplier(
-                new ProjectionRepositories(
-                        gameProjections,
-                        gamePlayers,
-                        gameActiveEvents,
-                        playerGameStates,
-                        revealedProbabilityIntel,
-                        revealedInfluenceIntel,
-                        revealedHandCardIntel,
-                        foresightPreviews,
-                        gameChains,
-                        publicBands,
-                        publicDeclarations,
-                        exposeFacts,
-                        playerSubmissions,
-                        terminalResults),
-                bandCorrections);
+        applier = new ProjectionEventApplier(new ProjectionRepositories(
+                gameProjections,
+                gamePlayers,
+                gameActiveEvents,
+                playerGameStates,
+                revealedProbabilityIntel,
+                revealedInfluenceIntel,
+                revealedHandCardIntel,
+                foresightPreviews,
+                gameChains,
+                publicBands,
+                publicDeclarations,
+                exposeFacts,
+                playerSubmissions,
+                terminalResults));
     }
 
     @Test
@@ -1668,17 +1658,21 @@ class ProjectionEventApplierTest {
     }
 
     @Test
-    void applyBandedProbabilityPublished_storesPreviewWithRoundTwoAge() {
+    void applyAdjustedBandsPublished_storesBandsWithRoundTwoAge() {
         var eventId = UUID.randomUUID();
         var outcomeId = UUID.randomUUID();
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_3)));
 
-        applier.applyBandedProbabilityPublished(new BandedProbabilityPublishedPayload(
+        applier.applyAdjustedBandsPublished(new AdjustedBandsPublishedPayload(
                 gameId,
                 1,
-                List.of(new BandedProbabilityEventBandState(
-                        eventId, List.of(new BandedProbabilityOutcomeBandState(outcomeId, ProbabilityBand.HIGH))))));
+                List.of(new AdjustedBandsPublishedEventBandState(
+                        eventId,
+                        List.of(new AdjustedBandsPublishedOutcomeBandState(
+                                outcomeId,
+                                io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityBand
+                                        .HIGH))))));
 
         var captor = ArgumentCaptor.forClass(List.class);
         then(publicBands).should().replaceAll(eq(gameId), eq(1), captor.capture());
@@ -1690,7 +1684,7 @@ class ProjectionEventApplierTest {
     }
 
     @Test
-    void applyAdjustedBandsPublished_replacesPreviewForSameGameAndEra() {
+    void applyAdjustedBandsPublished_replacesBandsForSameGameAndEra() {
         var eventId = UUID.randomUUID();
         var outcomeId = UUID.randomUUID();
         given(gameProjections.findByGameIdForUpdate(gameId))
@@ -1714,11 +1708,11 @@ class ProjectionEventApplierTest {
     }
 
     @Test
-    void applyBandedProbabilityPublished_forStaleEra_isSkipped() {
+    void applyAdjustedBandsPublished_forStaleEra_isSkipped() {
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));
 
-        applier.applyBandedProbabilityPublished(new BandedProbabilityPublishedPayload(gameId, 1, List.of()));
+        applier.applyAdjustedBandsPublished(new AdjustedBandsPublishedPayload(gameId, 1, List.of()));
 
         then(publicBands).should(never()).replaceAll(any(), anyInt(), any());
     }
@@ -1982,7 +1976,6 @@ class ProjectionEventApplierTest {
         applier.applyEraEnded(new EraEndedPayload(gameId, 1, 0, 2));
 
         then(publicBands).should().deleteByGameIdAndEraNumber(gameId, 1);
-        then(bandCorrections).should().deleteByGameIdAndEraNumber(gameId, 1);
         then(publicDeclarations).should().deleteByGameIdAndEraNumber(gameId, 1);
         then(exposeFacts).should().deleteByGameIdAndEraNumber(gameId, 1);
         then(playerSubmissions).should().deleteByGameIdAndEraNumber(gameId, 1);
@@ -2004,7 +1997,6 @@ class ProjectionEventApplierTest {
                         eq("WIN_CONDITION_MET"),
                         eq(List.of(new TerminalResult.TerminalScore(playerId, "WEAVERS", 20))));
         then(publicBands).should().deleteByGameId(gameId);
-        then(bandCorrections).should().deleteByGameId(gameId);
         then(playerSubmissions).should().deleteByGameId(gameId);
     }
 
@@ -2026,25 +2018,13 @@ class ProjectionEventApplierTest {
     }
 
     @Test
-    void applyBandedProbabilityPublished_afterCorrection_isSkipped() {
-        given(gameProjections.findByGameIdForUpdate(gameId))
-                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_3)));
-        given(bandCorrections.isCorrectionApplied(gameId, 1)).willReturn(true);
-
-        applier.applyBandedProbabilityPublished(new BandedProbabilityPublishedPayload(gameId, 1, List.of()));
-
-        then(publicBands).should(never()).replaceAll(any(), anyInt(), any());
-        then(gameProjections).should(never()).save(any());
-    }
-
-    @Test
-    void applyAdjustedBandsPublished_marksCorrectionApplied() {
+    void applyAdjustedBandsPublished_republication_replacesBands() {
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_3)));
 
         applier.applyAdjustedBandsPublished(new AdjustedBandsPublishedPayload(gameId, 1, List.of()));
 
-        then(bandCorrections).should().markCorrectionApplied(gameId, 1);
+        then(publicBands).should().replaceAll(gameId, 1, List.of());
     }
 
     @Test
