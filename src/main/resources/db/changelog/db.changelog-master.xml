@@ -5,6 +5,12 @@
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
             https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
 
+    <!--
+        Pre-production changelog: changesets are edited in place until the first durable deployment,
+        and are forward-only after it.
+        See https://github.com/temporal-rift/read-service/issues/130.
+    -->
+
     <!-- Infrastructure: consumer idempotency -->
     <include file="db/changelog/infrastructure/001-create-processed-events.xml"/>
 
@@ -18,11 +24,9 @@
     <include file="db/changelog/projection/007-create-revealed-probability-intel.xml"/>
     <include file="db/changelog/projection/008-create-game-resolved-event.xml"/>
     <include file="db/changelog/projection/009-add-last-round-summary.xml"/>
-    <include file="db/changelog/projection/010-add-jammed-until-round.xml"/>
     <include file="db/changelog/projection/011-create-revealed-influence-intel.xml"/>
     <include file="db/changelog/projection/012-create-revealed-hand-card-intel.xml"/>
     <include file="db/changelog/projection/013-create-game-chain-projection.xml"/>
-    <include file="db/changelog/projection/014-widen-game-projection-recoverable-view.xml"/>
     <include file="db/changelog/projection/015-create-game-public-band.xml"/>
     <include file="db/changelog/projection/016-create-game-declaration.xml"/>
     <include file="db/changelog/projection/017-create-game-expose-fact.xml"/>
