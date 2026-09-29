@@ -605,12 +605,35 @@ class ProjectionRestMapperTest {
                 List.of(),
                 List.of(),
                 List.of(),
-                new TerminalResult(GAME_ID, "ALL_PLAYERS_ABANDONED", List.of(), List.of()),
+                new TerminalResult(GAME_ID, "FUTURE_END_REASON", List.of(), List.of()),
                 null);
 
         var response = toResponse(result);
 
         assertThat(response.getResult()).isNull();
+    }
+
+    @Test
+    void toResponse_allPlayersAbandoned_mapsNoWinnersEveryScoreAndRevealBoundary() {
+        var firstPlayer = UUID.randomUUID();
+        var secondPlayer = UUID.randomUUID();
+        var response = toResponse(resultWithTerminal(new TerminalResult(
+                GAME_ID,
+                "ALL_PLAYERS_ABANDONED",
+                List.of(),
+                List.of(
+                        new TerminalResult.TerminalScore(firstPlayer, "PROPHETS", 12),
+                        new TerminalResult.TerminalScore(secondPlayer, "WEAVERS", 7)))));
+
+        assertThat(response.getResult()).satisfies(terminal -> {
+            assertThat(terminal.getEndReason()).isEqualTo(GameResult.EndReasonEnum.ALL_PLAYERS_ABANDONED);
+            assertThat(terminal.getWinners()).isEmpty();
+            assertThat(terminal.getFinalScores())
+                    .extracting(FinalScore::getPlayerId, FinalScore::getScore)
+                    .containsExactly(tuple(firstPlayer, 12), tuple(secondPlayer, 7));
+            assertThat(terminal.getRevealBoundary())
+                    .isEqualTo(GameResult.RevealBoundaryEnum.FACTIONS_AND_SCORES_PUBLIC);
+        });
     }
 
     @Test
