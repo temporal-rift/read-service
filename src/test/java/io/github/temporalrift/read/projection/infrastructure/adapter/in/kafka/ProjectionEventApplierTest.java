@@ -2001,6 +2001,31 @@ class ProjectionEventApplierTest {
     }
 
     @Test
+    void applyGameEnded_allPlayersAbandoned_recordsEveryScoreWithoutAddingWinners() {
+        var firstPlayer = UUID.randomUUID();
+        var secondPlayer = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.RESOLUTION)));
+
+        applier.applyGameEnded(new GameEndedPayload(
+                gameId,
+                "ALL_PLAYERS_ABANDONED",
+                List.of(
+                        new GameEndedPlayerScoreResult(firstPlayer, Faction.PROPHETS, 12),
+                        new GameEndedPlayerScoreResult(secondPlayer, Faction.WEAVERS, 7))));
+
+        then(terminalResults)
+                .should()
+                .saveEndReasonAndScores(
+                        eq(gameId),
+                        eq("ALL_PLAYERS_ABANDONED"),
+                        eq(List.of(
+                                new TerminalResult.TerminalScore(firstPlayer, "PROPHETS", 12),
+                                new TerminalResult.TerminalScore(secondPlayer, "WEAVERS", 7))));
+        then(terminalResults).should(never()).addWinners(any(), any());
+    }
+
+    @Test
     void applyWinConditionMet_addsWinnerAndAdvancesRevision() {
         var winnerId = UUID.randomUUID();
         given(gameProjections.findByGameIdForUpdate(gameId))

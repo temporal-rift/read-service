@@ -951,6 +951,95 @@ class PlayerGameStateIT {
     }
 
     @Test
+    void allPlayersAbandoned_retrievedStateRetainsScoresAndRevealsAcrossDuplicateEndings() throws Exception {
+        var gameId = UUID.randomUUID();
+        var firstPlayer = UUID.randomUUID();
+        var secondPlayer = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "GameStarted",
+                        gameId,
+                        Map.of(
+                                "gameId",
+                                gameId,
+                                "lobbyId",
+                                UUID.randomUUID(),
+                                "players",
+                                roster(firstPlayer, secondPlayer),
+                                "totalFactions",
+                                3,
+                                "deckSize",
+                                30))
+                .join();
+        awaitPlayerGameStateRowExists(gameId, firstPlayer);
+        awaitPlayerGameStateRowExists(gameId, secondPlayer);
+
+        var ending = Map.of(
+                "gameId",
+                gameId,
+                "endReason",
+                "ALL_PLAYERS_ABANDONED",
+                "finalScores",
+                List.of(
+                        Map.of("playerId", firstPlayer, "faction", "PROPHETS", "score", 12),
+                        Map.of("playerId", secondPlayer, "faction", "WEAVERS", "score", 7)));
+        var endingEventId = UUID.randomUUID();
+        publish(GAME_EVENTS_TOPIC, "GameEnded", gameId, ending, endingEventId).join();
+        var revealEventId = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "FactionRevealed",
+                        gameId,
+                        Map.of(
+                                "gameId",
+                                gameId,
+                                "reveals",
+                                List.of(
+                                        Map.of("playerId", firstPlayer, "faction", "PROPHETS"),
+                                        Map.of("playerId", secondPlayer, "faction", "WEAVERS"))),
+                        revealEventId)
+                .join();
+        awaitProcessed(revealEventId, "projection.game-events");
+
+        publish(GAME_EVENTS_TOPIC, "GameEnded", gameId, ending, endingEventId).join();
+        var repeatedEndingEventId = UUID.randomUUID();
+        publish(GAME_EVENTS_TOPIC, "GameEnded", gameId, ending, repeatedEndingEventId)
+                .join();
+        awaitProcessed(repeatedEndingEventId, "projection.game-events");
+
+        for (var playerId : List.of(firstPlayer, secondPlayer)) {
+            mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                            .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(playerId)))))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.phase").value("GAME_ENDED"))
+                    .andExpect(jsonPath("$.result.endReason").value("ALL_PLAYERS_ABANDONED"))
+                    .andExpect(jsonPath("$.result.winners").isEmpty())
+                    .andExpect(jsonPath("$.result.finalScores.length()").value(2))
+                    .andExpect(jsonPath("$.result.finalScores[?(@.playerId=='" + firstPlayer + "')].score")
+                            .value(contains(12)))
+                    .andExpect(jsonPath("$.result.finalScores[?(@.playerId=='" + secondPlayer + "')].score")
+                            .value(contains(7)))
+                    .andExpect(jsonPath("$.result.revealBoundary").value("FACTIONS_AND_SCORES_PUBLIC"))
+                    .andExpect(jsonPath("$.players[?(@.playerId=='" + firstPlayer + "')].faction")
+                            .value(contains("PROPHETS")))
+                    .andExpect(jsonPath("$.players[?(@.playerId=='" + secondPlayer + "')].faction")
+                            .value(contains("WEAVERS")));
+        }
+        assertThat(jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM game_terminal_final_score WHERE game_id = ?", Integer.class, gameId))
+                .isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM game_terminal_winner WHERE game_id = ?", Integer.class, gameId))
+                .isZero();
+        assertThat(jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM processed_events WHERE event_id = ? AND consumer = ?",
+                        Integer.class,
+                        endingEventId,
+                        "projection.game-events"))
+                .isEqualTo(1);
+    }
+
+    @Test
     void nonParticipant_getState_returns404() throws Exception {
         var gameId = UUID.randomUUID();
         var participant = UUID.randomUUID();
