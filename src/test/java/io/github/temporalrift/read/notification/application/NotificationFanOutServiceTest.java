@@ -70,7 +70,7 @@ class NotificationFanOutServiceTest {
     }
 
     @Test
-    void broadcastsCarriedEventDrawWithoutExactWeights() {
+    void broadcastsCarriedEventDrawWithPrintedWeights() {
         var gameId = UUID.randomUUID();
         var recipient = mock(NotificationDeliveryPort.class);
         var registry = new NotificationSessionRegistry();
@@ -79,7 +79,7 @@ class NotificationFanOutServiceTest {
 
         service.fanOut(message(gameId, "EventsDrawn", """
                 {"events":[
-                  {"carryOverState":"CASCADED","outcomes":[{"initialProbability":50}]},
+                  {"carryOverState":"CASCADED","outcomes":[{"initialProbability":60}]},
                   {"carryOverState":"FRESH","outcomes":[{"initialProbability":34}]}
                 ]}
                 """));
@@ -87,8 +87,12 @@ class NotificationFanOutServiceTest {
         var notification = ArgumentCaptor.forClass(NotificationMessage.class);
         verify(recipient).send(notification.capture());
         var events = notification.getValue().payload().get("events");
-        assertThat(events.get(0).get("outcomes").get(0).has("initialProbability"))
-                .isFalse();
+        assertThat(events.get(0)
+                        .get("outcomes")
+                        .get(0)
+                        .get("initialProbability")
+                        .asInt())
+                .isEqualTo(60);
         assertThat(events.get(1)
                         .get("outcomes")
                         .get(0)

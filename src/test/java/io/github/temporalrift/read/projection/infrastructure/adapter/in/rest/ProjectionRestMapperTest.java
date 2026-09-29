@@ -737,7 +737,7 @@ class ProjectionRestMapperTest {
                 3,
                 List.of(
                         new ForesightPreviewEvent(
-                                first, "Collapse", List.of(new ForesightPreviewOutcome(outcome, "Falls"))),
+                                first, "Collapse", List.of(new ForesightPreviewOutcome(outcome, "Falls", 60))),
                         new ForesightPreviewEvent(second, "Rise", List.of())),
                 null)));
 

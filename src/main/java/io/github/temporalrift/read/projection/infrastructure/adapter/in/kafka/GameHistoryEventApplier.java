@@ -36,7 +36,8 @@ class GameHistoryEventApplier {
                             index,
                             event.title(),
                             event.outcomes().stream()
-                                    .map(outcome -> new EventOutcome(outcome.outcomeId(), outcome.description()))
+                                    .map(outcome -> new EventOutcome(
+                                            outcome.outcomeId(), outcome.description(), outcome.initialProbability()))
                                     .toList());
                 })
                 .toList();

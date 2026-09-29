@@ -86,20 +86,24 @@ class NotificationPolicyTest {
     }
 
     @Test
-    void publicEventDrawOmitsWeightsOnlyForCarriedEvents() {
+    void publicEventDrawKeepsPrintedWeightsForFreshAndCarriedEvents() {
         var payload = objectMapper.readTree("""
                 {"events":[
-                  {"carryOverState":"CASCADED","outcomes":[{"initialProbability":50,"probability":50}]},
-                  {"carryOverState":"FRESH","outcomes":[{"initialProbability":34,"probability":34}]}
+                  {"carryOverState":"CASCADED","outcomes":[{"initialProbability":60}]},
+                  {"carryOverState":"FRESH","outcomes":[{"initialProbability":34}]}
                 ]}
                 """);
 
         var publicPayload = policy.publicPayloadFor("EventsDrawn", payload);
 
-        assertThat(publicPayload.get("events").get(0).get("outcomes").get(0).has("initialProbability"))
-                .isFalse();
-        assertThat(publicPayload.get("events").get(0).get("outcomes").get(0).has("probability"))
-                .isFalse();
+        assertThat(publicPayload
+                        .get("events")
+                        .get(0)
+                        .get("outcomes")
+                        .get(0)
+                        .get("initialProbability")
+                        .asInt())
+                .isEqualTo(60);
         assertThat(publicPayload
                         .get("events")
                         .get(1)

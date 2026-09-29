@@ -187,7 +187,7 @@ class ProjectionEventApplier {
                 continue;
             }
             var outcomes = event.outcomes().stream()
-                    .map(o -> new EventOutcome(o.outcomeId(), o.description()))
+                    .map(o -> new EventOutcome(o.outcomeId(), o.description(), o.initialProbability()))
                     .toList();
             stores.gameActiveEvents()
                     .save(
@@ -635,7 +635,9 @@ class ProjectionEventApplier {
                                         event.title(),
                                         event.outcomes().stream()
                                                 .map(outcome -> new ForesightPreviewOutcome(
-                                                        outcome.catalogOutcomeId(), outcome.description()))
+                                                        outcome.catalogOutcomeId(),
+                                                        outcome.description(),
+                                                        outcome.initialProbability()))
                                                 .toList()))
                                 .toList(),
                         payload.emptyReason()));

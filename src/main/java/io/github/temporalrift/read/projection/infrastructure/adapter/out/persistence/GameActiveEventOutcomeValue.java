@@ -10,13 +10,17 @@ import io.github.temporalrift.read.projection.domain.model.EventOutcome;
 @Embeddable
 record GameActiveEventOutcomeValue(
         @Column(name = "outcome_id", nullable = false) UUID outcomeId,
-        @Column(name = "description", nullable = false) String description) {
+        @Column(name = "description", nullable = false) String description,
+
+        @Column(name = "initial_probability", nullable = false)
+        int initialProbability) {
 
     static GameActiveEventOutcomeValue fromDomain(EventOutcome outcome) {
-        return new GameActiveEventOutcomeValue(outcome.outcomeId(), outcome.description());
+        return new GameActiveEventOutcomeValue(
+                outcome.outcomeId(), outcome.description(), outcome.initialProbability());
     }
 
     EventOutcome toDomain() {
-        return new EventOutcome(outcomeId, description);
+        return new EventOutcome(outcomeId, description, initialProbability);
     }
 }

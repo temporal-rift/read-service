@@ -44,7 +44,7 @@ class JpaForesightPreviewAdapterTest {
                 new ForesightPreviewEvent(
                         UUID.randomUUID(),
                         "Collapse",
-                        List.of(new ForesightPreviewOutcome(UUID.randomUUID(), "Falls"))),
+                        List.of(new ForesightPreviewOutcome(UUID.randomUUID(), "Falls", 60))),
                 new ForesightPreviewEvent(UUID.randomUUID(), "Rise", List.of())));
         given(repository.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 1))
                 .willReturn(Optional.empty());
