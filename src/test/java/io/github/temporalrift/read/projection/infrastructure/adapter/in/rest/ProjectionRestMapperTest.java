@@ -13,11 +13,14 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
+import io.github.temporalrift.read.projection.domain.model.CarryOverState;
 import io.github.temporalrift.read.projection.domain.model.ChainStatus;
+import io.github.temporalrift.read.projection.domain.model.EventOutcome;
 import io.github.temporalrift.read.projection.domain.model.ExposeFact;
 import io.github.temporalrift.read.projection.domain.model.ForesightPreview;
 import io.github.temporalrift.read.projection.domain.model.ForesightPreviewEvent;
 import io.github.temporalrift.read.projection.domain.model.ForesightPreviewOutcome;
+import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 import io.github.temporalrift.read.projection.domain.model.GameChain;
 import io.github.temporalrift.read.projection.domain.model.HandCard;
 import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
@@ -351,6 +354,44 @@ class ProjectionRestMapperTest {
         assertThat(response.getChain()).satisfies(chain -> {
             assertThat(chain.getStatus().getValue()).isEqualTo("ACTIVE");
             assertThat(chain.getLength()).isEqualTo(2);
+        });
+    }
+
+    @Test
+    void toResponse_mapsActiveEventOutcomesWithTheirPrintedStartingWeights() {
+        var eventId = UUID.randomUUID();
+        var outcomeIds = List.of(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID,
+                2,
+                Phase.ACTION_ROUND_1,
+                "PROPHETS",
+                List.of(),
+                null,
+                List.of(),
+                0,
+                List.of(),
+                List.of(new GameActiveEvent(
+                        eventId,
+                        "The Plague Ship in Harbor",
+                        CarryOverState.STALLED,
+                        List.of(
+                                new EventOutcome(outcomeIds.get(0), "Contained", 60),
+                                new EventOutcome(outcomeIds.get(1), "Spreads", 25),
+                                new EventOutcome(outcomeIds.get(2), "Sunk", 15)))),
+                null,
+                null,
+                null);
+
+        var response = toResponse(result);
+
+        assertThat(response.getActiveEvents()).singleElement().satisfies(event -> {
+            assertThat(event.getEventId()).isEqualTo(eventId);
+            assertThat(event.getCarryOverState().getValue()).isEqualTo("STALLED");
+            assertThat(event.getOutcomes())
+                    .extracting(outcome -> outcome.getOutcomeId(), outcome -> outcome.getInitialProbability())
+                    .containsExactly(
+                            tuple(outcomeIds.get(0), 60), tuple(outcomeIds.get(1), 25), tuple(outcomeIds.get(2), 15));
         });
     }
 
