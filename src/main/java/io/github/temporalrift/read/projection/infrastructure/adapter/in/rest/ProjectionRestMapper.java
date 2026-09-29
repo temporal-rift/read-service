@@ -133,7 +133,9 @@ final class ProjectionRestMapper {
                                         event.title(),
                                         event.outcomes().stream()
                                                 .map(outcome -> new ForesightPreviewOutcome(
-                                                        outcome.catalogOutcomeId(), outcome.description()))
+                                                        outcome.catalogOutcomeId(),
+                                                        outcome.description(),
+                                                        outcome.initialProbability()))
                                                 .toList()))
                                 .toList())
                 .emptyReason(domain.emptyReason());
@@ -400,7 +402,7 @@ final class ProjectionRestMapper {
 
     private static ActiveEvent toActiveEvent(GameActiveEvent domain) {
         var outcomes = domain.outcomes().stream()
-                .map(o -> new EventOutcome(o.outcomeId(), o.description()))
+                .map(o -> new EventOutcome(o.outcomeId(), o.description(), o.initialProbability()))
                 .toList();
         return new ActiveEvent(
                 domain.eventId(),

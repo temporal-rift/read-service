@@ -14,9 +14,6 @@ public final class NotificationPolicy {
     private static final String UPDATES_FIELD = "updates";
     private static final String FACTION_FIELD = "faction";
     private static final String REASON_FIELD = "reason";
-    private static final String EVENTS_FIELD = "events";
-    private static final String OUTCOMES_FIELD = "outcomes";
-    private static final String CARRY_OVER_STATE_FIELD = "carryOverState";
     private static final String CARRY_FORWARD_PROBABILITY_STATE_FIELD = "carryForwardProbabilityState";
 
     // Chain events carry the acting player's id, which would identify the Weavers faction holder before
@@ -111,8 +108,6 @@ public final class NotificationPolicy {
         identityFieldsToRedact(eventType).forEach(publicPayload::remove);
         if ("ParadoxCascaded".equals(eventType)) {
             publicPayload.remove(CARRY_FORWARD_PROBABILITY_STATE_FIELD);
-        } else if ("EventsDrawn".equals(eventType)) {
-            redactCarriedEventWeights(publicPayload);
         }
         return publicPayload;
     }
@@ -133,32 +128,6 @@ public final class NotificationPolicy {
         updates.forEach(update -> filteredUpdates.add(viewOf(update, viewerPlayerId)));
         filtered.set(UPDATES_FIELD, filteredUpdates);
         return filtered;
-    }
-
-    private static void redactCarriedEventWeights(ObjectNode payload) {
-        if (!(payload.get(EVENTS_FIELD) instanceof ArrayNode events)) {
-            return;
-        }
-        events.forEach(event -> {
-            if (!(event instanceof ObjectNode eventPayload) || isFresh(eventPayload)) {
-                return;
-            }
-            if (eventPayload.get(OUTCOMES_FIELD) instanceof ArrayNode outcomes) {
-                outcomes.forEach(NotificationPolicy::redactOutcomeWeights);
-            }
-        });
-    }
-
-    private static boolean isFresh(ObjectNode eventPayload) {
-        return eventPayload.hasNonNull(CARRY_OVER_STATE_FIELD)
-                && "FRESH".equals(eventPayload.get(CARRY_OVER_STATE_FIELD).asText());
-    }
-
-    private static void redactOutcomeWeights(JsonNode outcome) {
-        if (outcome instanceof ObjectNode outcomePayload) {
-            outcomePayload.remove("initialProbability");
-            outcomePayload.remove("probability");
-        }
     }
 
     private static JsonNode viewOf(JsonNode update, UUID viewerPlayerId) {

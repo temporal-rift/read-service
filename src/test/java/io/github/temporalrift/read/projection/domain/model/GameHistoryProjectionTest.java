@@ -112,7 +112,7 @@ class GameHistoryProjectionTest {
 
     @Test
     void eventDefinition_rejectsDescriptionThatWouldViolateTheRestContract() {
-        var outcomes = List.of(new EventOutcome(firstOutcomeId, " "));
+        var outcomes = List.of(new EventOutcome(firstOutcomeId, " ", 34));
         assertThatThrownBy(() -> new HistoryEventDefinition(firstEventId, 0, "Event", outcomes))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("nonblank descriptions");
@@ -121,11 +121,11 @@ class GameHistoryProjectionTest {
     private List<HistoryEventDefinition> definitions() {
         return List.of(
                 new HistoryEventDefinition(
-                        firstEventId, 0, "First event", List.of(new EventOutcome(firstOutcomeId, "First outcome"))),
+                        firstEventId, 0, "First event", List.of(new EventOutcome(firstOutcomeId, "First outcome", 34))),
                 new HistoryEventDefinition(
                         secondEventId,
                         1,
                         "Second event",
-                        List.of(new EventOutcome(secondOutcomeId, "Second outcome"))));
+                        List.of(new EventOutcome(secondOutcomeId, "Second outcome", 34))));
     }
 }

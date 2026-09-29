@@ -157,6 +157,6 @@ class GameHistoryPersistenceIT {
                         eventId,
                         0,
                         "Event " + eraNumber,
-                        List.of(new EventOutcome(outcomeId, "Outcome " + eraNumber)))));
+                        List.of(new EventOutcome(outcomeId, "Outcome " + eraNumber, 34)))));
     }
 }

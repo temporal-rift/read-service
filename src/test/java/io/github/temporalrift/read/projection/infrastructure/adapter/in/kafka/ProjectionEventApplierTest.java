@@ -463,7 +463,7 @@ class ProjectionEventApplierTest {
         then(gameActiveEvents).should().save(eq(gameId), captor.capture());
         assertThat(captor.getValue().eventId()).isEqualTo(eventId);
         assertThat(captor.getValue().carryOverState()).isEqualTo(CarryOverState.FRESH);
-        assertThat(captor.getValue().outcomes()).containsExactly(new EventOutcome(outcomeId, "desc"));
+        assertThat(captor.getValue().outcomes()).containsExactly(new EventOutcome(outcomeId, "desc", 50));
     }
 
     @Test
@@ -795,7 +795,7 @@ class ProjectionEventApplierTest {
                 2,
                 List.of(
                         new ForesightRevealedEvent(
-                                first, "Collapse", List.of(new ForesightRevealedOutcome(outcome, "Falls"))),
+                                first, "Collapse", List.of(new ForesightRevealedOutcome(outcome, "Falls", 60))),
                         new ForesightRevealedEvent(second, "Rise", List.of())),
                 null));
 
@@ -808,7 +808,7 @@ class ProjectionEventApplierTest {
                         2,
                         List.of(
                                 new ForesightPreviewEvent(
-                                        first, "Collapse", List.of(new ForesightPreviewOutcome(outcome, "Falls"))),
+                                        first, "Collapse", List.of(new ForesightPreviewOutcome(outcome, "Falls", 60))),
                                 new ForesightPreviewEvent(second, "Rise", List.of())),
                         null));
         then(playerGameStates).shouldHaveNoInteractions();

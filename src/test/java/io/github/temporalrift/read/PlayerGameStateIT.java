@@ -621,7 +621,7 @@ class PlayerGameStateIT {
     }
 
     @Test
-    void carriedEventsDrawn_forFutureEraAdvanceProjectionWithoutExposingExactWeights() throws Exception {
+    void carriedEventsDrawn_forFutureEraAdvanceProjectionExposingOnlyPrintedWeights() throws Exception {
         var gameId = UUID.randomUUID();
         var playerId = UUID.randomUUID();
         var otherPlayerId = UUID.randomUUID();
@@ -705,14 +705,14 @@ class PlayerGameStateIT {
                 .andExpect(jsonPath("$.activeEvents[0].eventId").value(activeEventId.toString()))
                 .andExpect(jsonPath("$.activeEvents[0].carryOverState").value("CASCADED"))
                 .andExpect(jsonPath("$.activeEvents[0].outcomes[0].initialProbability")
-                        .doesNotExist());
+                        .value(50));
 
         mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
                         .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(otherPlayerId)))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.activeEvents[0].eventId").value(activeEventId.toString()))
                 .andExpect(jsonPath("$.activeEvents[0].outcomes[0].initialProbability")
-                        .doesNotExist());
+                        .value(50));
 
         var delayedEraStartedEventId = UUID.randomUUID();
         publish(
@@ -1531,7 +1531,9 @@ class PlayerGameStateIT {
                 2,
                 List.of(
                         new ForesightRevealedEvent(
-                                firstEventId, "Collapse", List.of(new ForesightRevealedOutcome(outcomeId, "Falls"))),
+                                firstEventId,
+                                "Collapse",
+                                List.of(new ForesightRevealedOutcome(outcomeId, "Falls", 60))),
                         new ForesightRevealedEvent(secondEventId, "Rise", List.of())),
                 null);
         publish(GAME_EVENTS_TOPIC, "ForesightRevealed", gameId, reveal, revealEventId)
@@ -1550,6 +1552,8 @@ class PlayerGameStateIT {
                         .value(outcomeId.toString()))
                 .andExpect(jsonPath("$.myForesightPreview.revealedEvents[0].outcomes[0].description")
                         .value("Falls"))
+                .andExpect(jsonPath("$.myForesightPreview.revealedEvents[0].outcomes[0].initialProbability")
+                        .value(60))
                 .andExpect(jsonPath("$.myForesightPreview.emptyReason").value(nullValue()));
 
         mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
