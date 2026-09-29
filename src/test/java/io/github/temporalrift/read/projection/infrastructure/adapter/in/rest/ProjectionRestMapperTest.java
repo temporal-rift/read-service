@@ -389,7 +389,11 @@ class ProjectionRestMapperTest {
             assertThat(event.getEventId()).isEqualTo(eventId);
             assertThat(event.getCarryOverState().getValue()).isEqualTo("STALLED");
             assertThat(event.getOutcomes())
-                    .extracting(outcome -> outcome.getOutcomeId(), outcome -> outcome.getInitialProbability())
+                    .extracting(
+                            io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.EventOutcome
+                                    ::getOutcomeId,
+                            io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.EventOutcome
+                                    ::getInitialProbability)
                     .containsExactly(
                             tuple(outcomeIds.get(0), 60), tuple(outcomeIds.get(1), 25), tuple(outcomeIds.get(2), 15));
         });
