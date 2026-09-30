@@ -28,6 +28,9 @@
       <column name="influencer_player_ids" type="JSONB">
         <constraints nullable="false"/>
       </column>
+      <column name="mimic_influencer_player_ids" type="JSONB">
+        <constraints nullable="false"/>
+      </column>
     </createTable>
 
     <addUniqueConstraint

@@ -12,30 +12,5 @@
         baseColumnNames="game_projection_id" referencedTableName="game_projection"
         referencedColumnNames="game_id" constraintName="fk_game_projection_affected_event_game_projection"
         onDelete="CASCADE"/>
-
-    <addColumn tableName="revealed_influence_intel">
-      <column name="mimic_influencer_player_ids" type="JSONB" defaultValueComputed="'[]'::jsonb">
-        <constraints nullable="false"/>
-      </column>
-    </addColumn>
-
-    <renameColumn tableName="player_submission" oldColumnName="kind" newColumnName="submission_window"
-        columnDataType="VARCHAR(16)"/>
-    <modifyDataType tableName="player_submission" columnName="submission_window" newDataType="VARCHAR(32)"/>
-    <update tableName="player_submission">
-      <column name="submission_window" value="PARADOX_RESOLUTION"/>
-      <where>submission_window = 'PARADOX_CARD'</where>
-    </update>
-    <renameColumn tableName="player_submission" oldColumnName="action_type" newColumnName="choice"
-        columnDataType="VARCHAR(16)"/>
-    <update tableName="player_submission">
-      <column name="choice" value="CARD"/>
-      <where>submission_window = 'PARADOX_RESOLUTION'</where>
-    </update>
-    <addColumn tableName="player_submission">
-      <column name="card" type="JSONB"/>
-      <column name="special_action" type="VARCHAR(32)"/>
-      <column name="targets" type="JSONB"/>
-    </addColumn>
   </changeSet>
 </databaseChangeLog>
