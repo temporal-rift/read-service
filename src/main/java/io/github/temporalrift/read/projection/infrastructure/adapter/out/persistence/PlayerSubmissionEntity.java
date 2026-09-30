@@ -8,6 +8,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import tools.jackson.databind.ObjectMapper;
 
 import io.github.temporalrift.read.projection.domain.model.PlayerSubmission;
 
@@ -35,27 +36,27 @@ class PlayerSubmissionEntity extends PlayerScopedBaseEntity {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "card", columnDefinition = "jsonb")
-    private PlayerSubmission.SubmittedCard card;
+    private String card;
 
     @Column(name = "special_action")
     private String specialAction;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "targets", columnDefinition = "jsonb")
-    private PlayerSubmission.Targets targets;
+    private String targets;
 
     protected PlayerSubmissionEntity() {}
 
-    private PlayerSubmissionEntity(UUID id, PlayerSubmission submission) {
+    private PlayerSubmissionEntity(UUID id, PlayerSubmission submission, ObjectMapper objectMapper) {
         super(id, submission.gameId(), submission.playerId(), submission.eraNumber());
-        updateFrom(submission);
+        updateFrom(submission, objectMapper);
     }
 
-    static PlayerSubmissionEntity fromDomain(UUID id, PlayerSubmission submission) {
-        return new PlayerSubmissionEntity(id, submission);
+    static PlayerSubmissionEntity fromDomain(UUID id, PlayerSubmission submission, ObjectMapper objectMapper) {
+        return new PlayerSubmissionEntity(id, submission, objectMapper);
     }
 
-    PlayerSubmission toDomain() {
+    PlayerSubmission toDomain(ObjectMapper objectMapper) {
         return new PlayerSubmission(
                 getGameId(),
                 getPlayerId(),
@@ -63,17 +64,17 @@ class PlayerSubmissionEntity extends PlayerScopedBaseEntity {
                 roundNumber == 0 ? null : roundNumber,
                 PlayerSubmission.SubmissionWindow.valueOf(submissionWindow),
                 choice == null ? null : PlayerSubmission.SubmissionChoice.valueOf(choice),
-                card,
+                card == null ? null : objectMapper.readValue(card, PlayerSubmission.SubmittedCard.class),
                 specialAction,
-                targets);
+                targets == null ? null : objectMapper.readValue(targets, PlayerSubmission.Targets.class));
     }
 
-    void updateFrom(PlayerSubmission submission) {
+    void updateFrom(PlayerSubmission submission, ObjectMapper objectMapper) {
         this.roundNumber = submission.roundNumber() == null ? 0 : submission.roundNumber();
         this.submissionWindow = submission.window().name();
         this.choice = submission.choice() == null ? null : submission.choice().name();
-        this.card = submission.card();
+        this.card = submission.card() == null ? null : objectMapper.writeValueAsString(submission.card());
         this.specialAction = submission.specialAction();
-        this.targets = submission.targets();
+        this.targets = submission.targets() == null ? null : objectMapper.writeValueAsString(submission.targets());
     }
 }

@@ -425,7 +425,7 @@ class GetPlayerGameStateQueryHandlerTest {
     }
 
     @Test
-    void get_openActionRound_countsOneSubmissionAndTwoPendingPlayers() {
+    void get_openActionRound_countsOnePlayerOnceAndTwoPendingPlayers() {
         var second = UUID.randomUUID();
         var third = UUID.randomUUID();
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
@@ -439,7 +439,7 @@ class GetPlayerGameStateQueryHandlerTest {
                         new GamePlayer(second, 0, true, null),
                         new GamePlayer(third, 0, true, null)));
         given(playerSubmissions.findSubmittedPlayerIds(gameId, 1, PlayerSubmission.SubmissionWindow.ACTION, 1))
-                .willReturn(List.of(playerId));
+                .willReturn(List.of(playerId, playerId));
 
         var result = handler.get(gameId, playerId);
 
