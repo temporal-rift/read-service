@@ -23,15 +23,18 @@
       <column name="round_number" type="INT">
         <constraints nullable="false"/>
       </column>
-      <column name="kind" type="VARCHAR(16)">
+      <column name="submission_window" type="VARCHAR(32)">
         <constraints nullable="false"/>
       </column>
-      <column name="action_type" type="VARCHAR(16)"/>
+      <column name="choice" type="VARCHAR(16)"/>
+      <column name="card" type="JSONB"/>
+      <column name="special_action" type="VARCHAR(32)"/>
+      <column name="targets" type="JSONB"/>
     </createTable>
 
     <addUniqueConstraint
         tableName="player_submission"
-        columnNames="game_id, player_id, era_number, kind, round_number"
+        columnNames="game_id, player_id, era_number, submission_window, round_number"
         constraintName="uq_player_submission_identity"/>
   </changeSet>
 
