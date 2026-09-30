@@ -255,7 +255,7 @@ class ProjectionEventApplier {
                             payload.playerId(),
                             payload.eraNumber(),
                             null,
-                            PlayerSubmission.SubmissionKind.HAND_SELECTION,
+                            PlayerSubmission.SubmissionWindow.HAND_SELECTION,
                             null));
         }
         touchRevision(payload.gameId());
@@ -432,8 +432,8 @@ class ProjectionEventApplier {
                             payload.playerId(),
                             payload.eraNumber(),
                             payload.roundNumber(),
-                            PlayerSubmission.SubmissionKind.ACTION,
-                            "CARD"));
+                            PlayerSubmission.SubmissionWindow.ACTION,
+                            PlayerSubmission.SubmissionChoice.CARD));
             touchRevision(payload.gameId());
         }
         stores.playerGameStates()
@@ -469,8 +469,8 @@ class ProjectionEventApplier {
                         payload.playerId(),
                         payload.eraNumber(),
                         payload.roundNumber(),
-                        PlayerSubmission.SubmissionKind.ACTION,
-                        "SPECIAL"));
+                        PlayerSubmission.SubmissionWindow.ACTION,
+                        PlayerSubmission.SubmissionChoice.SPECIAL));
         touchRevision(payload.gameId());
     }
 
@@ -484,8 +484,8 @@ class ProjectionEventApplier {
                         payload.playerId(),
                         payload.eraNumber(),
                         null,
-                        PlayerSubmission.SubmissionKind.PARADOX_CARD,
-                        null));
+                        PlayerSubmission.SubmissionWindow.PARADOX_RESOLUTION,
+                        PlayerSubmission.SubmissionChoice.CARD));
         touchRevision(payload.gameId());
     }
 
@@ -592,7 +592,12 @@ class ProjectionEventApplier {
                         payload.eraNumber(),
                         payload.targetEventId(),
                         payload.roundNumber(),
-                        payload.influencerPlayerIds() == null ? List.of() : payload.influencerPlayerIds()));
+                        orEmpty(payload.influencerPlayerIds()),
+                        orEmpty(payload.mimicInfluencerPlayerIds())));
+    }
+
+    private static List<UUID> orEmpty(List<UUID> playerIds) {
+        return playerIds == null ? List.of() : playerIds;
     }
 
     // Intercept is observe-only: the target's hand is never mutated here — only CardPlayed
@@ -689,7 +694,7 @@ class ProjectionEventApplier {
                         payload.playerId(),
                         payload.eraNumber(),
                         null,
-                        PlayerSubmission.SubmissionKind.DECLARATION,
+                        PlayerSubmission.SubmissionWindow.DECLARATION,
                         null));
         touchRevision(payload.gameId());
     }

@@ -232,8 +232,8 @@ class GetPlayerGameStateQueryHandlerTest {
         given(gameActiveEvents.findByGameId(gameId)).willReturn(List.of());
         given(revealedProbabilityIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
                 .willReturn(List.of());
-        var influence =
-                new RevealedInfluenceIntel(gameId, playerId, 2, UUID.randomUUID(), 2, List.of(UUID.randomUUID()));
+        var influence = new RevealedInfluenceIntel(
+                gameId, playerId, 2, UUID.randomUUID(), 2, List.of(UUID.randomUUID()), List.of());
         given(revealedInfluenceIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
                 .willReturn(List.of(influence));
         given(revealedHandCardIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
@@ -392,7 +392,13 @@ class GetPlayerGameStateQueryHandlerTest {
         given(gameActiveEvents.findByGameId(gameId)).willReturn(List.of());
         var band = new PublicBand(gameId, 2, UUID.randomUUID(), 2, List.of());
         given(publicBands.findByGameIdAndEraNumber(gameId, 2)).willReturn(List.of(band));
-        var submission = new PlayerSubmission(gameId, playerId, 2, 1, PlayerSubmission.SubmissionKind.ACTION, "CARD");
+        var submission = new PlayerSubmission(
+                gameId,
+                playerId,
+                2,
+                1,
+                PlayerSubmission.SubmissionWindow.ACTION,
+                PlayerSubmission.SubmissionChoice.CARD);
         given(playerSubmissions.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
                 .willReturn(List.of(submission));
 

@@ -11,7 +11,7 @@ import io.github.temporalrift.read.projection.domain.model.PlayerSubmission;
 
 /**
  * One player's accepted decision slot. {@code round_number} is the action round for ordinary
- * submissions and {@code 0} for hand selection, declarations and paradox cards, which carry no round.
+ * submissions and {@code 0} for every other window, which carries no round.
  */
 @Entity
 @Table(
@@ -19,17 +19,17 @@ import io.github.temporalrift.read.projection.domain.model.PlayerSubmission;
         uniqueConstraints =
                 @UniqueConstraint(
                         name = "uq_player_submission_identity",
-                        columnNames = {"game_id", "player_id", "era_number", "kind", "round_number"}))
+                        columnNames = {"game_id", "player_id", "era_number", "submission_window", "round_number"}))
 class PlayerSubmissionEntity extends PlayerScopedBaseEntity {
 
     @Column(name = "round_number", nullable = false)
     private int roundNumber;
 
-    @Column(name = "kind", nullable = false)
-    private String kind;
+    @Column(name = "submission_window", nullable = false)
+    private String submissionWindow;
 
-    @Column(name = "action_type")
-    private String actionType;
+    @Column(name = "choice")
+    private String choice;
 
     protected PlayerSubmissionEntity() {}
 
@@ -48,13 +48,13 @@ class PlayerSubmissionEntity extends PlayerScopedBaseEntity {
                 getPlayerId(),
                 getEraNumber(),
                 roundNumber == 0 ? null : roundNumber,
-                PlayerSubmission.SubmissionKind.valueOf(kind),
-                actionType);
+                PlayerSubmission.SubmissionWindow.valueOf(submissionWindow),
+                choice == null ? null : PlayerSubmission.SubmissionChoice.valueOf(choice));
     }
 
     void updateFrom(PlayerSubmission submission) {
         this.roundNumber = submission.roundNumber() == null ? 0 : submission.roundNumber();
-        this.kind = submission.kind().name();
-        this.actionType = submission.actionType();
+        this.submissionWindow = submission.window().name();
+        this.choice = submission.choice() == null ? null : submission.choice().name();
     }
 }

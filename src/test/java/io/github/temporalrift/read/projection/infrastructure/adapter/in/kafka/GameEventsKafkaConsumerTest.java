@@ -255,9 +255,10 @@ class GameEventsKafkaConsumerTest {
                   "roundNumber": 2,
                   "playerId": "%s",
                   "targetEventId": "%s",
-                  "influencerPlayerIds": ["%s"]
+                  "influencerPlayerIds": ["%s"],
+                  "mimicInfluencerPlayerIds": ["%s"]
                 }
-                """.formatted(gameId, viewerId, targetEventId, influencerId);
+                """.formatted(gameId, viewerId, targetEventId, influencerId, influencerId);
         var message = MessageBuilder.withPayload((Object) payload.getBytes(StandardCharsets.UTF_8))
                 .setHeader("eventId", eventId.toString())
                 .setHeader("eventType", "InfluenceTraced")
@@ -272,6 +273,7 @@ class GameEventsKafkaConsumerTest {
         assertThat(payloadCaptor.getValue().playerId()).isEqualTo(viewerId);
         assertThat(payloadCaptor.getValue().targetEventId()).isEqualTo(targetEventId);
         assertThat(payloadCaptor.getValue().influencerPlayerIds()).containsExactly(influencerId);
+        assertThat(payloadCaptor.getValue().mimicInfluencerPlayerIds()).containsExactly(influencerId);
     }
 
     @Test
@@ -287,7 +289,8 @@ class GameEventsKafkaConsumerTest {
                   "roundNumber": 1,
                   "playerId": "%s",
                   "targetEventId": "%s",
-                  "influencerPlayerIds": []
+                  "influencerPlayerIds": [],
+                  "mimicInfluencerPlayerIds": []
                 }
                 """.formatted(gameId, viewerId, targetEventId);
         var message = MessageBuilder.withPayload((Object) payload.getBytes(StandardCharsets.UTF_8))
@@ -302,6 +305,7 @@ class GameEventsKafkaConsumerTest {
         var payloadCaptor = ArgumentCaptor.forClass(InfluenceTracedPayload.class);
         then(applier).should().applyInfluenceTraced(payloadCaptor.capture());
         assertThat(payloadCaptor.getValue().influencerPlayerIds()).isEmpty();
+        assertThat(payloadCaptor.getValue().mimicInfluencerPlayerIds()).isEmpty();
     }
 
     @Test

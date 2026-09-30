@@ -162,7 +162,7 @@ class NotificationPolicyTest {
         var payload = objectMapper.readTree("""
                 {"gameId":"%s","eraNumber":0,"updates":[
                     {"playerId":"%s","faction":"REVISIONISTS","pointsDelta":6,
-                     "reason":"FACTION_UNIDENTIFIED","newTotal":18}
+                     "reason":"MIMIC_NEVER_TRACED","newTotal":18}
                 ]}
                 """.formatted(UUID.randomUUID(), UUID.randomUUID()));
 

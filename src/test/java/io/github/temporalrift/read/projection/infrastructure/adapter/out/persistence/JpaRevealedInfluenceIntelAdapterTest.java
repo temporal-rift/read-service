@@ -92,8 +92,9 @@ class JpaRevealedInfluenceIntelAdapterTest {
     }
 
     @Test
-    void findByGameIdAndPlayerIdAndEraNumber_deserializesStoredInfluencers() {
-        var intel = intel(2, List.of(UUID.randomUUID()));
+    void findByGameIdAndPlayerIdAndEraNumber_deserializesStoredInfluencersAndMimicInfluencers() {
+        var mimicInfluencer = UUID.randomUUID();
+        var intel = intel(2, List.of(UUID.randomUUID(), mimicInfluencer), List.of(mimicInfluencer));
         var entity = RevealedInfluenceIntelEntity.fromDomain(UUID.randomUUID(), intel, objectMapper);
         given(repository.findByGameIdAndPlayerIdAndEraNumberOrderByEventIdAsc(
                         intel.gameId(), intel.playerId(), intel.eraNumber()))
@@ -118,6 +119,10 @@ class JpaRevealedInfluenceIntelAdapterTest {
     }
 
     private RevealedInfluenceIntel intel(int observedInRound, List<UUID> influencers) {
-        return new RevealedInfluenceIntel(gameId, playerId, 2, eventId, observedInRound, influencers);
+        return intel(observedInRound, influencers, List.of());
+    }
+
+    private RevealedInfluenceIntel intel(int observedInRound, List<UUID> influencers, List<UUID> mimicInfluencers) {
+        return new RevealedInfluenceIntel(gameId, playerId, 2, eventId, observedInRound, influencers, mimicInfluencers);
     }
 }
