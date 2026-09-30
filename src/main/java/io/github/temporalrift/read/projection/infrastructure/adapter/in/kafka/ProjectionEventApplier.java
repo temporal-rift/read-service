@@ -538,6 +538,8 @@ class ProjectionEventApplier {
         if (isStaleEra(payload.gameId(), payload.eraNumber(), "ParadoxResolutionCardPlayed")) {
             return;
         }
+        var targets = new PlayerSubmission.Targets(
+                payload.targetEventId(), null, payload.targetOutcomeId(), null, null, null, null);
         stores.playerSubmissions()
                 .upsert(new PlayerSubmission(
                         payload.gameId(),
@@ -552,8 +554,7 @@ class ProjectionEventApplier {
                                 payload.grade().name(),
                                 null),
                         null,
-                        new PlayerSubmission.Targets(
-                                payload.targetEventId(), null, payload.targetOutcomeId(), null, null, null, null)));
+                        targets.isEmpty() ? null : targets));
         touchRevision(payload.gameId());
     }
 
