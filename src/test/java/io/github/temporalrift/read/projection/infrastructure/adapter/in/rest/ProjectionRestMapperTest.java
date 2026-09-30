@@ -63,6 +63,13 @@ class ProjectionRestMapperTest {
         return ProjectionRestMapper.toResponse(result, maxEras);
     }
 
+    @Test
+    void toResponse_omitsEligibleCardsOutsideAnOpenOffer() {
+        var response = toResponse(resultWithHand(Phase.ACTION_ROUND_1, 1, List.of()));
+
+        assertThat(response.getMyEligibleResolutionCards()).isNull();
+    }
+
     @ParameterizedTest
     @CsvSource({
         "TRACE, ACTION_ROUND_1, 1, false",

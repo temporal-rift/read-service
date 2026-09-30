@@ -129,15 +129,15 @@ final class ProjectionRestMapper {
                         : result.mySubmissions().stream()
                                 .map(ProjectionRestMapper::toMySubmission)
                                 .toList());
-        if (result.myEligibleResolutionCards() != null) {
-            response.setMyEligibleResolutionCards(result.myEligibleResolutionCards().stream()
-                    .map(card -> new EligibleResolutionCard(
-                            card.cardInstanceId(),
-                            io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CardType
-                                    .valueOf(card.cardType()),
-                            toCardGrade(card.grade())))
-                    .toList());
-        }
+        response.setMyEligibleResolutionCards(
+                result.myEligibleResolutionCards() == null
+                        ? null
+                        : result.myEligibleResolutionCards().stream()
+                                .map(card -> new EligibleResolutionCard(
+                                        card.cardInstanceId(),
+                                        CardType.valueOf(card.cardType()),
+                                        toCardGrade(card.grade())))
+                                .toList());
         // Budgets and objective progress stay absent: no owner fact supplies them (see use-case docs).
         response.setResult(toGameResult(result.terminalResult()));
         return response;
