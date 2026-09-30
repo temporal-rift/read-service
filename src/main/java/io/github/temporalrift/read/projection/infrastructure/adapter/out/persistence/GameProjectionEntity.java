@@ -2,6 +2,7 @@ package io.github.temporalrift.read.projection.infrastructure.adapter.out.persis
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import jakarta.persistence.CollectionTable;
@@ -37,6 +38,11 @@ class GameProjectionEntity {
     @Column(name = "paradox_id", nullable = false)
     private List<UUID> pendingParadoxIds;
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "game_projection_affected_event", joinColumns = @JoinColumn(name = "game_projection_id"))
+    @Column(name = "event_id", nullable = false)
+    private Set<UUID> affectedEventIds;
+
     @Column(name = "last_round_summary_round_number")
     private Integer lastRoundSummaryRoundNumber;
 
@@ -71,6 +77,7 @@ class GameProjectionEntity {
         entity.setEraNumber(domain.eraNumber());
         entity.setPhase(domain.phase());
         entity.setPendingParadoxIds(domain.pendingParadoxIds());
+        entity.setAffectedEventIds(domain.affectedEventIds());
         entity.setLastRoundSummary(domain.lastRoundSummary());
         entity.setCurrentRoundNumber(domain.currentRoundNumber());
         entity.setActionRoundExpiresAt(domain.actionRoundExpiresAt());
@@ -98,7 +105,8 @@ class GameProjectionEntity {
                 actionRoundExpiresAt,
                 paradoxResolutionExpiresAt,
                 revision,
-                lastUpdatedAt);
+                lastUpdatedAt,
+                List.copyOf(affectedEventIds));
     }
 
     UUID getGameId() {
@@ -119,6 +127,10 @@ class GameProjectionEntity {
 
     void setPendingParadoxIds(List<UUID> pendingParadoxIds) {
         this.pendingParadoxIds = pendingParadoxIds;
+    }
+
+    void setAffectedEventIds(List<UUID> affectedEventIds) {
+        this.affectedEventIds = Set.copyOf(affectedEventIds);
     }
 
     void setCurrentRoundNumber(Integer currentRoundNumber) {

@@ -3,6 +3,7 @@ package io.github.temporalrift.read.projection.application.query;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.IntFunction;
 
@@ -15,6 +16,8 @@ import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.GameProjection;
 import io.github.temporalrift.read.projection.domain.model.Phase;
 import io.github.temporalrift.read.projection.domain.model.PlayerNotInGameException;
+import io.github.temporalrift.read.projection.domain.model.PlayerSubmission;
+import io.github.temporalrift.read.projection.domain.model.ResolutionCardOffer;
 import io.github.temporalrift.read.projection.domain.model.RevealedIntelEntry;
 
 @Service
@@ -48,6 +51,12 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
         var inActionRound = isActionRound(gameProjection.phase());
         var paradoxOpen = gameProjection.phase() == Phase.PARADOX_RESOLUTION
                 && !gameProjection.pendingParadoxIds().isEmpty();
+        var mySubmissions = duringOpenEra(
+                gameProjection,
+                era -> stores.playerSubmissions().findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, era),
+                List.<PlayerSubmission>of());
+        var alreadyResolved = mySubmissions.stream()
+                .anyMatch(submission -> submission.window() == PlayerSubmission.SubmissionWindow.PARADOX_RESOLUTION);
 
         // The projection tracks game-wide phase; the hand-selection window is per player.
         var participantPhase =
@@ -92,10 +101,7 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                         List.of()),
                 duringOpenEra(
                         gameProjection, era -> stores.exposeFacts().findByGameIdAndEraNumber(gameId, era), List.of()),
-                duringOpenEra(
-                        gameProjection,
-                        era -> stores.playerSubmissions().findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, era),
-                        List.of()),
+                mySubmissions,
                 gameProjection.phase() == Phase.GAME_ENDED
                         ? stores.terminalResults().findByGameId(gameId).orElse(null)
                         : null,
@@ -104,7 +110,45 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                         era -> stores.foresightPreviews()
                                 .findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, era)
                                 .orElse(null),
-                        null));
+                        null),
+                inActionRound
+                        ? progress(
+                                gameId,
+                                gameProjection.eraNumber(),
+                                PlayerSubmission.SubmissionWindow.ACTION,
+                                gameProjection.currentRoundNumber(),
+                                players)
+                        : null,
+                paradoxOpen
+                        ? progress(
+                                gameId,
+                                gameProjection.eraNumber(),
+                                PlayerSubmission.SubmissionWindow.PARADOX_RESOLUTION,
+                                null,
+                                players)
+                        : null,
+                paradoxOpen ? gameProjection.affectedEventIds() : List.of(),
+                paradoxOpen && !alreadyResolved
+                        ? stores.resolutionCardOffers()
+                                .findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, gameProjection.eraNumber())
+                                .map(ResolutionCardOffer::cards)
+                                .orElse(null)
+                        : null);
+    }
+
+    private Result.SubmissionProgress progress(
+            UUID gameId,
+            int eraNumber,
+            PlayerSubmission.SubmissionWindow window,
+            Integer roundNumber,
+            List<GamePlayer> players) {
+        var submitted =
+                Set.copyOf(stores.playerSubmissions().findSubmittedPlayerIds(gameId, eraNumber, window, roundNumber));
+        var pending = players.stream()
+                .map(GamePlayer::playerId)
+                .filter(id -> !submitted.contains(id))
+                .toList();
+        return new Result.SubmissionProgress(players.size() - pending.size(), players.size(), pending);
     }
 
     /** Era-scoped state is served only while its era is open; an ended era's rows are never read. */

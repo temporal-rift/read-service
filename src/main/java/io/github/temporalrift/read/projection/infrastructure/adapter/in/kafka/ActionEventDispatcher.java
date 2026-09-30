@@ -1,5 +1,6 @@
 package io.github.temporalrift.read.projection.infrastructure.adapter.in.kafka;
 
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundPassedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundStartedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActivistDeclarationRecordedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
@@ -10,6 +11,8 @@ import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.Exp
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.HandCardInterceptedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.InfluenceTracedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ParadoxResolutionCardPlayedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ParadoxResolutionCardsOfferedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ParadoxResolutionPassedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.PlayerJammedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.RoundSummaryPublishedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.SpecialActionPlayedPayload;
@@ -39,8 +42,23 @@ class ActionEventDispatcher implements Consumer {
     }
 
     @Override
+    public void onActionRoundPassed(ActionRoundPassedPayload payload, EventHeaders headers) {
+        applier.applyActionRoundPassed(payload);
+    }
+
+    @Override
+    public void onParadoxResolutionCardsOffered(ParadoxResolutionCardsOfferedPayload payload, EventHeaders headers) {
+        applier.applyParadoxResolutionCardsOffered(payload);
+    }
+
+    @Override
     public void onParadoxResolutionCardPlayed(ParadoxResolutionCardPlayedPayload payload, EventHeaders headers) {
         applier.applyParadoxResolutionCardPlayed(payload);
+    }
+
+    @Override
+    public void onParadoxResolutionPassed(ParadoxResolutionPassedPayload payload, EventHeaders headers) {
+        applier.applyParadoxResolutionPassed(payload);
     }
 
     @Override

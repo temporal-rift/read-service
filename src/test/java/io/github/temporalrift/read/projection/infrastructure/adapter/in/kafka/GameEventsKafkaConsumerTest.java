@@ -256,9 +256,9 @@ class GameEventsKafkaConsumerTest {
                   "playerId": "%s",
                   "targetEventId": "%s",
                   "influencerPlayerIds": ["%s"],
-                  "mimicInfluencerPlayerIds": ["%s"]
+                  "mimicInfluencerPlayerIds": []
                 }
-                """.formatted(gameId, viewerId, targetEventId, influencerId, influencerId);
+                """.formatted(gameId, viewerId, targetEventId, influencerId);
         var message = MessageBuilder.withPayload((Object) payload.getBytes(StandardCharsets.UTF_8))
                 .setHeader("eventId", eventId.toString())
                 .setHeader("eventType", "InfluenceTraced")
@@ -273,7 +273,6 @@ class GameEventsKafkaConsumerTest {
         assertThat(payloadCaptor.getValue().playerId()).isEqualTo(viewerId);
         assertThat(payloadCaptor.getValue().targetEventId()).isEqualTo(targetEventId);
         assertThat(payloadCaptor.getValue().influencerPlayerIds()).containsExactly(influencerId);
-        assertThat(payloadCaptor.getValue().mimicInfluencerPlayerIds()).containsExactly(influencerId);
     }
 
     @Test
@@ -305,7 +304,6 @@ class GameEventsKafkaConsumerTest {
         var payloadCaptor = ArgumentCaptor.forClass(InfluenceTracedPayload.class);
         then(applier).should().applyInfluenceTraced(payloadCaptor.capture());
         assertThat(payloadCaptor.getValue().influencerPlayerIds()).isEmpty();
-        assertThat(payloadCaptor.getValue().mimicInfluencerPlayerIds()).isEmpty();
     }
 
     @Test

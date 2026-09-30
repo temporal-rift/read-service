@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundPassedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundStartedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActivistDeclarationRecordedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
@@ -17,6 +18,8 @@ import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.Exp
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.HandCardInterceptedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.InfluenceTracedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ParadoxResolutionCardPlayedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ParadoxResolutionCardsOfferedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ParadoxResolutionPassedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.PlayerJammedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.RoundSummaryPublishedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.SpecialActionPlayedPayload;
@@ -69,6 +72,7 @@ import io.github.temporalrift.read.projection.domain.model.PlayerGameState;
 import io.github.temporalrift.read.projection.domain.model.PlayerSubmission;
 import io.github.temporalrift.read.projection.domain.model.PublicBand;
 import io.github.temporalrift.read.projection.domain.model.PublicDeclaration;
+import io.github.temporalrift.read.projection.domain.model.ResolutionCardOffer;
 import io.github.temporalrift.read.projection.domain.model.RevealedHandCard;
 import io.github.temporalrift.read.projection.domain.model.RevealedHandCardIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedInfluenceIntel;
@@ -256,6 +260,9 @@ class ProjectionEventApplier {
                             payload.eraNumber(),
                             null,
                             PlayerSubmission.SubmissionWindow.HAND_SELECTION,
+                            null,
+                            null,
+                            null,
                             null));
         }
         touchRevision(payload.gameId());
@@ -311,6 +318,7 @@ class ProjectionEventApplier {
         stores.publicDeclarations().deleteByGameIdAndEraNumber(gameId, eraNumber);
         stores.exposeFacts().deleteByGameIdAndEraNumber(gameId, eraNumber);
         stores.playerSubmissions().deleteByGameIdAndEraNumber(gameId, eraNumber);
+        stores.resolutionCardOffers().deleteByGameIdAndEraNumber(gameId, eraNumber);
     }
 
     // A winner can end the game directly from the final era without an intervening EraEnded for that
@@ -335,6 +343,7 @@ class ProjectionEventApplier {
         stores.publicDeclarations().deleteByGameId(payload.gameId());
         stores.exposeFacts().deleteByGameId(payload.gameId());
         stores.playerSubmissions().deleteByGameId(payload.gameId());
+        stores.resolutionCardOffers().deleteByGameId(payload.gameId());
         stores.gameActiveEvents().deleteByGameId(payload.gameId());
         stores.gameChains().deleteByGameId(payload.gameId());
         stores.terminalResults()
@@ -425,17 +434,35 @@ class ProjectionEventApplier {
         // player-state row does not exist yet (out-of-order delivery), while hand removal still
         // needs the row. The era guard keeps a delayed card from resurrecting a submission that
         // EraEnded or GameEnded already cleared; the query only exposes the current era either way.
-        if (!isStaleEra(payload.gameId(), payload.eraNumber(), "CardPlayed")) {
-            stores.playerSubmissions()
-                    .upsert(new PlayerSubmission(
-                            payload.gameId(),
-                            payload.playerId(),
-                            payload.eraNumber(),
-                            payload.roundNumber(),
-                            PlayerSubmission.SubmissionWindow.ACTION,
-                            PlayerSubmission.SubmissionChoice.CARD));
-            touchRevision(payload.gameId());
+        if (isStaleEra(payload.gameId(), payload.eraNumber(), "CardPlayed")) {
+            return;
         }
+        var targets = new PlayerSubmission.Targets(
+                payload.targetEventId(),
+                payload.targetEventIds(),
+                payload.targetOutcomeId(),
+                null,
+                payload.sourceOutcomeId(),
+                payload.targetPlayerId(),
+                payload.targetPlayerIds());
+        stores.playerSubmissions()
+                .upsert(new PlayerSubmission(
+                        payload.gameId(),
+                        payload.playerId(),
+                        payload.eraNumber(),
+                        payload.roundNumber(),
+                        PlayerSubmission.SubmissionWindow.ACTION,
+                        PlayerSubmission.SubmissionChoice.CARD,
+                        new PlayerSubmission.SubmittedCard(
+                                payload.cardInstanceId(),
+                                payload.cardType().name(),
+                                payload.grade().name(),
+                                payload.disguiseCategory() == null
+                                        ? null
+                                        : payload.disguiseCategory().name()),
+                        null,
+                        targets.isEmpty() ? null : targets));
+        touchRevision(payload.gameId());
         stores.playerGameStates()
                 .findByGameIdAndPlayerId(payload.gameId(), payload.playerId())
                 .ifPresentOrElse(
@@ -470,7 +497,40 @@ class ProjectionEventApplier {
                         payload.eraNumber(),
                         payload.roundNumber(),
                         PlayerSubmission.SubmissionWindow.ACTION,
-                        PlayerSubmission.SubmissionChoice.SPECIAL));
+                        PlayerSubmission.SubmissionChoice.SPECIAL,
+                        null,
+                        payload.specialAction().name(),
+                        specialTargets(payload)));
+        touchRevision(payload.gameId());
+    }
+
+    private static PlayerSubmission.Targets specialTargets(SpecialActionPlayedPayload payload) {
+        var targets = new PlayerSubmission.Targets(
+                payload.targetEventId(),
+                null,
+                payload.targetOutcomeId(),
+                payload.sourceEventId(),
+                payload.sourceOutcomeId(),
+                payload.targetPlayerId(),
+                null);
+        return targets.isEmpty() ? null : targets;
+    }
+
+    void applyActionRoundPassed(ActionRoundPassedPayload payload) {
+        if (isStaleEra(payload.gameId(), payload.eraNumber(), "ActionRoundPassed")) {
+            return;
+        }
+        stores.playerSubmissions()
+                .upsert(new PlayerSubmission(
+                        payload.gameId(),
+                        payload.playerId(),
+                        payload.eraNumber(),
+                        payload.roundNumber(),
+                        PlayerSubmission.SubmissionWindow.ACTION,
+                        PlayerSubmission.SubmissionChoice.PASS,
+                        null,
+                        null,
+                        null));
         touchRevision(payload.gameId());
     }
 
@@ -485,7 +545,51 @@ class ProjectionEventApplier {
                         payload.eraNumber(),
                         null,
                         PlayerSubmission.SubmissionWindow.PARADOX_RESOLUTION,
-                        PlayerSubmission.SubmissionChoice.CARD));
+                        PlayerSubmission.SubmissionChoice.CARD,
+                        new PlayerSubmission.SubmittedCard(
+                                payload.cardInstanceId(),
+                                payload.cardType().name(),
+                                payload.grade().name(),
+                                null),
+                        null,
+                        new PlayerSubmission.Targets(
+                                payload.targetEventId(), null, payload.targetOutcomeId(), null, null, null, null)));
+        touchRevision(payload.gameId());
+    }
+
+    void applyParadoxResolutionPassed(ParadoxResolutionPassedPayload payload) {
+        if (isStaleEra(payload.gameId(), payload.eraNumber(), "ParadoxResolutionPassed")) {
+            return;
+        }
+        stores.playerSubmissions()
+                .upsert(new PlayerSubmission(
+                        payload.gameId(),
+                        payload.playerId(),
+                        payload.eraNumber(),
+                        null,
+                        PlayerSubmission.SubmissionWindow.PARADOX_RESOLUTION,
+                        PlayerSubmission.SubmissionChoice.PASS,
+                        null,
+                        null,
+                        null));
+        touchRevision(payload.gameId());
+    }
+
+    void applyParadoxResolutionCardsOffered(ParadoxResolutionCardsOfferedPayload payload) {
+        if (isStaleEra(payload.gameId(), payload.eraNumber(), "ParadoxResolutionCardsOffered")) {
+            return;
+        }
+        stores.resolutionCardOffers()
+                .upsert(new ResolutionCardOffer(
+                        payload.gameId(),
+                        payload.playerId(),
+                        payload.eraNumber(),
+                        payload.cards().stream()
+                                .map(card -> new ResolutionCardOffer.Card(
+                                        card.cardInstanceId(),
+                                        card.cardType().name(),
+                                        card.grade().name()))
+                                .toList()));
         touchRevision(payload.gameId());
     }
 
@@ -525,7 +629,8 @@ class ProjectionEventApplier {
                         existing.actionRoundExpiresAt(),
                         existing.paradoxResolutionExpiresAt(),
                         existing.revision(),
-                        existing.lastUpdatedAt()));
+                        existing.lastUpdatedAt(),
+                        existing.affectedEventIds()));
     }
 
     void applyScoresUpdated(ScoresUpdatedPayload payload) {
@@ -592,12 +697,8 @@ class ProjectionEventApplier {
                         payload.eraNumber(),
                         payload.targetEventId(),
                         payload.roundNumber(),
-                        orEmpty(payload.influencerPlayerIds()),
-                        orEmpty(payload.mimicInfluencerPlayerIds())));
-    }
-
-    private static List<UUID> orEmpty(List<UUID> playerIds) {
-        return playerIds == null ? List.of() : playerIds;
+                        payload.influencerPlayerIds() == null ? List.of() : payload.influencerPlayerIds(),
+                        payload.mimicInfluencerPlayerIds() == null ? List.of() : payload.mimicInfluencerPlayerIds()));
     }
 
     // Intercept is observe-only: the target's hand is never mutated here — only CardPlayed
@@ -695,6 +796,9 @@ class ProjectionEventApplier {
                         payload.eraNumber(),
                         null,
                         PlayerSubmission.SubmissionWindow.DECLARATION,
+                        null,
+                        null,
+                        null,
                         null));
         touchRevision(payload.gameId());
     }
@@ -887,7 +991,8 @@ class ProjectionEventApplier {
                         null,
                         expiresAt,
                         existing.revision(),
-                        existing.lastUpdatedAt()));
+                        existing.lastUpdatedAt(),
+                        payload.affectedEventIds() == null ? List.of() : payload.affectedEventIds()));
     }
 
     void applyParadoxResolved(ParadoxResolvedPayload payload) {
@@ -927,7 +1032,8 @@ class ProjectionEventApplier {
                         existing.actionRoundExpiresAt(),
                         paradoxExpiresAt,
                         existing.revision(),
-                        existing.lastUpdatedAt()));
+                        existing.lastUpdatedAt(),
+                        stillPending.isEmpty() ? List.of() : existing.affectedEventIds()));
     }
 
     private GameProjection lockGame(UUID gameId) {

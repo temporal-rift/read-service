@@ -12,6 +12,7 @@ import io.github.temporalrift.read.projection.domain.port.out.PlayerGameStateRep
 import io.github.temporalrift.read.projection.domain.port.out.PlayerSubmissionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PublicBandRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PublicDeclarationRepository;
+import io.github.temporalrift.read.projection.domain.port.out.ResolutionCardOfferRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedHandCardIntelRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedInfluenceIntelRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedProbabilityIntelRepository;
@@ -37,4 +38,5 @@ public record ProjectionRepositories(
         PublicDeclarationRepository publicDeclarations,
         ExposeFactRepository exposeFacts,
         PlayerSubmissionRepository playerSubmissions,
+        ResolutionCardOfferRepository resolutionCardOffers,
         TerminalResultRepository terminalResults) {}

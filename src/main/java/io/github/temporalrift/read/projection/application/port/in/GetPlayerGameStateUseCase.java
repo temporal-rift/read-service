@@ -16,6 +16,7 @@ import io.github.temporalrift.read.projection.domain.model.Phase;
 import io.github.temporalrift.read.projection.domain.model.PlayerSubmission;
 import io.github.temporalrift.read.projection.domain.model.PublicBand;
 import io.github.temporalrift.read.projection.domain.model.PublicDeclaration;
+import io.github.temporalrift.read.projection.domain.model.ResolutionCardOffer;
 import io.github.temporalrift.read.projection.domain.model.RevealedIntelEntry;
 import io.github.temporalrift.read.projection.domain.model.TerminalResult;
 
@@ -58,7 +59,81 @@ public interface GetPlayerGameStateUseCase {
             List<ExposeFact> exposeFacts,
             List<PlayerSubmission> mySubmissions,
             TerminalResult terminalResult,
-            ForesightPreview myForesightPreview) {
+            ForesightPreview myForesightPreview,
+            SubmissionProgress actionRoundProgress,
+            SubmissionProgress paradoxResolutionProgress,
+            List<UUID> affectedEventIds,
+            List<ResolutionCardOffer.Card> myEligibleResolutionCards) {
+
+        public record SubmissionProgress(int submittedCount, int totalPlayers, List<UUID> pendingPlayerIds) {
+            public SubmissionProgress {
+                pendingPlayerIds = List.copyOf(pendingPlayerIds);
+            }
+        }
+
+        public Result(
+                UUID gameId,
+                int eraNumber,
+                Phase phase,
+                String myFaction,
+                List<HandCard> myHand,
+                PendingHandSelection pendingHandSelection,
+                List<RevealedIntelEntry> myRevealedIntel,
+                int myScore,
+                List<GamePlayer> players,
+                List<GameActiveEvent> activeEvents,
+                LastRoundSummary lastRoundSummary,
+                Integer myJammedUntilRound,
+                GameChain chain,
+                long revision,
+                Instant lastUpdatedAt,
+                Integer roundNumber,
+                Instant handSelectionExpiresAt,
+                Instant actionRoundExpiresAt,
+                Instant paradoxResolutionExpiresAt,
+                boolean declarationOpen,
+                boolean paradoxOpen,
+                List<UUID> openParadoxIds,
+                List<PublicBand> publicBands,
+                List<PublicDeclaration> declarations,
+                List<ExposeFact> exposeFacts,
+                List<PlayerSubmission> mySubmissions,
+                TerminalResult terminalResult,
+                ForesightPreview myForesightPreview) {
+            this(
+                    gameId,
+                    eraNumber,
+                    phase,
+                    myFaction,
+                    myHand,
+                    pendingHandSelection,
+                    myRevealedIntel,
+                    myScore,
+                    players,
+                    activeEvents,
+                    lastRoundSummary,
+                    myJammedUntilRound,
+                    chain,
+                    revision,
+                    lastUpdatedAt,
+                    roundNumber,
+                    handSelectionExpiresAt,
+                    actionRoundExpiresAt,
+                    paradoxResolutionExpiresAt,
+                    declarationOpen,
+                    paradoxOpen,
+                    openParadoxIds,
+                    publicBands,
+                    declarations,
+                    exposeFacts,
+                    mySubmissions,
+                    terminalResult,
+                    myForesightPreview,
+                    null,
+                    null,
+                    List.of(),
+                    null);
+        }
 
         public Result(
                 UUID gameId,
@@ -129,6 +204,10 @@ public interface GetPlayerGameStateUseCase {
                     List.of(),
                     List.of(),
                     null,
+                    null,
+                    null,
+                    null,
+                    List.of(),
                     null);
         }
     }

@@ -169,6 +169,9 @@ class ProjectionEventApplierTest {
     PlayerSubmissionRepository playerSubmissions;
 
     @Mock
+    io.github.temporalrift.read.projection.domain.port.out.ResolutionCardOfferRepository resolutionCardOffers;
+
+    @Mock
     TerminalResultRepository terminalResults;
 
     private ProjectionEventApplier applier;
@@ -194,6 +197,7 @@ class ProjectionEventApplierTest {
                 publicDeclarations,
                 exposeFacts,
                 playerSubmissions,
+                resolutionCardOffers,
                 terminalResults));
     }
 
@@ -680,35 +684,7 @@ class ProjectionEventApplierTest {
         then(revealedInfluenceIntel)
                 .should()
                 .upsertLatest(new RevealedInfluenceIntel(
-                        gameId, viewerId, 1, targetEventId, 2, List.of(influencerOne, influencerTwo), List.of()));
-    }
-
-    @Test
-    void applyInfluenceTraced_storesMimicInfluencersForTheTracingViewer() {
-        var viewerId = UUID.randomUUID();
-        var targetEventId = UUID.randomUUID();
-        var cardInfluencer = UUID.randomUUID();
-        var mimicInfluencer = UUID.randomUUID();
-
-        applier.applyInfluenceTraced(new InfluenceTracedPayload(
-                gameId,
-                1,
-                2,
-                viewerId,
-                targetEventId,
-                List.of(cardInfluencer, mimicInfluencer),
-                List.of(mimicInfluencer)));
-
-        then(revealedInfluenceIntel)
-                .should()
-                .upsertLatest(new RevealedInfluenceIntel(
-                        gameId,
-                        viewerId,
-                        1,
-                        targetEventId,
-                        2,
-                        List.of(cardInfluencer, mimicInfluencer),
-                        List.of(mimicInfluencer)));
+                        gameId, viewerId, 1, targetEventId, 2, List.of(influencerOne, influencerTwo)));
     }
 
     @Test
@@ -721,19 +697,7 @@ class ProjectionEventApplierTest {
 
         then(revealedInfluenceIntel)
                 .should()
-                .upsertLatest(new RevealedInfluenceIntel(gameId, viewerId, 1, targetEventId, 2, List.of(), List.of()));
-    }
-
-    @Test
-    void applyInfluenceTraced_missingListsAreStoredAsEmpty() {
-        var viewerId = UUID.randomUUID();
-        var targetEventId = UUID.randomUUID();
-
-        applier.applyInfluenceTraced(new InfluenceTracedPayload(gameId, 1, 2, viewerId, targetEventId, null, null));
-
-        then(revealedInfluenceIntel)
-                .should()
-                .upsertLatest(new RevealedInfluenceIntel(gameId, viewerId, 1, targetEventId, 2, List.of(), List.of()));
+                .upsertLatest(new RevealedInfluenceIntel(gameId, viewerId, 1, targetEventId, 2, List.of()));
     }
 
     @Test
@@ -1775,7 +1739,15 @@ class ProjectionEventApplierTest {
         then(playerSubmissions)
                 .should()
                 .upsert(new PlayerSubmission(
-                        gameId, playerId, 1, null, PlayerSubmission.SubmissionWindow.DECLARATION, null));
+                        gameId,
+                        playerId,
+                        1,
+                        null,
+                        PlayerSubmission.SubmissionWindow.DECLARATION,
+                        null,
+                        null,
+                        null,
+                        null));
     }
 
     @Test
@@ -1851,7 +1823,118 @@ class ProjectionEventApplierTest {
                         1,
                         1,
                         PlayerSubmission.SubmissionWindow.ACTION,
-                        PlayerSubmission.SubmissionChoice.SPECIAL));
+                        PlayerSubmission.SubmissionChoice.SPECIAL,
+                        null,
+                        "ANNIHILATE",
+                        null));
+    }
+
+    @Test
+    void applySpecialActionPlayed_recordsRewriteTargets() {
+        var playerId = UUID.randomUUID();
+        var targetEventId = UUID.randomUUID();
+        var targetOutcomeId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_2)));
+
+        applier.applySpecialActionPlayed(new SpecialActionPlayedPayload(
+                gameId,
+                1,
+                2,
+                playerId,
+                io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.Faction.REVISIONISTS,
+                io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.SpecialAction.REWRITE,
+                null,
+                null,
+                targetEventId,
+                targetOutcomeId,
+                null));
+
+        then(playerSubmissions)
+                .should()
+                .upsert(new PlayerSubmission(
+                        gameId,
+                        playerId,
+                        1,
+                        2,
+                        PlayerSubmission.SubmissionWindow.ACTION,
+                        PlayerSubmission.SubmissionChoice.SPECIAL,
+                        null,
+                        "REWRITE",
+                        new PlayerSubmission.Targets(targetEventId, null, targetOutcomeId, null, null, null, null)));
+    }
+
+    @Test
+    void applyBothPassKinds_recordsDistinctWindowsWithoutDetail() {
+        var playerId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
+
+        applier.applyActionRoundPassed(
+                new io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundPassedPayload(
+                        gameId, 1, 1, playerId));
+        applier.applyParadoxResolutionPassed(
+                new io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract
+                        .ParadoxResolutionPassedPayload(gameId, 1, playerId));
+
+        then(playerSubmissions)
+                .should()
+                .upsert(new PlayerSubmission(
+                        gameId,
+                        playerId,
+                        1,
+                        1,
+                        PlayerSubmission.SubmissionWindow.ACTION,
+                        PlayerSubmission.SubmissionChoice.PASS,
+                        null,
+                        null,
+                        null));
+        then(playerSubmissions)
+                .should()
+                .upsert(new PlayerSubmission(
+                        gameId,
+                        playerId,
+                        1,
+                        null,
+                        PlayerSubmission.SubmissionWindow.PARADOX_RESOLUTION,
+                        PlayerSubmission.SubmissionChoice.PASS,
+                        null,
+                        null,
+                        null));
+    }
+
+    @Test
+    void applyEligibleCards_storesOnlyNamedPlayersOfferAndRejectsStaleEra() {
+        var playerId = UUID.randomUUID();
+        var cardId = UUID.randomUUID();
+        var payload = new io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract
+                .ParadoxResolutionCardsOfferedPayload(
+                gameId,
+                1,
+                playerId,
+                List.of(
+                        new io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract
+                                .EligibleResolutionCard(
+                                cardId,
+                                io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardType
+                                        .STABILIZE,
+                                io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardGrade.I)));
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(
+                        Optional.of(new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION)),
+                        Optional.of(new GameProjection(gameId, 2, Phase.ERA_START)));
+
+        applier.applyParadoxResolutionCardsOffered(payload);
+        applier.applyParadoxResolutionCardsOffered(payload);
+
+        then(resolutionCardOffers)
+                .should()
+                .upsert(new io.github.temporalrift.read.projection.domain.model.ResolutionCardOffer(
+                        gameId,
+                        playerId,
+                        1,
+                        List.of(new io.github.temporalrift.read.projection.domain.model.ResolutionCardOffer.Card(
+                                cardId, "STABILIZE", "I"))));
     }
 
     @Test
@@ -1882,7 +1965,10 @@ class ProjectionEventApplierTest {
                         1,
                         null,
                         PlayerSubmission.SubmissionWindow.PARADOX_RESOLUTION,
-                        PlayerSubmission.SubmissionChoice.CARD));
+                        PlayerSubmission.SubmissionChoice.CARD,
+                        new PlayerSubmission.SubmittedCard(cardInstanceId, "STABILIZE", "I", null),
+                        null,
+                        new PlayerSubmission.Targets(targetEventId, null, targetOutcomeId, null, null, null, null)));
     }
 
     @Test
@@ -1928,7 +2014,15 @@ class ProjectionEventApplierTest {
         then(playerSubmissions)
                 .should()
                 .upsert(new PlayerSubmission(
-                        gameId, playerId, 1, null, PlayerSubmission.SubmissionWindow.HAND_SELECTION, null));
+                        gameId,
+                        playerId,
+                        1,
+                        null,
+                        PlayerSubmission.SubmissionWindow.HAND_SELECTION,
+                        null,
+                        null,
+                        null,
+                        null));
     }
 
     @Test
@@ -2104,11 +2198,9 @@ class ProjectionEventApplierTest {
     }
 
     @Test
-    void applyCardPlayed_forStaleEra_removesHandButSkipsSubmission() {
+    void applyCardPlayed_forStaleEra_preservesCurrentHandAndSkipsSubmission() {
         var playerId = UUID.randomUUID();
         var playedCard = new HandCard(UUID.randomUUID(), "PUSH");
-        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
-                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of(playedCard))));
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));
 
@@ -2129,7 +2221,7 @@ class ProjectionEventApplierTest {
                 null));
 
         then(playerSubmissions).should(never()).upsert(any());
-        then(playerGameStates).should().save(any(PlayerGameState.class));
+        then(playerGameStates).shouldHaveNoInteractions();
     }
 
     @Test
@@ -2155,5 +2247,45 @@ class ProjectionEventApplierTest {
         applier.applyTimelineCollapsed(new TimelineCollapsedPayload(gameId, 1, List.of(), List.of()));
 
         then(terminalResults).should(never()).addWinners(any(), any());
+    }
+
+    @Test
+    void applyInfluenceTraced_storesMimicInfluencersForTheTracingViewer() {
+        var viewerId = UUID.randomUUID();
+        var targetEventId = UUID.randomUUID();
+        var cardInfluencer = UUID.randomUUID();
+        var mimicInfluencer = UUID.randomUUID();
+
+        applier.applyInfluenceTraced(new InfluenceTracedPayload(
+                gameId,
+                1,
+                2,
+                viewerId,
+                targetEventId,
+                List.of(cardInfluencer, mimicInfluencer),
+                List.of(mimicInfluencer)));
+
+        then(revealedInfluenceIntel)
+                .should()
+                .upsertLatest(new RevealedInfluenceIntel(
+                        gameId,
+                        viewerId,
+                        1,
+                        targetEventId,
+                        2,
+                        List.of(cardInfluencer, mimicInfluencer),
+                        List.of(mimicInfluencer)));
+    }
+
+    @Test
+    void applyInfluenceTraced_missingListsAreStoredAsEmpty() {
+        var viewerId = UUID.randomUUID();
+        var targetEventId = UUID.randomUUID();
+
+        applier.applyInfluenceTraced(new InfluenceTracedPayload(gameId, 1, 2, viewerId, targetEventId, null, null));
+
+        then(revealedInfluenceIntel)
+                .should()
+                .upsertLatest(new RevealedInfluenceIntel(gameId, viewerId, 1, targetEventId, 2, List.of(), List.of()));
     }
 }

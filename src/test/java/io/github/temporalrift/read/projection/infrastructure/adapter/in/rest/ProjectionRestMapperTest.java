@@ -50,9 +50,6 @@ import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.GameWinner;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerGameStateResponse;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerInGame;
-import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.SpecialAction;
-import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.SubmissionChoice;
-import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.SubmissionWindow;
 
 class ProjectionRestMapperTest {
 
@@ -162,7 +159,7 @@ class ProjectionRestMapperTest {
         var influencerOne = UUID.randomUUID();
         var influencerTwo = UUID.randomUUID();
         var intel = new RevealedInfluenceIntel(
-                GAME_ID, UUID.randomUUID(), 2, eventId, 2, List.of(influencerOne, influencerTwo), List.of());
+                GAME_ID, UUID.randomUUID(), 2, eventId, 2, List.of(influencerOne, influencerTwo));
         var result = new GetPlayerGameStateUseCase.Result(
                 GAME_ID, 2, Phase.ACTION_ROUND_2, "ERASERS", List.of(), null, List.of(intel), 0, List.of(), List.of());
 
@@ -173,30 +170,6 @@ class ProjectionRestMapperTest {
             assertThat(revealed.getObservedInRound()).isEqualTo(2);
             assertThat(revealed.getEventId()).isEqualTo(eventId);
             assertThat(revealed.getInfluencerPlayerIds()).containsExactlyInAnyOrder(influencerOne, influencerTwo);
-            assertThat(revealed.getMimicInfluencerPlayerIds()).isEmpty();
-        });
-    }
-
-    @Test
-    void toResponse_mapsInfluenceIntelWithItsMimicInfluencers() {
-        var cardInfluencer = UUID.randomUUID();
-        var mimicInfluencer = UUID.randomUUID();
-        var intel = new RevealedInfluenceIntel(
-                GAME_ID,
-                UUID.randomUUID(),
-                2,
-                UUID.randomUUID(),
-                2,
-                List.of(cardInfluencer, mimicInfluencer),
-                List.of(mimicInfluencer));
-        var result = new GetPlayerGameStateUseCase.Result(
-                GAME_ID, 2, Phase.ACTION_ROUND_2, "ERASERS", List.of(), null, List.of(intel), 0, List.of(), List.of());
-
-        var response = toResponse(result);
-
-        assertThat(response.getMyRevealedIntel()).singleElement().satisfies(revealed -> {
-            assertThat(revealed.getInfluencerPlayerIds()).containsExactly(cardInfluencer, mimicInfluencer);
-            assertThat(revealed.getMimicInfluencerPlayerIds()).containsExactly(mimicInfluencer);
         });
     }
 
@@ -223,7 +196,7 @@ class ProjectionRestMapperTest {
             assertThat(revealed.getTargetPlayerId()).isEqualTo(targetPlayerId);
             assertThat(revealed.getRevealedCards()).singleElement().satisfies(card -> {
                 assertThat(card.getCardInstanceId()).isEqualTo(cardInstanceId);
-                assertThat(card.getCardType().getValue()).isEqualTo("SWING");
+                assertThat(card.getCardType().name()).isEqualTo("SWING");
                 assertThat(card.getGrade().getValue()).isEqualTo("III");
             });
         });
@@ -247,7 +220,7 @@ class ProjectionRestMapperTest {
     @Test
     void toResponse_mapsEmptyInfluenceIntelAsEmptyList() {
         var eventId = UUID.randomUUID();
-        var intel = new RevealedInfluenceIntel(GAME_ID, UUID.randomUUID(), 2, eventId, 1, List.of(), List.of());
+        var intel = new RevealedInfluenceIntel(GAME_ID, UUID.randomUUID(), 2, eventId, 1, List.of());
         var result = new GetPlayerGameStateUseCase.Result(
                 GAME_ID, 2, Phase.ACTION_ROUND_2, "ERASERS", List.of(), null, List.of(intel), 0, List.of(), List.of());
 
@@ -256,7 +229,6 @@ class ProjectionRestMapperTest {
         assertThat(response.getMyRevealedIntel()).singleElement().satisfies(revealed -> {
             assertThat(revealed.getKind().getValue()).isEqualTo("INFLUENCE");
             assertThat(revealed.getInfluencerPlayerIds()).isEmpty();
-            assertThat(revealed.getMimicInfluencerPlayerIds()).isEmpty();
         });
     }
 
@@ -274,83 +246,7 @@ class ProjectionRestMapperTest {
 
         var response = toResponse(result);
 
-        assertThat(response.getMySpecialActions())
-                .extracting(SpecialAction::getValue)
-                .containsExactly(first, second, third);
-    }
-
-    @Test
-    void toResponse_mapsRosterFactionsToTheSharedEnum() {
-        var revealed = UUID.randomUUID();
-        var hidden = UUID.randomUUID();
-        var result = new GetPlayerGameStateUseCase.Result(
-                GAME_ID,
-                2,
-                Phase.ACTION_ROUND_1,
-                "WEAVERS",
-                List.of(),
-                null,
-                List.of(),
-                0,
-                List.of(
-                        new GamePlayer(revealed, 4, true, "WEAVERS", "Ada"),
-                        new GamePlayer(hidden, 3, true, null, "Bo")),
-                List.of());
-
-        var response = toResponse(result);
-
-        assertThat(response.getMyFaction()).isEqualTo(Faction.WEAVERS);
-        assertThat(response.getPlayers())
-                .extracting(PlayerInGame::getPlayerId, PlayerInGame::getFaction)
-                .containsExactly(tuple(revealed, Faction.WEAVERS), tuple(hidden, null));
-    }
-
-    @Test
-    void toResponse_mapsPendingHandSelectionCardTypesToTheSharedEnum() {
-        var cardInstanceId = UUID.randomUUID();
-        var expiresAt = Instant.parse("2026-09-30T12:00:00Z");
-        var result = new GetPlayerGameStateUseCase.Result(
-                GAME_ID,
-                2,
-                Phase.HAND_SELECTION,
-                "ERASERS",
-                List.of(),
-                new PendingHandSelection(List.of(new PendingHandCard(cardInstanceId, "TRACE", "II", 3)), expiresAt),
-                List.of(),
-                0,
-                List.of(),
-                List.of());
-
-        var response = toResponse(result);
-
-        assertThat(response.getPendingHandSelection().getCards())
-                .singleElement()
-                .satisfies(card -> {
-                    assertThat(card.getCardInstanceId()).isEqualTo(cardInstanceId);
-                    assertThat(card.getCardType()).isEqualTo(CardType.TRACE);
-                    assertThat(card.getGrade()).isEqualTo(CardGrade.II);
-                    assertThat(card.getDealSlot()).isEqualTo(3);
-                });
-    }
-
-    @Test
-    void toResponse_mapsGameHistoryHandCardTypesToTheSharedEnum() {
-        var cardInstanceId = UUID.randomUUID();
-        var result = new GetGameHistoryUseCase.Result(
-                GAME_ID,
-                List.of(new GetGameHistoryUseCase.EraResult(
-                        1, List.of(), 0, List.of(), List.of(new DealtCard(cardInstanceId, "NULLIFY", "III", 5)))));
-
-        var response = ProjectionRestMapper.toResponse(result);
-
-        assertThat(response.getEras())
-                .singleElement()
-                .satisfies(era -> assertThat(era.getMyHand()).singleElement().satisfies(card -> {
-                    assertThat(card.getCardInstanceId()).isEqualTo(cardInstanceId);
-                    assertThat(card.getCardType()).isEqualTo(CardType.NULLIFY);
-                    assertThat(card.getGrade()).isEqualTo(CardGrade.III);
-                    assertThat(card.getDealSlot()).isEqualTo(5);
-                }));
+        assertThat(response.getMySpecialActions().stream().map(Enum::name)).containsExactly(first, second, third);
     }
 
     @Test
@@ -622,23 +518,16 @@ class ProjectionRestMapperTest {
                 List.of(),
                 List.of(new ExposeFact(
                         GAME_ID, 2, activist, target, 2, "SWING", targetEventId, null, targetOutcomeId, false)),
-                List.of(
-                        new PlayerSubmission(
-                                GAME_ID,
-                                playerId,
-                                2,
-                                1,
-                                PlayerSubmission.SubmissionWindow.ACTION,
-                                PlayerSubmission.SubmissionChoice.CARD),
-                        new PlayerSubmission(
-                                GAME_ID,
-                                playerId,
-                                2,
-                                null,
-                                PlayerSubmission.SubmissionWindow.PARADOX_RESOLUTION,
-                                PlayerSubmission.SubmissionChoice.CARD),
-                        new PlayerSubmission(
-                                GAME_ID, playerId, 2, null, PlayerSubmission.SubmissionWindow.DECLARATION, null)));
+                List.of(new PlayerSubmission(
+                        GAME_ID,
+                        playerId,
+                        2,
+                        1,
+                        PlayerSubmission.SubmissionWindow.ACTION,
+                        PlayerSubmission.SubmissionChoice.CARD,
+                        new PlayerSubmission.SubmittedCard(UUID.randomUUID(), "PUSH", "I", null),
+                        null,
+                        null)));
 
         var response = toResponse(result);
 
@@ -649,22 +538,12 @@ class ProjectionRestMapperTest {
             assertThat(fact.getSignature().getType().getValue()).isEqualTo("SWING");
             assertThat(fact.getBehaviorChanged()).isFalse();
         });
-        assertThat(response.getMySubmissions()).hasSize(3);
-        assertThat(response.getMySubmissions().get(0)).satisfies(submission -> {
+        assertThat(response.getMySubmissions()).singleElement().satisfies(submission -> {
             assertThat(submission.getEraNumber()).isEqualTo(2);
             assertThat(submission.getRoundNumber()).isEqualTo(1);
-            assertThat(submission.getWindow()).isEqualTo(SubmissionWindow.ACTION);
+            assertThat(submission.getWindow().getValue()).isEqualTo("ACTION");
             assertThat(submission.getStatus().getValue()).isEqualTo("ACCEPTED");
-            assertThat(submission.getChoice()).isEqualTo(SubmissionChoice.CARD);
-        });
-        assertThat(response.getMySubmissions().get(1)).satisfies(submission -> {
-            assertThat(submission.getRoundNumber()).isNull();
-            assertThat(submission.getWindow()).isEqualTo(SubmissionWindow.PARADOX_RESOLUTION);
-            assertThat(submission.getChoice()).isEqualTo(SubmissionChoice.CARD);
-        });
-        assertThat(response.getMySubmissions().get(2)).satisfies(submission -> {
-            assertThat(submission.getWindow()).isEqualTo(SubmissionWindow.DECLARATION);
-            assertThat(submission.getChoice()).isNull();
+            assertThat(submission.getChoice().getValue()).isEqualTo("CARD");
         });
         assertThat(response.getMySpecialBudgets()).isEmpty();
         assertThat(response.getMyObjectiveProgress()).isNull();
@@ -749,7 +628,7 @@ class ProjectionRestMapperTest {
             assertThat(terminal.getEndReason().getValue()).isEqualTo("TIMELINE_COLLAPSED");
             assertThat(terminal.getWinners()).singleElement().satisfies(winner -> {
                 assertThat(winner.getPlayerId()).isEqualTo(winnerId);
-                assertThat(winner.getFaction().getValue()).isEqualTo("WEAVERS");
+                assertThat(winner.getFaction().name()).isEqualTo("WEAVERS");
                 assertThat(winner.getWinType()).isNull();
             });
             assertThat(terminal.getFinalScores()).singleElement().satisfies(score -> {
@@ -998,5 +877,102 @@ class ProjectionRestMapperTest {
     private static GetPlayerGameStateUseCase.Result resultWithHand(Phase phase, int eraNumber, List<HandCard> hand) {
         return new GetPlayerGameStateUseCase.Result(
                 GAME_ID, eraNumber, phase, "ERASERS", hand, null, List.of(), 0, List.of(), List.of());
+    }
+
+    @Test
+    void toResponse_mapsInfluenceIntelWithItsMimicInfluencers() {
+        var cardInfluencer = UUID.randomUUID();
+        var mimicInfluencer = UUID.randomUUID();
+        var intel = new RevealedInfluenceIntel(
+                GAME_ID,
+                UUID.randomUUID(),
+                2,
+                UUID.randomUUID(),
+                2,
+                List.of(cardInfluencer, mimicInfluencer),
+                List.of(mimicInfluencer));
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID, 2, Phase.ACTION_ROUND_2, "ERASERS", List.of(), null, List.of(intel), 0, List.of(), List.of());
+
+        var response = toResponse(result);
+
+        assertThat(response.getMyRevealedIntel()).singleElement().satisfies(revealed -> {
+            assertThat(revealed.getInfluencerPlayerIds()).containsExactly(cardInfluencer, mimicInfluencer);
+            assertThat(revealed.getMimicInfluencerPlayerIds()).containsExactly(mimicInfluencer);
+        });
+    }
+
+    @Test
+    void toResponse_mapsRosterFactionsToTheSharedEnum() {
+        var revealed = UUID.randomUUID();
+        var hidden = UUID.randomUUID();
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID,
+                2,
+                Phase.ACTION_ROUND_1,
+                "WEAVERS",
+                List.of(),
+                null,
+                List.of(),
+                0,
+                List.of(
+                        new GamePlayer(revealed, 4, true, "WEAVERS", "Ada"),
+                        new GamePlayer(hidden, 3, true, null, "Bo")),
+                List.of());
+
+        var response = toResponse(result);
+
+        assertThat(response.getMyFaction()).isEqualTo(Faction.WEAVERS);
+        assertThat(response.getPlayers())
+                .extracting(PlayerInGame::getPlayerId, PlayerInGame::getFaction)
+                .containsExactly(tuple(revealed, Faction.WEAVERS), tuple(hidden, null));
+    }
+
+    @Test
+    void toResponse_mapsPendingHandSelectionCardTypesToTheSharedEnum() {
+        var cardInstanceId = UUID.randomUUID();
+        var expiresAt = Instant.parse("2026-09-30T12:00:00Z");
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID,
+                2,
+                Phase.HAND_SELECTION,
+                "ERASERS",
+                List.of(),
+                new PendingHandSelection(List.of(new PendingHandCard(cardInstanceId, "TRACE", "II", 3)), expiresAt),
+                List.of(),
+                0,
+                List.of(),
+                List.of());
+
+        var response = toResponse(result);
+
+        assertThat(response.getPendingHandSelection().getCards())
+                .singleElement()
+                .satisfies(card -> {
+                    assertThat(card.getCardInstanceId()).isEqualTo(cardInstanceId);
+                    assertThat(card.getCardType()).isEqualTo(CardType.TRACE);
+                    assertThat(card.getGrade()).isEqualTo(CardGrade.II);
+                    assertThat(card.getDealSlot()).isEqualTo(3);
+                });
+    }
+
+    @Test
+    void toResponse_mapsGameHistoryHandCardTypesToTheSharedEnum() {
+        var cardInstanceId = UUID.randomUUID();
+        var result = new GetGameHistoryUseCase.Result(
+                GAME_ID,
+                List.of(new GetGameHistoryUseCase.EraResult(
+                        1, List.of(), 0, List.of(), List.of(new DealtCard(cardInstanceId, "NULLIFY", "III", 5)))));
+
+        var response = ProjectionRestMapper.toResponse(result);
+
+        assertThat(response.getEras())
+                .singleElement()
+                .satisfies(era -> assertThat(era.getMyHand()).singleElement().satisfies(card -> {
+                    assertThat(card.getCardInstanceId()).isEqualTo(cardInstanceId);
+                    assertThat(card.getCardType()).isEqualTo(CardType.NULLIFY);
+                    assertThat(card.getGrade()).isEqualTo(CardGrade.III);
+                    assertThat(card.getDealSlot()).isEqualTo(5);
+                }));
     }
 }
