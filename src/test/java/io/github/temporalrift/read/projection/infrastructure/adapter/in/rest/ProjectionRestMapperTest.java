@@ -12,9 +12,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import io.github.temporalrift.read.projection.application.port.in.GetGameHistoryUseCase;
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
 import io.github.temporalrift.read.projection.domain.model.CarryOverState;
 import io.github.temporalrift.read.projection.domain.model.ChainStatus;
+import io.github.temporalrift.read.projection.domain.model.DealtCard;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
 import io.github.temporalrift.read.projection.domain.model.ExposeFact;
 import io.github.temporalrift.read.projection.domain.model.ForesightPreview;
@@ -22,8 +24,11 @@ import io.github.temporalrift.read.projection.domain.model.ForesightPreviewEvent
 import io.github.temporalrift.read.projection.domain.model.ForesightPreviewOutcome;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 import io.github.temporalrift.read.projection.domain.model.GameChain;
+import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.HandCard;
 import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
+import io.github.temporalrift.read.projection.domain.model.PendingHandCard;
+import io.github.temporalrift.read.projection.domain.model.PendingHandSelection;
 import io.github.temporalrift.read.projection.domain.model.Phase;
 import io.github.temporalrift.read.projection.domain.model.PlayerSubmission;
 import io.github.temporalrift.read.projection.domain.model.PublicBand;
@@ -37,10 +42,14 @@ import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
 import io.github.temporalrift.read.projection.domain.model.TerminalResult;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActionFamily;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CardCategory;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CardGrade;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CardType;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.Faction;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.FinalScore;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.GameResult;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.GameWinner;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerGameStateResponse;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerInGame;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.SpecialAction;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.SubmissionChoice;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.SubmissionWindow;
@@ -268,6 +277,80 @@ class ProjectionRestMapperTest {
         assertThat(response.getMySpecialActions())
                 .extracting(SpecialAction::getValue)
                 .containsExactly(first, second, third);
+    }
+
+    @Test
+    void toResponse_mapsRosterFactionsToTheSharedEnum() {
+        var revealed = UUID.randomUUID();
+        var hidden = UUID.randomUUID();
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID,
+                2,
+                Phase.ACTION_ROUND_1,
+                "WEAVERS",
+                List.of(),
+                null,
+                List.of(),
+                0,
+                List.of(
+                        new GamePlayer(revealed, 4, true, "WEAVERS", "Ada"),
+                        new GamePlayer(hidden, 3, true, null, "Bo")),
+                List.of());
+
+        var response = toResponse(result);
+
+        assertThat(response.getMyFaction()).isEqualTo(Faction.WEAVERS);
+        assertThat(response.getPlayers())
+                .extracting(PlayerInGame::getPlayerId, PlayerInGame::getFaction)
+                .containsExactly(tuple(revealed, Faction.WEAVERS), tuple(hidden, null));
+    }
+
+    @Test
+    void toResponse_mapsPendingHandSelectionCardTypesToTheSharedEnum() {
+        var cardInstanceId = UUID.randomUUID();
+        var expiresAt = Instant.parse("2026-09-30T12:00:00Z");
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID,
+                2,
+                Phase.HAND_SELECTION,
+                "ERASERS",
+                List.of(),
+                new PendingHandSelection(List.of(new PendingHandCard(cardInstanceId, "TRACE", "II", 3)), expiresAt),
+                List.of(),
+                0,
+                List.of(),
+                List.of());
+
+        var response = toResponse(result);
+
+        assertThat(response.getPendingHandSelection().getCards())
+                .singleElement()
+                .satisfies(card -> {
+                    assertThat(card.getCardInstanceId()).isEqualTo(cardInstanceId);
+                    assertThat(card.getCardType()).isEqualTo(CardType.TRACE);
+                    assertThat(card.getGrade()).isEqualTo(CardGrade.II);
+                    assertThat(card.getDealSlot()).isEqualTo(3);
+                });
+    }
+
+    @Test
+    void toResponse_mapsGameHistoryHandCardTypesToTheSharedEnum() {
+        var cardInstanceId = UUID.randomUUID();
+        var result = new GetGameHistoryUseCase.Result(
+                GAME_ID,
+                List.of(new GetGameHistoryUseCase.EraResult(
+                        1, List.of(), 0, List.of(), List.of(new DealtCard(cardInstanceId, "NULLIFY", "III", 5)))));
+
+        var response = ProjectionRestMapper.toResponse(result);
+
+        assertThat(response.getEras())
+                .singleElement()
+                .satisfies(era -> assertThat(era.getMyHand()).singleElement().satisfies(card -> {
+                    assertThat(card.getCardInstanceId()).isEqualTo(cardInstanceId);
+                    assertThat(card.getCardType()).isEqualTo(CardType.NULLIFY);
+                    assertThat(card.getGrade()).isEqualTo(CardGrade.III);
+                    assertThat(card.getDealSlot()).isEqualTo(5);
+                }));
     }
 
     @Test

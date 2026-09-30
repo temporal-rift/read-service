@@ -725,6 +725,18 @@ class ProjectionEventApplierTest {
     }
 
     @Test
+    void applyInfluenceTraced_missingListsAreStoredAsEmpty() {
+        var viewerId = UUID.randomUUID();
+        var targetEventId = UUID.randomUUID();
+
+        applier.applyInfluenceTraced(new InfluenceTracedPayload(gameId, 1, 2, viewerId, targetEventId, null, null));
+
+        then(revealedInfluenceIntel)
+                .should()
+                .upsertLatest(new RevealedInfluenceIntel(gameId, viewerId, 1, targetEventId, 2, List.of(), List.of()));
+    }
+
+    @Test
     void applyInfluenceTraced_forPriorEra_skipsIt() {
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));
