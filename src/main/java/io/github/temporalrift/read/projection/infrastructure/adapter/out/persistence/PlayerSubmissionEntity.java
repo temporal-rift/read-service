@@ -6,12 +6,14 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import io.github.temporalrift.read.projection.domain.model.PlayerSubmission;
 
 /**
  * One player's accepted decision slot. {@code round_number} is the action round for ordinary
- * submissions and {@code 0} for every other window, which carries no round.
+ * submissions and {@code 0} for hand selection, declarations and paradox resolution, which carry no round.
  */
 @Entity
 @Table(
@@ -31,6 +33,17 @@ class PlayerSubmissionEntity extends PlayerScopedBaseEntity {
     @Column(name = "choice")
     private String choice;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "card", columnDefinition = "jsonb")
+    private PlayerSubmission.SubmittedCard card;
+
+    @Column(name = "special_action")
+    private String specialAction;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "targets", columnDefinition = "jsonb")
+    private PlayerSubmission.Targets targets;
+
     protected PlayerSubmissionEntity() {}
 
     private PlayerSubmissionEntity(UUID id, PlayerSubmission submission) {
@@ -49,12 +62,18 @@ class PlayerSubmissionEntity extends PlayerScopedBaseEntity {
                 getEraNumber(),
                 roundNumber == 0 ? null : roundNumber,
                 PlayerSubmission.SubmissionWindow.valueOf(submissionWindow),
-                choice == null ? null : PlayerSubmission.SubmissionChoice.valueOf(choice));
+                choice == null ? null : PlayerSubmission.SubmissionChoice.valueOf(choice),
+                card,
+                specialAction,
+                targets);
     }
 
     void updateFrom(PlayerSubmission submission) {
         this.roundNumber = submission.roundNumber() == null ? 0 : submission.roundNumber();
         this.submissionWindow = submission.window().name();
         this.choice = submission.choice() == null ? null : submission.choice().name();
+        this.card = submission.card();
+        this.specialAction = submission.specialAction();
+        this.targets = submission.targets();
     }
 }

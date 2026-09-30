@@ -33,6 +33,7 @@ import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ChainState;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.Deadlines;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.DealtHandCard;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.EligibleResolutionCard;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.EventOutcome;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ExposeSignature;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.Faction;
@@ -59,7 +60,10 @@ import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.RoundSummary;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.SpecialAction;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.SubmissionChoice;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.SubmissionProgress;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.SubmissionTargets;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.SubmissionWindow;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.SubmittedCard;
 
 /** Maps projection query results to generated response DTOs. */
 final class ProjectionRestMapper {
@@ -125,6 +129,15 @@ final class ProjectionRestMapper {
                         : result.mySubmissions().stream()
                                 .map(ProjectionRestMapper::toMySubmission)
                                 .toList());
+        if (result.myEligibleResolutionCards() != null) {
+            response.setMyEligibleResolutionCards(result.myEligibleResolutionCards().stream()
+                    .map(card -> new EligibleResolutionCard(
+                            card.cardInstanceId(),
+                            io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CardType
+                                    .valueOf(card.cardType()),
+                            toCardGrade(card.grade())))
+                    .toList());
+        }
         // Budgets and objective progress stay absent: no owner fact supplies them (see use-case docs).
         response.setResult(toGameResult(result.terminalResult()));
         return response;
@@ -163,8 +176,21 @@ final class ProjectionRestMapper {
         var context = new PhaseContext(result.declarationOpen(), result.paradoxOpen());
         if (result.paradoxOpen()) {
             context.setParadoxIds(List.copyOf(result.openParadoxIds()));
+            context.setAffectedEventIds(List.copyOf(result.affectedEventIds()));
+        }
+        if (result.actionRoundProgress() != null) {
+            context.setActionRoundProgress(toSubmissionProgress(result.actionRoundProgress()));
+        }
+        if (result.paradoxResolutionProgress() != null) {
+            context.setParadoxResolutionProgress(toSubmissionProgress(result.paradoxResolutionProgress()));
         }
         return context;
+    }
+
+    private static SubmissionProgress toSubmissionProgress(
+            GetPlayerGameStateUseCase.Result.SubmissionProgress progress) {
+        return new SubmissionProgress(
+                progress.submittedCount(), progress.totalPlayers(), new LinkedHashSet<>(progress.pendingPlayerIds()));
     }
 
     private static PublicBandEvent toPublicBandEvent(PublicBand domain) {
@@ -207,6 +233,32 @@ final class ProjectionRestMapper {
         response.setRoundNumber(domain.roundNumber());
         if (domain.choice() != null) {
             response.setChoice(SubmissionChoice.valueOf(domain.choice().name()));
+        }
+        if (domain.card() != null) {
+            var card = domain.card();
+            response.setCard(new SubmittedCard(
+                            card.cardInstanceId(),
+                            io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CardType
+                                    .valueOf(card.cardType()),
+                            toCardGrade(card.grade()))
+                    .disguiseCategory(
+                            card.disguiseCategory() == null ? null : CardCategory.valueOf(card.disguiseCategory())));
+        }
+        if (domain.specialAction() != null) {
+            response.setSpecialAction(SpecialAction.valueOf(domain.specialAction()));
+        }
+        if (domain.targets() != null) {
+            var targets = domain.targets();
+            response.setTargets(new SubmissionTargets()
+                    .targetEventId(targets.targetEventId())
+                    .targetEventIds(
+                            targets.targetEventIds() == null ? null : new LinkedHashSet<>(targets.targetEventIds()))
+                    .targetOutcomeId(targets.targetOutcomeId())
+                    .sourceEventId(targets.sourceEventId())
+                    .sourceOutcomeId(targets.sourceOutcomeId())
+                    .targetPlayerId(targets.targetPlayerId())
+                    .targetPlayerIds(
+                            targets.targetPlayerIds() == null ? null : new LinkedHashSet<>(targets.targetPlayerIds())));
         }
         return response;
     }
@@ -311,7 +363,7 @@ final class ProjectionRestMapper {
         response.setTargetPlayerId(domain.targetPlayerId());
         response.setRevealedCards(domain.revealedCards().stream()
                 .map(card -> new RevealedHandCard(
-                        card.cardInstanceId(), CardType.fromValue(card.cardType()), toCardGrade(card.grade())))
+                        card.cardInstanceId(), toCardType(card.cardType()), toCardGrade(card.grade())))
                 .toList());
         return response;
     }
@@ -345,10 +397,7 @@ final class ProjectionRestMapper {
 
     private static DealtHandCard toDealtHandCard(DealtCard domain) {
         return new DealtHandCard(
-                domain.cardInstanceId(),
-                CardType.fromValue(domain.cardType()),
-                toCardGrade(domain.grade()),
-                domain.dealSlot());
+                domain.cardInstanceId(), toCardType(domain.cardType()), toCardGrade(domain.grade()), domain.dealSlot());
     }
 
     private static HandCard toHandCard(
@@ -358,7 +407,7 @@ final class ProjectionRestMapper {
             int maxEras) {
         return new HandCard(
                 domain.cardInstanceId(),
-                CardType.fromValue(domain.cardType()),
+                toCardType(domain.cardType()),
                 toCardGrade(domain.grade()),
                 isPlayableThisRound(domain.cardType(), phase, eraNumber, maxEras));
     }
@@ -393,18 +442,11 @@ final class ProjectionRestMapper {
         };
     }
 
-    private static Faction toFaction(String faction) {
-        return faction == null ? null : Faction.fromValue(faction);
-    }
-
     private static PendingHandSelection toPendingHandSelection(
             io.github.temporalrift.read.projection.domain.model.PendingHandSelection domain) {
         var cards = domain.cards().stream()
                 .map(card -> new DealtHandCard(
-                        card.cardInstanceId(),
-                        CardType.fromValue(card.cardType()),
-                        toCardGrade(card.grade()),
-                        card.dealSlot()))
+                        card.cardInstanceId(), toCardType(card.cardType()), toCardGrade(card.grade()), card.dealSlot()))
                 .toList();
         return new PendingHandSelection(
                 cards,
@@ -414,6 +456,14 @@ final class ProjectionRestMapper {
 
     private static CardGrade toCardGrade(String grade) {
         return CardGrade.valueOf(grade);
+    }
+
+    private static CardType toCardType(String cardType) {
+        return CardType.valueOf(cardType);
+    }
+
+    private static Faction toFaction(String faction) {
+        return faction == null ? null : Faction.valueOf(faction);
     }
 
     private static ActiveEvent toActiveEvent(GameActiveEvent domain) {

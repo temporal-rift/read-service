@@ -28,6 +28,13 @@ class JpaPlayerSubmissionAdapter implements PlayerSubmissionRepository {
     }
 
     @Override
+    public List<UUID> findSubmittedPlayerIds(
+            UUID gameId, int eraNumber, PlayerSubmission.SubmissionWindow window, Integer roundNumber) {
+        return repository.findSubmittedPlayerIds(
+                gameId, eraNumber, window.name(), roundNumber == null ? 0 : roundNumber);
+    }
+
+    @Override
     public void upsert(PlayerSubmission submission) {
         var roundNumber = submission.roundNumber() == null ? 0 : submission.roundNumber();
         repository

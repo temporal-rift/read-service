@@ -10,6 +10,9 @@ public interface PlayerSubmissionRepository {
 
     List<PlayerSubmission> findByGameIdAndPlayerIdAndEraNumber(UUID gameId, UUID playerId, int eraNumber);
 
+    List<UUID> findSubmittedPlayerIds(
+            UUID gameId, int eraNumber, PlayerSubmission.SubmissionWindow window, Integer roundNumber);
+
     void upsert(PlayerSubmission submission);
 
     void deleteByGameIdAndEraNumber(UUID gameId, int eraNumber);

@@ -269,8 +269,7 @@ class RecoverableParticipantViewIT {
                         .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(activist)))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.mySubmissions", hasSize(1)))
-                .andExpect(jsonPath("$.mySubmissions[0].window").value("DECLARATION"))
-                .andExpect(jsonPath("$.mySubmissions[0].choice").doesNotExist());
+                .andExpect(jsonPath("$.mySubmissions[0].window").value("DECLARATION"));
         mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
                         .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(other)))))
                 .andExpect(status().isOk())
@@ -278,7 +277,7 @@ class RecoverableParticipantViewIT {
     }
 
     @Test
-    void ownCardAndParadoxPlays_recoveredOnlyByCallerWithWindowAndChoice() throws Exception {
+    void ownCardPlay_recoveredOnlyByCallerWithRoundAndDeadline() throws Exception {
         var gameId = UUID.randomUUID();
         var playerId = UUID.randomUUID();
         var opponent = UUID.randomUUID();
@@ -324,38 +323,13 @@ class RecoverableParticipantViewIT {
                                 "cardType",
                                 "PUSH",
                                 "grade",
-                                "I"),
+                                "I",
+                                "targetEventId",
+                                UUID.randomUUID()),
                         playedId)
                 .join();
         awaitProcessed(playedId, "projection.game-events");
         awaitSubmissionCount(gameId, playerId, 1, 1);
-
-        var paradoxCardId = UUID.randomUUID();
-        publish(
-                        GAME_EVENTS_TOPIC,
-                        "ParadoxResolutionCardPlayed",
-                        gameId,
-                        Map.of(
-                                "gameId",
-                                gameId,
-                                "eraNumber",
-                                1,
-                                "playerId",
-                                playerId,
-                                "cardInstanceId",
-                                UUID.randomUUID(),
-                                "cardType",
-                                "STABILIZE",
-                                "grade",
-                                "I",
-                                "targetEventId",
-                                UUID.randomUUID(),
-                                "targetOutcomeId",
-                                UUID.randomUUID()),
-                        paradoxCardId)
-                .join();
-        awaitProcessed(paradoxCardId, "projection.game-events");
-        awaitSubmissionCount(gameId, playerId, 1, 2);
 
         mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
                         .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(playerId)))))
@@ -365,18 +339,231 @@ class RecoverableParticipantViewIT {
                 .andExpect(jsonPath("$.phaseContext.declarationOpen").value(false))
                 .andExpect(jsonPath("$.phaseContext.paradoxOpen").value(false))
                 .andExpect(jsonPath("$.revision").isNumber())
-                .andExpect(jsonPath("$.mySubmissions", hasSize(2)))
+                .andExpect(jsonPath("$.mySubmissions", hasSize(1)))
                 .andExpect(jsonPath("$.mySubmissions[0].window").value("ACTION"))
                 .andExpect(jsonPath("$.mySubmissions[0].choice").value("CARD"))
-                .andExpect(jsonPath("$.mySubmissions[0].roundNumber").value(1))
-                .andExpect(jsonPath("$.mySubmissions[0].status").value("ACCEPTED"))
-                .andExpect(jsonPath("$.mySubmissions[1].window").value("PARADOX_RESOLUTION"))
-                .andExpect(jsonPath("$.mySubmissions[1].choice").value("CARD"))
-                .andExpect(jsonPath("$.mySubmissions[1].roundNumber").doesNotExist());
+                .andExpect(jsonPath("$.mySubmissions[0].card.cardInstanceId").value(cardId.toString()))
+                .andExpect(jsonPath("$.mySubmissions[0].status").value("ACCEPTED"));
         mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
                         .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(opponent)))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.mySubmissions").doesNotExist());
+    }
+
+    @Test
+    void passesProgressRewriteAndEligibleCards_areRecoveredWithoutLeakingPrivateChoices() throws Exception {
+        var gameId = UUID.randomUUID();
+        var first = UUID.randomUUID();
+        var second = UUID.randomUUID();
+        var third = UUID.randomUUID();
+        startGame(gameId, first, second, third);
+
+        var roundStartId = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "ActionRoundStarted",
+                        gameId,
+                        Map.of(
+                                "gameId",
+                                gameId,
+                                "eraNumber",
+                                1,
+                                "roundNumber",
+                                1,
+                                "timerSeconds",
+                                60,
+                                "pendingPlayerIds",
+                                List.of(first, second, third)),
+                        roundStartId)
+                .join();
+        awaitProcessed(roundStartId, "projection.game-events");
+
+        var roundPassId = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "ActionRoundPassed",
+                        gameId,
+                        Map.of("gameId", gameId, "eraNumber", 1, "roundNumber", 1, "playerId", first),
+                        roundPassId)
+                .join();
+        awaitProcessed(roundPassId, "projection.game-events");
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(first)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mySubmissions[0].window").value("ACTION"))
+                .andExpect(jsonPath("$.mySubmissions[0].choice").value("PASS"))
+                .andExpect(jsonPath("$.mySubmissions[0].card").doesNotExist())
+                .andExpect(jsonPath("$.phaseContext.actionRoundProgress.submittedCount")
+                        .value(1))
+                .andExpect(jsonPath("$.phaseContext.actionRoundProgress.totalPlayers")
+                        .value(3))
+                .andExpect(jsonPath("$.phaseContext.actionRoundProgress.pendingPlayerIds", hasSize(2)));
+
+        var targetEventId = UUID.randomUUID();
+        var targetOutcomeId = UUID.randomUUID();
+        var rewriteId = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "SpecialActionPlayed",
+                        gameId,
+                        Map.of(
+                                "gameId",
+                                gameId,
+                                "eraNumber",
+                                1,
+                                "roundNumber",
+                                1,
+                                "playerId",
+                                second,
+                                "faction",
+                                "REVISIONISTS",
+                                "specialAction",
+                                "REWRITE",
+                                "targetEventId",
+                                targetEventId,
+                                "targetOutcomeId",
+                                targetOutcomeId),
+                        rewriteId)
+                .join();
+        awaitProcessed(rewriteId, "projection.game-events");
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(second)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mySubmissions[0].choice").value("SPECIAL"))
+                .andExpect(jsonPath("$.mySubmissions[0].specialAction").value("REWRITE"))
+                .andExpect(jsonPath("$.mySubmissions[0].targets.targetEventId").value(targetEventId.toString()))
+                .andExpect(
+                        jsonPath("$.mySubmissions[0].targets.targetOutcomeId").value(targetOutcomeId.toString()));
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(first)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mySubmissions[0].specialAction").doesNotExist());
+
+        var affectedEventId = UUID.randomUUID();
+        var phaseStartId = UUID.randomUUID();
+        publish(
+                        TIMELINE_EVENTS_TOPIC,
+                        "ParadoxResolutionPhaseStarted",
+                        gameId,
+                        Map.of(
+                                "gameId",
+                                gameId,
+                                "eraNumber",
+                                1,
+                                "paradoxIds",
+                                List.of(UUID.randomUUID()),
+                                "affectedEventIds",
+                                List.of(affectedEventId),
+                                "timerSeconds",
+                                60),
+                        phaseStartId)
+                .join();
+        awaitProcessed(phaseStartId, "projection.timeline-events");
+        awaitPhase(gameId, "PARADOX_RESOLUTION");
+
+        var eligibleCardId = UUID.randomUUID();
+        var firstOfferId = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "ParadoxResolutionCardsOffered",
+                        gameId,
+                        Map.of(
+                                "gameId",
+                                gameId,
+                                "eraNumber",
+                                1,
+                                "playerId",
+                                first,
+                                "cards",
+                                List.of(Map.of(
+                                        "cardInstanceId", eligibleCardId, "cardType", "STABILIZE", "grade", "I"))),
+                        firstOfferId)
+                .join();
+        awaitProcessed(firstOfferId, "projection.game-events");
+        var secondOfferId = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "ParadoxResolutionCardsOffered",
+                        gameId,
+                        Map.of("gameId", gameId, "eraNumber", 1, "playerId", second, "cards", List.of()),
+                        secondOfferId)
+                .join();
+        awaitProcessed(secondOfferId, "projection.game-events");
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(first)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.phaseContext.affectedEventIds[0]").value(affectedEventId.toString()))
+                .andExpect(jsonPath("$.phaseContext.paradoxResolutionProgress.submittedCount")
+                        .value(0))
+                .andExpect(jsonPath("$.myEligibleResolutionCards[0].cardInstanceId")
+                        .value(eligibleCardId.toString()));
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(second)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.myEligibleResolutionCards").isEmpty());
+
+        var paradoxPassId = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "ParadoxResolutionPassed",
+                        gameId,
+                        Map.of("gameId", gameId, "eraNumber", 1, "playerId", first),
+                        paradoxPassId)
+                .join();
+        awaitProcessed(paradoxPassId, "projection.game-events");
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(first)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mySubmissions[1].window").value("PARADOX_RESOLUTION"))
+                .andExpect(jsonPath("$.mySubmissions[1].choice").value("PASS"))
+                .andExpect(jsonPath("$.myEligibleResolutionCards").doesNotExist())
+                .andExpect(jsonPath("$.phaseContext.paradoxResolutionProgress.submittedCount")
+                        .value(1));
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(third)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mySubmissions").doesNotExist())
+                .andExpect(jsonPath("$.myEligibleResolutionCards").doesNotExist());
+
+        var endedId = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "EraEnded",
+                        gameId,
+                        Map.of("gameId", gameId, "eraNumber", 1, "cascadedParadoxCount", 0, "nextEraNumber", 2),
+                        endedId)
+                .join();
+        awaitProcessed(endedId, "projection.game-events");
+        awaitPhase(gameId, "ERA_END");
+
+        var stalePassId = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "ActionRoundPassed",
+                        gameId,
+                        Map.of("gameId", gameId, "eraNumber", 1, "roundNumber", 1, "playerId", third),
+                        stalePassId)
+                .join();
+        awaitProcessed(stalePassId, "projection.game-events");
+        var staleOfferId = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "ParadoxResolutionCardsOffered",
+                        gameId,
+                        Map.of("gameId", gameId, "eraNumber", 1, "playerId", third, "cards", List.of()),
+                        staleOfferId)
+                .join();
+        awaitProcessed(staleOfferId, "projection.game-events");
+        assertThat(jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM player_submission WHERE game_id = ?", Integer.class, gameId))
+                .isZero();
+        assertThat(jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM resolution_card_offer WHERE game_id = ?", Integer.class, gameId))
+                .isZero();
     }
 
     @Test
@@ -567,5 +754,107 @@ class RecoverableParticipantViewIT {
                 .mapToObj(seat ->
                         Map.<String, Object>of("playerId", playerIds[seat], "playerName", "Player " + (seat + 1)))
                 .toList();
+    }
+
+    @Test
+    void ownCardAndParadoxPlays_recoveredOnlyByCallerWithWindowAndChoice() throws Exception {
+        var gameId = UUID.randomUUID();
+        var playerId = UUID.randomUUID();
+        var opponent = UUID.randomUUID();
+        startGame(gameId, playerId, opponent);
+
+        var roundId = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "ActionRoundStarted",
+                        gameId,
+                        Map.of(
+                                "gameId",
+                                gameId,
+                                "eraNumber",
+                                1,
+                                "roundNumber",
+                                1,
+                                "timerSeconds",
+                                60,
+                                "pendingPlayerIds",
+                                List.of(playerId, opponent)),
+                        roundId)
+                .join();
+        awaitProcessed(roundId, "projection.game-events");
+
+        var cardId = UUID.randomUUID();
+        var playedId = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "CardPlayed",
+                        gameId,
+                        Map.of(
+                                "gameId",
+                                gameId,
+                                "eraNumber",
+                                1,
+                                "roundNumber",
+                                1,
+                                "playerId",
+                                playerId,
+                                "cardInstanceId",
+                                cardId,
+                                "cardType",
+                                "PUSH",
+                                "grade",
+                                "I"),
+                        playedId)
+                .join();
+        awaitProcessed(playedId, "projection.game-events");
+        awaitSubmissionCount(gameId, playerId, 1, 1);
+
+        var paradoxCardId = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "ParadoxResolutionCardPlayed",
+                        gameId,
+                        Map.of(
+                                "gameId",
+                                gameId,
+                                "eraNumber",
+                                1,
+                                "playerId",
+                                playerId,
+                                "cardInstanceId",
+                                UUID.randomUUID(),
+                                "cardType",
+                                "STABILIZE",
+                                "grade",
+                                "I",
+                                "targetEventId",
+                                UUID.randomUUID(),
+                                "targetOutcomeId",
+                                UUID.randomUUID()),
+                        paradoxCardId)
+                .join();
+        awaitProcessed(paradoxCardId, "projection.game-events");
+        awaitSubmissionCount(gameId, playerId, 1, 2);
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(playerId)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.roundNumber").value(1))
+                .andExpect(jsonPath("$.deadlines.actionRoundExpiresAt").exists())
+                .andExpect(jsonPath("$.phaseContext.declarationOpen").value(false))
+                .andExpect(jsonPath("$.phaseContext.paradoxOpen").value(false))
+                .andExpect(jsonPath("$.revision").isNumber())
+                .andExpect(jsonPath("$.mySubmissions", hasSize(2)))
+                .andExpect(jsonPath("$.mySubmissions[0].window").value("ACTION"))
+                .andExpect(jsonPath("$.mySubmissions[0].choice").value("CARD"))
+                .andExpect(jsonPath("$.mySubmissions[0].roundNumber").value(1))
+                .andExpect(jsonPath("$.mySubmissions[0].status").value("ACCEPTED"))
+                .andExpect(jsonPath("$.mySubmissions[1].window").value("PARADOX_RESOLUTION"))
+                .andExpect(jsonPath("$.mySubmissions[1].choice").value("CARD"))
+                .andExpect(jsonPath("$.mySubmissions[1].roundNumber").doesNotExist());
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(opponent)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mySubmissions").doesNotExist());
     }
 }

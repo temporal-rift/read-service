@@ -58,6 +58,10 @@ class GameEventsKafkaConsumer {
             io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.FORESIGHT_REVEALED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ACTION_ROUND_STARTED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CARD_PLAYED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ACTION_ROUND_PASSED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract
+                    .PARADOX_RESOLUTION_CARDS_OFFERED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.PARADOX_RESOLUTION_PASSED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract
                     .PARADOX_RESOLUTION_CARD_PLAYED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.SPECIAL_ACTION_PLAYED_EVENT_TYPE,
@@ -95,6 +99,10 @@ class GameEventsKafkaConsumer {
             io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.FORESIGHT_REVEALED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ACTION_ROUND_STARTED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CARD_PLAYED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ACTION_ROUND_PASSED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract
+                    .PARADOX_RESOLUTION_CARDS_OFFERED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.PARADOX_RESOLUTION_PASSED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract
                     .PARADOX_RESOLUTION_CARD_PLAYED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.SPECIAL_ACTION_PLAYED_EVENT_TYPE,

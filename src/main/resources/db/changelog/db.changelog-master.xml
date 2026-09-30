@@ -33,5 +33,7 @@
     <include file="db/changelog/projection/018-create-player-submission.xml"/>
     <include file="db/changelog/projection/019-create-game-terminal-result.xml"/>
     <include file="db/changelog/projection/021-create-foresight-preview.xml"/>
+    <include file="db/changelog/projection/022-create-resolution-card-offer.xml"/>
+    <include file="db/changelog/projection/023-expand-participant-projection.xml"/>
 
 </databaseChangeLog>

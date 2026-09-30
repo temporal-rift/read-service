@@ -22,22 +22,49 @@ public record GameProjection(
         Instant actionRoundExpiresAt,
         Instant paradoxResolutionExpiresAt,
         long revision,
-        Instant lastUpdatedAt) {
+        Instant lastUpdatedAt,
+        List<UUID> affectedEventIds) {
 
     public GameProjection {
         pendingParadoxIds = List.copyOf(pendingParadoxIds);
+        affectedEventIds = List.copyOf(affectedEventIds);
     }
 
     public GameProjection(UUID gameId, int eraNumber, Phase phase) {
-        this(gameId, eraNumber, phase, List.of(), null, null, null, null, 0, null);
+        this(gameId, eraNumber, phase, List.of(), null, null, null, null, 0, null, List.of());
     }
 
     public GameProjection(UUID gameId, int eraNumber, Phase phase, List<UUID> pendingParadoxIds) {
-        this(gameId, eraNumber, phase, pendingParadoxIds, null, null, null, null, 0, null);
+        this(gameId, eraNumber, phase, pendingParadoxIds, null, null, null, null, 0, null, List.of());
     }
 
     public GameProjection(
             UUID gameId, int eraNumber, Phase phase, List<UUID> pendingParadoxIds, LastRoundSummary lastRoundSummary) {
-        this(gameId, eraNumber, phase, pendingParadoxIds, lastRoundSummary, null, null, null, 0, null);
+        this(gameId, eraNumber, phase, pendingParadoxIds, lastRoundSummary, null, null, null, 0, null, List.of());
+    }
+
+    public GameProjection(
+            UUID gameId,
+            int eraNumber,
+            Phase phase,
+            List<UUID> pendingParadoxIds,
+            LastRoundSummary lastRoundSummary,
+            Integer currentRoundNumber,
+            Instant actionRoundExpiresAt,
+            Instant paradoxResolutionExpiresAt,
+            long revision,
+            Instant lastUpdatedAt) {
+        this(
+                gameId,
+                eraNumber,
+                phase,
+                pendingParadoxIds,
+                lastRoundSummary,
+                currentRoundNumber,
+                actionRoundExpiresAt,
+                paradoxResolutionExpiresAt,
+                revision,
+                lastUpdatedAt,
+                List.of());
     }
 }

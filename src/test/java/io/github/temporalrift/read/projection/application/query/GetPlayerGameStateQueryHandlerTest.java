@@ -98,6 +98,9 @@ class GetPlayerGameStateQueryHandlerTest {
     PlayerSubmissionRepository playerSubmissions;
 
     @Mock
+    io.github.temporalrift.read.projection.domain.port.out.ResolutionCardOfferRepository resolutionCardOffers;
+
+    @Mock
     TerminalResultRepository terminalResults;
 
     private GetPlayerGameStateQueryHandler handler;
@@ -121,6 +124,7 @@ class GetPlayerGameStateQueryHandlerTest {
                 publicDeclarations,
                 exposeFacts,
                 playerSubmissions,
+                resolutionCardOffers,
                 terminalResults));
     }
 
@@ -232,8 +236,8 @@ class GetPlayerGameStateQueryHandlerTest {
         given(gameActiveEvents.findByGameId(gameId)).willReturn(List.of());
         given(revealedProbabilityIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
                 .willReturn(List.of());
-        var influence = new RevealedInfluenceIntel(
-                gameId, playerId, 2, UUID.randomUUID(), 2, List.of(UUID.randomUUID()), List.of());
+        var influence =
+                new RevealedInfluenceIntel(gameId, playerId, 2, UUID.randomUUID(), 2, List.of(UUID.randomUUID()));
         given(revealedInfluenceIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
                 .willReturn(List.of(influence));
         given(revealedHandCardIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
@@ -398,7 +402,10 @@ class GetPlayerGameStateQueryHandlerTest {
                 2,
                 1,
                 PlayerSubmission.SubmissionWindow.ACTION,
-                PlayerSubmission.SubmissionChoice.CARD);
+                PlayerSubmission.SubmissionChoice.CARD,
+                new PlayerSubmission.SubmittedCard(UUID.randomUUID(), "PUSH", "I", null),
+                null,
+                null);
         given(playerSubmissions.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
                 .willReturn(List.of(submission));
 
@@ -415,6 +422,84 @@ class GetPlayerGameStateQueryHandlerTest {
         assertThat(result.publicBands()).containsExactly(band);
         assertThat(result.mySubmissions()).containsExactly(submission);
         assertThat(result.terminalResult()).isNull();
+    }
+
+    @Test
+    void get_openActionRound_countsOneSubmissionAndTwoPendingPlayers() {
+        var second = UUID.randomUUID();
+        var third = UUID.randomUUID();
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, null, List.of())));
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(
+                        new GameProjection(gameId, 1, Phase.ACTION_ROUND_1, List.of(), null, 1, null, null, 0, null)));
+        given(gamePlayers.findByGameId(gameId))
+                .willReturn(List.of(
+                        new GamePlayer(playerId, 0, true, null),
+                        new GamePlayer(second, 0, true, null),
+                        new GamePlayer(third, 0, true, null)));
+        given(playerSubmissions.findSubmittedPlayerIds(gameId, 1, PlayerSubmission.SubmissionWindow.ACTION, 1))
+                .willReturn(List.of(playerId));
+
+        var result = handler.get(gameId, playerId);
+
+        assertThat(result.actionRoundProgress().submittedCount()).isEqualTo(1);
+        assertThat(result.actionRoundProgress().totalPlayers()).isEqualTo(3);
+        assertThat(result.actionRoundProgress().pendingPlayerIds()).containsExactly(second, third);
+        assertThat(result.paradoxResolutionProgress()).isNull();
+    }
+
+    @Test
+    void get_paradoxOffer_isCallerScopedAndDisappearsAfterPass() {
+        var affected = UUID.randomUUID();
+        var card = new io.github.temporalrift.read.projection.domain.model.ResolutionCardOffer.Card(
+                UUID.randomUUID(), "STABILIZE", "I");
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, null, List.of())));
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(
+                        gameId,
+                        1,
+                        Phase.PARADOX_RESOLUTION,
+                        List.of(UUID.randomUUID()),
+                        null,
+                        3,
+                        null,
+                        Instant.EPOCH.plusSeconds(60),
+                        0,
+                        null,
+                        List.of(affected))));
+        given(gamePlayers.findByGameId(gameId)).willReturn(List.of(new GamePlayer(playerId, 0, true, null)));
+        given(playerSubmissions.findSubmittedPlayerIds(
+                        gameId, 1, PlayerSubmission.SubmissionWindow.PARADOX_RESOLUTION, null))
+                .willReturn(List.of());
+        given(playerSubmissions.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 1))
+                .willReturn(
+                        List.of(),
+                        List.of(new PlayerSubmission(
+                                gameId,
+                                playerId,
+                                1,
+                                null,
+                                PlayerSubmission.SubmissionWindow.PARADOX_RESOLUTION,
+                                PlayerSubmission.SubmissionChoice.PASS,
+                                null,
+                                null,
+                                null)));
+        given(resolutionCardOffers.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 1))
+                .willReturn(Optional.of(new io.github.temporalrift.read.projection.domain.model.ResolutionCardOffer(
+                        gameId, playerId, 1, List.of(card))));
+
+        var before = handler.get(gameId, playerId);
+        var after = handler.get(gameId, playerId);
+
+        assertThat(before.affectedEventIds()).containsExactly(affected);
+        assertThat(before.myEligibleResolutionCards()).containsExactly(card);
+        assertThat(after.myEligibleResolutionCards()).isNull();
+        assertThat(after.mySubmissions())
+                .singleElement()
+                .extracting(PlayerSubmission::choice)
+                .isEqualTo(PlayerSubmission.SubmissionChoice.PASS);
     }
 
     @Test

@@ -43,23 +43,20 @@ class RevealedInfluenceIntelEntity extends RevealedIntelBaseEntity {
     }
 
     RevealedInfluenceIntel toDomain(ObjectMapper objectMapper) {
+        List<UUID> influencers = Arrays.asList(objectMapper.readValue(influencerPlayerIds, UUID[].class));
         return new RevealedInfluenceIntel(
                 getGameId(),
                 getPlayerId(),
                 getEraNumber(),
                 getEventId(),
                 getObservedInRound(),
-                readIds(influencerPlayerIds, objectMapper),
-                readIds(mimicInfluencerPlayerIds, objectMapper));
+                influencers,
+                Arrays.asList(objectMapper.readValue(mimicInfluencerPlayerIds, UUID[].class)));
     }
 
     void updateFrom(RevealedInfluenceIntel intel, ObjectMapper objectMapper) {
         setObservedInRound(intel.observedInRound());
         influencerPlayerIds = objectMapper.writeValueAsString(intel.influencerPlayerIds());
         mimicInfluencerPlayerIds = objectMapper.writeValueAsString(intel.mimicInfluencerPlayerIds());
-    }
-
-    private static List<UUID> readIds(String json, ObjectMapper objectMapper) {
-        return Arrays.asList(objectMapper.readValue(json, UUID[].class));
     }
 }
