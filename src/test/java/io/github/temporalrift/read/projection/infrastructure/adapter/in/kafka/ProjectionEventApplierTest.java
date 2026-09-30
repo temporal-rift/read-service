@@ -675,12 +675,40 @@ class ProjectionEventApplierTest {
         var influencerTwo = UUID.randomUUID();
 
         applier.applyInfluenceTraced(new InfluenceTracedPayload(
-                gameId, 1, 2, viewerId, targetEventId, List.of(influencerOne, influencerTwo)));
+                gameId, 1, 2, viewerId, targetEventId, List.of(influencerOne, influencerTwo), List.of()));
 
         then(revealedInfluenceIntel)
                 .should()
                 .upsertLatest(new RevealedInfluenceIntel(
-                        gameId, viewerId, 1, targetEventId, 2, List.of(influencerOne, influencerTwo)));
+                        gameId, viewerId, 1, targetEventId, 2, List.of(influencerOne, influencerTwo), List.of()));
+    }
+
+    @Test
+    void applyInfluenceTraced_storesMimicInfluencersForTheTracingViewer() {
+        var viewerId = UUID.randomUUID();
+        var targetEventId = UUID.randomUUID();
+        var cardInfluencer = UUID.randomUUID();
+        var mimicInfluencer = UUID.randomUUID();
+
+        applier.applyInfluenceTraced(new InfluenceTracedPayload(
+                gameId,
+                1,
+                2,
+                viewerId,
+                targetEventId,
+                List.of(cardInfluencer, mimicInfluencer),
+                List.of(mimicInfluencer)));
+
+        then(revealedInfluenceIntel)
+                .should()
+                .upsertLatest(new RevealedInfluenceIntel(
+                        gameId,
+                        viewerId,
+                        1,
+                        targetEventId,
+                        2,
+                        List.of(cardInfluencer, mimicInfluencer),
+                        List.of(mimicInfluencer)));
     }
 
     @Test
@@ -688,11 +716,12 @@ class ProjectionEventApplierTest {
         var viewerId = UUID.randomUUID();
         var targetEventId = UUID.randomUUID();
 
-        applier.applyInfluenceTraced(new InfluenceTracedPayload(gameId, 1, 2, viewerId, targetEventId, List.of()));
+        applier.applyInfluenceTraced(
+                new InfluenceTracedPayload(gameId, 1, 2, viewerId, targetEventId, List.of(), List.of()));
 
         then(revealedInfluenceIntel)
                 .should()
-                .upsertLatest(new RevealedInfluenceIntel(gameId, viewerId, 1, targetEventId, 2, List.of()));
+                .upsertLatest(new RevealedInfluenceIntel(gameId, viewerId, 1, targetEventId, 2, List.of(), List.of()));
     }
 
     @Test
@@ -701,7 +730,7 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));
 
         applier.applyInfluenceTraced(
-                new InfluenceTracedPayload(gameId, 1, 2, UUID.randomUUID(), UUID.randomUUID(), List.of()));
+                new InfluenceTracedPayload(gameId, 1, 2, UUID.randomUUID(), UUID.randomUUID(), List.of(), List.of()));
 
         then(revealedInfluenceIntel).should(never()).upsertLatest(any());
     }
@@ -712,7 +741,7 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ERA_END)));
 
         applier.applyInfluenceTraced(
-                new InfluenceTracedPayload(gameId, 2, 2, UUID.randomUUID(), UUID.randomUUID(), List.of()));
+                new InfluenceTracedPayload(gameId, 2, 2, UUID.randomUUID(), UUID.randomUUID(), List.of(), List.of()));
 
         then(revealedInfluenceIntel).should(never()).upsertLatest(any());
     }
@@ -1734,7 +1763,7 @@ class ProjectionEventApplierTest {
         then(playerSubmissions)
                 .should()
                 .upsert(new PlayerSubmission(
-                        gameId, playerId, 1, null, PlayerSubmission.SubmissionKind.DECLARATION, null));
+                        gameId, playerId, 1, null, PlayerSubmission.SubmissionWindow.DECLARATION, null));
     }
 
     @Test
@@ -1805,7 +1834,12 @@ class ProjectionEventApplierTest {
         then(playerSubmissions)
                 .should()
                 .upsert(new PlayerSubmission(
-                        gameId, playerId, 1, 1, PlayerSubmission.SubmissionKind.ACTION, "SPECIAL"));
+                        gameId,
+                        playerId,
+                        1,
+                        1,
+                        PlayerSubmission.SubmissionWindow.ACTION,
+                        PlayerSubmission.SubmissionChoice.SPECIAL));
     }
 
     @Test
@@ -1831,7 +1865,12 @@ class ProjectionEventApplierTest {
         then(playerSubmissions)
                 .should()
                 .upsert(new PlayerSubmission(
-                        gameId, playerId, 1, null, PlayerSubmission.SubmissionKind.PARADOX_CARD, null));
+                        gameId,
+                        playerId,
+                        1,
+                        null,
+                        PlayerSubmission.SubmissionWindow.PARADOX_RESOLUTION,
+                        PlayerSubmission.SubmissionChoice.CARD));
     }
 
     @Test
@@ -1877,7 +1916,7 @@ class ProjectionEventApplierTest {
         then(playerSubmissions)
                 .should()
                 .upsert(new PlayerSubmission(
-                        gameId, playerId, 1, null, PlayerSubmission.SubmissionKind.HAND_SELECTION, null));
+                        gameId, playerId, 1, null, PlayerSubmission.SubmissionWindow.HAND_SELECTION, null));
     }
 
     @Test

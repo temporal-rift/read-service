@@ -269,7 +269,8 @@ class RecoverableParticipantViewIT {
                         .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(activist)))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.mySubmissions", hasSize(1)))
-                .andExpect(jsonPath("$.mySubmissions[0].kind").value("DECLARATION"));
+                .andExpect(jsonPath("$.mySubmissions[0].window").value("DECLARATION"))
+                .andExpect(jsonPath("$.mySubmissions[0].choice").doesNotExist());
         mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
                         .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(other)))))
                 .andExpect(status().isOk())
@@ -277,7 +278,7 @@ class RecoverableParticipantViewIT {
     }
 
     @Test
-    void ownCardPlay_recoveredOnlyByCallerWithRoundAndDeadline() throws Exception {
+    void ownCardAndParadoxPlays_recoveredOnlyByCallerWithWindowAndChoice() throws Exception {
         var gameId = UUID.randomUUID();
         var playerId = UUID.randomUUID();
         var opponent = UUID.randomUUID();
@@ -329,6 +330,33 @@ class RecoverableParticipantViewIT {
         awaitProcessed(playedId, "projection.game-events");
         awaitSubmissionCount(gameId, playerId, 1, 1);
 
+        var paradoxCardId = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "ParadoxResolutionCardPlayed",
+                        gameId,
+                        Map.of(
+                                "gameId",
+                                gameId,
+                                "eraNumber",
+                                1,
+                                "playerId",
+                                playerId,
+                                "cardInstanceId",
+                                UUID.randomUUID(),
+                                "cardType",
+                                "STABILIZE",
+                                "grade",
+                                "I",
+                                "targetEventId",
+                                UUID.randomUUID(),
+                                "targetOutcomeId",
+                                UUID.randomUUID()),
+                        paradoxCardId)
+                .join();
+        awaitProcessed(paradoxCardId, "projection.game-events");
+        awaitSubmissionCount(gameId, playerId, 1, 2);
+
         mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
                         .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(playerId)))))
                 .andExpect(status().isOk())
@@ -337,10 +365,14 @@ class RecoverableParticipantViewIT {
                 .andExpect(jsonPath("$.phaseContext.declarationOpen").value(false))
                 .andExpect(jsonPath("$.phaseContext.paradoxOpen").value(false))
                 .andExpect(jsonPath("$.revision").isNumber())
-                .andExpect(jsonPath("$.mySubmissions", hasSize(1)))
-                .andExpect(jsonPath("$.mySubmissions[0].kind").value("ACTION"))
-                .andExpect(jsonPath("$.mySubmissions[0].actionType").value("CARD"))
-                .andExpect(jsonPath("$.mySubmissions[0].status").value("ACCEPTED"));
+                .andExpect(jsonPath("$.mySubmissions", hasSize(2)))
+                .andExpect(jsonPath("$.mySubmissions[0].window").value("ACTION"))
+                .andExpect(jsonPath("$.mySubmissions[0].choice").value("CARD"))
+                .andExpect(jsonPath("$.mySubmissions[0].roundNumber").value(1))
+                .andExpect(jsonPath("$.mySubmissions[0].status").value("ACCEPTED"))
+                .andExpect(jsonPath("$.mySubmissions[1].window").value("PARADOX_RESOLUTION"))
+                .andExpect(jsonPath("$.mySubmissions[1].choice").value("CARD"))
+                .andExpect(jsonPath("$.mySubmissions[1].roundNumber").doesNotExist());
         mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
                         .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(opponent)))))
                 .andExpect(status().isOk())

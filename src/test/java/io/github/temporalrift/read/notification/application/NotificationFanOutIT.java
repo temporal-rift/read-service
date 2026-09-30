@@ -103,7 +103,7 @@ class NotificationFanOutIT {
         fanOut.fanOut(message(gameId, "ScoresUpdated", """
                 {"gameId":"%s","eraNumber":0,"updates":[
                     {"playerId":"%s","faction":"REVISIONISTS","pointsDelta":6,
-                     "reason":"FACTION_UNIDENTIFIED","newTotal":18}
+                     "reason":"MIMIC_NEVER_TRACED","newTotal":18}
                 ]}
                 """.formatted(gameId, playerB)));
 
@@ -129,7 +129,7 @@ class NotificationFanOutIT {
         var ownEndGameEntry =
                 sessionB.messages().get(1).payload().get("updates").get(0);
         assertThat(ownEndGameEntry.get("faction").asText()).isEqualTo("REVISIONISTS");
-        assertThat(ownEndGameEntry.get("reason").asText()).isEqualTo("FACTION_UNIDENTIFIED");
+        assertThat(ownEndGameEntry.get("reason").asText()).isEqualTo("MIMIC_NEVER_TRACED");
 
         for (var session : List.of(sessionA, sessionC)) {
             var opponentEndGameEntry =

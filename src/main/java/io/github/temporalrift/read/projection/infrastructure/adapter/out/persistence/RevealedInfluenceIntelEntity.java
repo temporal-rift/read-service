@@ -27,6 +27,10 @@ class RevealedInfluenceIntelEntity extends RevealedIntelBaseEntity {
     @Column(name = "influencer_player_ids", nullable = false, columnDefinition = "jsonb")
     private String influencerPlayerIds;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "mimic_influencer_player_ids", nullable = false, columnDefinition = "jsonb")
+    private String mimicInfluencerPlayerIds;
+
     protected RevealedInfluenceIntelEntity() {}
 
     private RevealedInfluenceIntelEntity(UUID id, RevealedInfluenceIntel intel, ObjectMapper objectMapper) {
@@ -39,13 +43,23 @@ class RevealedInfluenceIntelEntity extends RevealedIntelBaseEntity {
     }
 
     RevealedInfluenceIntel toDomain(ObjectMapper objectMapper) {
-        List<UUID> influencers = Arrays.asList(objectMapper.readValue(influencerPlayerIds, UUID[].class));
         return new RevealedInfluenceIntel(
-                getGameId(), getPlayerId(), getEraNumber(), getEventId(), getObservedInRound(), influencers);
+                getGameId(),
+                getPlayerId(),
+                getEraNumber(),
+                getEventId(),
+                getObservedInRound(),
+                readIds(influencerPlayerIds, objectMapper),
+                readIds(mimicInfluencerPlayerIds, objectMapper));
     }
 
     void updateFrom(RevealedInfluenceIntel intel, ObjectMapper objectMapper) {
         setObservedInRound(intel.observedInRound());
         influencerPlayerIds = objectMapper.writeValueAsString(intel.influencerPlayerIds());
+        mimicInfluencerPlayerIds = objectMapper.writeValueAsString(intel.mimicInfluencerPlayerIds());
+    }
+
+    private static List<UUID> readIds(String json, ObjectMapper objectMapper) {
+        return Arrays.asList(objectMapper.readValue(json, UUID[].class));
     }
 }

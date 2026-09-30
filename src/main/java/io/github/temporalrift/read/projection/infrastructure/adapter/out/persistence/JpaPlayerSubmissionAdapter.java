@@ -20,7 +20,8 @@ class JpaPlayerSubmissionAdapter implements PlayerSubmissionRepository {
     @Override
     public List<PlayerSubmission> findByGameIdAndPlayerIdAndEraNumber(UUID gameId, UUID playerId, int eraNumber) {
         return repository
-                .findByGameIdAndPlayerIdAndEraNumberOrderByKindAscRoundNumberAsc(gameId, playerId, eraNumber)
+                .findByGameIdAndPlayerIdAndEraNumberOrderBySubmissionWindowAscRoundNumberAsc(
+                        gameId, playerId, eraNumber)
                 .stream()
                 .map(PlayerSubmissionEntity::toDomain)
                 .toList();
@@ -30,11 +31,11 @@ class JpaPlayerSubmissionAdapter implements PlayerSubmissionRepository {
     public void upsert(PlayerSubmission submission) {
         var roundNumber = submission.roundNumber() == null ? 0 : submission.roundNumber();
         repository
-                .findByGameIdAndPlayerIdAndEraNumberAndKindAndRoundNumber(
+                .findByGameIdAndPlayerIdAndEraNumberAndSubmissionWindowAndRoundNumber(
                         submission.gameId(),
                         submission.playerId(),
                         submission.eraNumber(),
-                        submission.kind().name(),
+                        submission.window().name(),
                         roundNumber)
                 .ifPresentOrElse(
                         existing -> existing.updateFrom(submission),

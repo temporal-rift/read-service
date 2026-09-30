@@ -9,11 +9,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 interface PlayerSubmissionJpaRepository extends JpaRepository<PlayerSubmissionEntity, UUID> {
 
-    List<PlayerSubmissionEntity> findByGameIdAndPlayerIdAndEraNumberOrderByKindAscRoundNumberAsc(
+    List<PlayerSubmissionEntity> findByGameIdAndPlayerIdAndEraNumberOrderBySubmissionWindowAscRoundNumberAsc(
             UUID gameId, UUID playerId, int eraNumber);
 
-    Optional<PlayerSubmissionEntity> findByGameIdAndPlayerIdAndEraNumberAndKindAndRoundNumber(
-            UUID gameId, UUID playerId, int eraNumber, String kind, int roundNumber);
+    Optional<PlayerSubmissionEntity> findByGameIdAndPlayerIdAndEraNumberAndSubmissionWindowAndRoundNumber(
+            UUID gameId, UUID playerId, int eraNumber, String submissionWindow, int roundNumber);
 
     @Transactional
     void deleteByGameIdAndEraNumber(UUID gameId, int eraNumber);

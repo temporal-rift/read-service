@@ -1262,8 +1262,9 @@ class PlayerGameStateIT {
         var otherPlayerId = UUID.randomUUID();
         var tracedEventId = UUID.randomUUID();
         var emptyTracedEventId = UUID.randomUUID();
+        var cardOnlyTracedEventId = UUID.randomUUID();
         var influencerOne = UUID.randomUUID();
-        var influencerTwo = UUID.randomUUID();
+        var mimicInfluencer = UUID.randomUUID();
 
         publish(
                 GAME_EVENTS_TOPIC,
@@ -1302,25 +1303,59 @@ class PlayerGameStateIT {
                 "InfluenceTraced",
                 gameId,
                 new InfluenceTracedPayload(
-                        gameId, 1, 1, tracingPlayerId, tracedEventId, List.of(influencerOne, influencerTwo)));
+                        gameId,
+                        1,
+                        1,
+                        tracingPlayerId,
+                        tracedEventId,
+                        List.of(influencerOne, mimicInfluencer),
+                        List.of(mimicInfluencer)));
         awaitInfluenceIntelCount(gameId, tracingPlayerId, 1, 1);
 
         publish(
                 GAME_EVENTS_TOPIC,
                 "InfluenceTraced",
                 gameId,
-                new InfluenceTracedPayload(gameId, 1, 1, tracingPlayerId, emptyTracedEventId, List.of()));
+                new InfluenceTracedPayload(gameId, 1, 1, tracingPlayerId, emptyTracedEventId, List.of(), List.of()));
         awaitInfluenceIntelCount(gameId, tracingPlayerId, 1, 2);
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "InfluenceTraced",
+                gameId,
+                new InfluenceTracedPayload(
+                        gameId, 1, 1, tracingPlayerId, cardOnlyTracedEventId, List.of(influencerOne), List.of()));
+        awaitInfluenceIntelCount(gameId, tracingPlayerId, 1, 3);
 
         mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
                         .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(tracingPlayerId)))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.myRevealedIntel.length()").value(2))
+                .andExpect(jsonPath("$.myRevealedIntel.length()").value(3))
                 .andExpect(jsonPath("$.myRevealedIntel[*].kind")
                         .value(org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is("INFLUENCE"))))
                 .andExpect(jsonPath("$.myRevealedIntel[*].eventId")
                         .value(org.hamcrest.Matchers.containsInAnyOrder(
-                                tracedEventId.toString(), emptyTracedEventId.toString())));
+                                tracedEventId.toString(),
+                                emptyTracedEventId.toString(),
+                                cardOnlyTracedEventId.toString())))
+                .andExpect(jsonPath("$.myRevealedIntel[?(@.eventId == '%s')].influencerPlayerIds[*]", tracedEventId)
+                        .value(org.hamcrest.Matchers.containsInAnyOrder(
+                                influencerOne.toString(), mimicInfluencer.toString())))
+                .andExpect(
+                        jsonPath("$.myRevealedIntel[?(@.eventId == '%s')].mimicInfluencerPlayerIds[*]", tracedEventId)
+                                .value(org.hamcrest.Matchers.contains(mimicInfluencer.toString())))
+                .andExpect(jsonPath(
+                                "$.myRevealedIntel[?(@.eventId == '%s')].influencerPlayerIds[*]", cardOnlyTracedEventId)
+                        .value(org.hamcrest.Matchers.contains(influencerOne.toString())))
+                .andExpect(jsonPath(
+                                "$.myRevealedIntel[?(@.eventId == '%s')].mimicInfluencerPlayerIds",
+                                cardOnlyTracedEventId)
+                        .value(org.hamcrest.Matchers.contains(org.hamcrest.Matchers.empty())))
+                .andExpect(jsonPath("$.myRevealedIntel[?(@.eventId == '%s')].influencerPlayerIds", emptyTracedEventId)
+                        .value(org.hamcrest.Matchers.contains(org.hamcrest.Matchers.empty())))
+                .andExpect(
+                        jsonPath("$.myRevealedIntel[?(@.eventId == '%s')].mimicInfluencerPlayerIds", emptyTracedEventId)
+                                .value(org.hamcrest.Matchers.contains(org.hamcrest.Matchers.empty())));
 
         assertThatInfluenceIntelInfluencers(gameId, tracingPlayerId, 1, tracedEventId, 2);
         assertThatInfluenceIntelInfluencers(gameId, tracingPlayerId, 1, emptyTracedEventId, 0);
@@ -1344,7 +1379,7 @@ class PlayerGameStateIT {
                         "InfluenceTraced",
                         gameId,
                         new InfluenceTracedPayload(
-                                gameId, 1, 1, tracingPlayerId, tracedEventId, List.of(influencerOne)),
+                                gameId, 1, 1, tracingPlayerId, tracedEventId, List.of(influencerOne), List.of()),
                         lateRevealEventId)
                 .join();
         awaitProcessed(lateRevealEventId, "projection.game-events");

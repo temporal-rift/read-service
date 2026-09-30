@@ -41,6 +41,9 @@ import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.GameResult;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.GameWinner;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerGameStateResponse;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.SpecialAction;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.SubmissionChoice;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.SubmissionWindow;
 
 class ProjectionRestMapperTest {
 
@@ -150,7 +153,7 @@ class ProjectionRestMapperTest {
         var influencerOne = UUID.randomUUID();
         var influencerTwo = UUID.randomUUID();
         var intel = new RevealedInfluenceIntel(
-                GAME_ID, UUID.randomUUID(), 2, eventId, 2, List.of(influencerOne, influencerTwo));
+                GAME_ID, UUID.randomUUID(), 2, eventId, 2, List.of(influencerOne, influencerTwo), List.of());
         var result = new GetPlayerGameStateUseCase.Result(
                 GAME_ID, 2, Phase.ACTION_ROUND_2, "ERASERS", List.of(), null, List.of(intel), 0, List.of(), List.of());
 
@@ -161,6 +164,30 @@ class ProjectionRestMapperTest {
             assertThat(revealed.getObservedInRound()).isEqualTo(2);
             assertThat(revealed.getEventId()).isEqualTo(eventId);
             assertThat(revealed.getInfluencerPlayerIds()).containsExactlyInAnyOrder(influencerOne, influencerTwo);
+            assertThat(revealed.getMimicInfluencerPlayerIds()).isEmpty();
+        });
+    }
+
+    @Test
+    void toResponse_mapsInfluenceIntelWithItsMimicInfluencers() {
+        var cardInfluencer = UUID.randomUUID();
+        var mimicInfluencer = UUID.randomUUID();
+        var intel = new RevealedInfluenceIntel(
+                GAME_ID,
+                UUID.randomUUID(),
+                2,
+                UUID.randomUUID(),
+                2,
+                List.of(cardInfluencer, mimicInfluencer),
+                List.of(mimicInfluencer));
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID, 2, Phase.ACTION_ROUND_2, "ERASERS", List.of(), null, List.of(intel), 0, List.of(), List.of());
+
+        var response = toResponse(result);
+
+        assertThat(response.getMyRevealedIntel()).singleElement().satisfies(revealed -> {
+            assertThat(revealed.getInfluencerPlayerIds()).containsExactly(cardInfluencer, mimicInfluencer);
+            assertThat(revealed.getMimicInfluencerPlayerIds()).containsExactly(mimicInfluencer);
         });
     }
 
@@ -187,7 +214,7 @@ class ProjectionRestMapperTest {
             assertThat(revealed.getTargetPlayerId()).isEqualTo(targetPlayerId);
             assertThat(revealed.getRevealedCards()).singleElement().satisfies(card -> {
                 assertThat(card.getCardInstanceId()).isEqualTo(cardInstanceId);
-                assertThat(card.getCardType()).isEqualTo("SWING");
+                assertThat(card.getCardType().getValue()).isEqualTo("SWING");
                 assertThat(card.getGrade().getValue()).isEqualTo("III");
             });
         });
@@ -211,7 +238,7 @@ class ProjectionRestMapperTest {
     @Test
     void toResponse_mapsEmptyInfluenceIntelAsEmptyList() {
         var eventId = UUID.randomUUID();
-        var intel = new RevealedInfluenceIntel(GAME_ID, UUID.randomUUID(), 2, eventId, 1, List.of());
+        var intel = new RevealedInfluenceIntel(GAME_ID, UUID.randomUUID(), 2, eventId, 1, List.of(), List.of());
         var result = new GetPlayerGameStateUseCase.Result(
                 GAME_ID, 2, Phase.ACTION_ROUND_2, "ERASERS", List.of(), null, List.of(intel), 0, List.of(), List.of());
 
@@ -220,6 +247,7 @@ class ProjectionRestMapperTest {
         assertThat(response.getMyRevealedIntel()).singleElement().satisfies(revealed -> {
             assertThat(revealed.getKind().getValue()).isEqualTo("INFLUENCE");
             assertThat(revealed.getInfluencerPlayerIds()).isEmpty();
+            assertThat(revealed.getMimicInfluencerPlayerIds()).isEmpty();
         });
     }
 
@@ -237,7 +265,9 @@ class ProjectionRestMapperTest {
 
         var response = toResponse(result);
 
-        assertThat(response.getMySpecialActions()).containsExactly(first, second, third);
+        assertThat(response.getMySpecialActions())
+                .extracting(SpecialAction::getValue)
+                .containsExactly(first, second, third);
     }
 
     @Test
@@ -509,7 +539,23 @@ class ProjectionRestMapperTest {
                 List.of(),
                 List.of(new ExposeFact(
                         GAME_ID, 2, activist, target, 2, "SWING", targetEventId, null, targetOutcomeId, false)),
-                List.of(new PlayerSubmission(GAME_ID, playerId, 2, 1, PlayerSubmission.SubmissionKind.ACTION, "CARD")));
+                List.of(
+                        new PlayerSubmission(
+                                GAME_ID,
+                                playerId,
+                                2,
+                                1,
+                                PlayerSubmission.SubmissionWindow.ACTION,
+                                PlayerSubmission.SubmissionChoice.CARD),
+                        new PlayerSubmission(
+                                GAME_ID,
+                                playerId,
+                                2,
+                                null,
+                                PlayerSubmission.SubmissionWindow.PARADOX_RESOLUTION,
+                                PlayerSubmission.SubmissionChoice.CARD),
+                        new PlayerSubmission(
+                                GAME_ID, playerId, 2, null, PlayerSubmission.SubmissionWindow.DECLARATION, null)));
 
         var response = toResponse(result);
 
@@ -520,12 +566,22 @@ class ProjectionRestMapperTest {
             assertThat(fact.getSignature().getType().getValue()).isEqualTo("SWING");
             assertThat(fact.getBehaviorChanged()).isFalse();
         });
-        assertThat(response.getMySubmissions()).singleElement().satisfies(submission -> {
+        assertThat(response.getMySubmissions()).hasSize(3);
+        assertThat(response.getMySubmissions().get(0)).satisfies(submission -> {
             assertThat(submission.getEraNumber()).isEqualTo(2);
             assertThat(submission.getRoundNumber()).isEqualTo(1);
-            assertThat(submission.getKind().getValue()).isEqualTo("ACTION");
+            assertThat(submission.getWindow()).isEqualTo(SubmissionWindow.ACTION);
             assertThat(submission.getStatus().getValue()).isEqualTo("ACCEPTED");
-            assertThat(submission.getActionType().getValue()).isEqualTo("CARD");
+            assertThat(submission.getChoice()).isEqualTo(SubmissionChoice.CARD);
+        });
+        assertThat(response.getMySubmissions().get(1)).satisfies(submission -> {
+            assertThat(submission.getRoundNumber()).isNull();
+            assertThat(submission.getWindow()).isEqualTo(SubmissionWindow.PARADOX_RESOLUTION);
+            assertThat(submission.getChoice()).isEqualTo(SubmissionChoice.CARD);
+        });
+        assertThat(response.getMySubmissions().get(2)).satisfies(submission -> {
+            assertThat(submission.getWindow()).isEqualTo(SubmissionWindow.DECLARATION);
+            assertThat(submission.getChoice()).isNull();
         });
         assertThat(response.getMySpecialBudgets()).isEmpty();
         assertThat(response.getMyObjectiveProgress()).isNull();
@@ -610,7 +666,7 @@ class ProjectionRestMapperTest {
             assertThat(terminal.getEndReason().getValue()).isEqualTo("TIMELINE_COLLAPSED");
             assertThat(terminal.getWinners()).singleElement().satisfies(winner -> {
                 assertThat(winner.getPlayerId()).isEqualTo(winnerId);
-                assertThat(winner.getFaction()).isEqualTo("WEAVERS");
+                assertThat(winner.getFaction().getValue()).isEqualTo("WEAVERS");
                 assertThat(winner.getWinType()).isNull();
             });
             assertThat(terminal.getFinalScores()).singleElement().satisfies(score -> {
