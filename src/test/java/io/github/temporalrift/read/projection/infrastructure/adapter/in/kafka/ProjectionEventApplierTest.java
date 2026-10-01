@@ -238,6 +238,20 @@ class ProjectionEventApplierTest {
     }
 
     @Test
+    void applyGameStarted_withoutAThresholdStillInitializesParticipantState() {
+        var playerId = UUID.randomUUID();
+        given(gamePlayers.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
+
+        applier.applyGameStarted(new GameStartedPayload(
+                gameId, UUID.randomUUID(), List.of(new GameStartedPlayer(playerId, "Ada")), 3, 30, 0));
+
+        then(gameProjections).should(never()).save(any());
+        then(gamePlayers).should().save(gameId, new GamePlayer(playerId, 0, true, null, "Ada"));
+        then(playerGameStates).should().save(new PlayerGameState(gameId, playerId, null, List.of()));
+    }
+
+    @Test
     void applyGameStarted_withContractMaxLengthName_storesItUnchanged() {
         var player1 = UUID.randomUUID();
         var player2 = UUID.randomUUID();

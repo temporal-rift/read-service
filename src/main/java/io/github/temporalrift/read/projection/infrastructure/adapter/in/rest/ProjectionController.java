@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import io.github.temporalrift.read.projection.application.port.in.GetGameHistoryUseCase;
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
-import io.github.temporalrift.read.projection.domain.model.PlayerNotInGameException;
+import io.github.temporalrift.read.projection.domain.model.GameProjectionNotReadyException;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.ProjectionApi;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.GameHistoryResponse;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerGameStateResponse;
@@ -41,7 +41,7 @@ class ProjectionController implements ProjectionApi {
         var playerId = CurrentPlayer.id();
         var result = getPlayerGameStateUseCase.get(gameId, playerId);
         if (result.winScoreThreshold() == null) {
-            throw new PlayerNotInGameException(gameId, playerId);
+            throw new GameProjectionNotReadyException();
         }
         return ResponseEntity.ok(ProjectionRestMapper.toResponse(result, maxEras));
     }

@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import io.github.temporalrift.read.projection.domain.model.GameHistoryNotFoundException;
+import io.github.temporalrift.read.projection.domain.model.GameProjectionNotReadyException;
 import io.github.temporalrift.read.projection.domain.model.PlayerNotInGameException;
 
 @RestControllerAdvice
@@ -14,6 +15,11 @@ class ProjectionExceptionHandler {
     @ExceptionHandler(PlayerNotInGameException.class)
     ProblemDetail handlePlayerNotInGame(PlayerNotInGameException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage());
+    }
+
+    @ExceptionHandler(GameProjectionNotReadyException.class)
+    ProblemDetail handleGameProjectionNotReady(GameProjectionNotReadyException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, e.getMessage());
     }
 
     @ExceptionHandler(GameHistoryNotFoundException.class)
