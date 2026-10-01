@@ -37,7 +37,7 @@ class JpaGameProjectionAdapterTest {
     }
 
     @Test
-    void saveNew_retainsPhaseAffectedEventsAndSummary() {
+    void saveNew_retainsThresholdPhaseAffectedEventsAndSummary() {
         var affected = UUID.randomUUID();
         var paradox = UUID.randomUUID();
         var summary = new LastRoundSummary(
@@ -53,7 +53,8 @@ class JpaGameProjectionAdapterTest {
                 Instant.parse("2026-09-30T12:01:00Z"),
                 9,
                 Instant.EPOCH,
-                List.of(affected));
+                List.of(affected),
+                20);
         given(repository.findById(gameId)).willReturn(Optional.empty());
 
         adapter.save(projection);
@@ -65,6 +66,7 @@ class JpaGameProjectionAdapterTest {
         assertThat(stored.pendingParadoxIds()).containsExactly(paradox);
         assertThat(stored.affectedEventIds()).containsExactly(affected);
         assertThat(stored.lastRoundSummary()).isEqualTo(summary);
+        assertThat(stored.winScoreThreshold()).isEqualTo(20);
         assertThat(stored.revision()).isZero();
         assertThat(stored.lastUpdatedAt()).isAfter(Instant.EPOCH);
     }
@@ -94,6 +96,17 @@ class JpaGameProjectionAdapterTest {
         assertThat(existing.toDomain().revision()).isEqualTo(5);
         assertThat(existing.toDomain().lastRoundSummary()).isNull();
         then(repository).should(never()).save(existing);
+    }
+
+    @Test
+    void saveExisting_preservesTheThresholdWhenAdvancingTheProjection() {
+        var existing = GameProjectionEntity.fromDomain(
+                new GameProjection(gameId, 2, Phase.ACTION_ROUND_3).withWinScoreThreshold(20));
+        given(repository.findById(gameId)).willReturn(Optional.of(existing));
+
+        adapter.save(new GameProjection(gameId, 2, Phase.PARADOX_RESOLUTION));
+
+        assertThat(existing.toDomain().winScoreThreshold()).isEqualTo(20);
     }
 
     @Test

@@ -77,6 +77,7 @@ final class ProjectionRestMapper {
         var response = new PlayerGameStateResponse(
                 result.gameId(),
                 result.eraNumber(),
+                result.winScoreThreshold(),
                 io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.Phase.valueOf(
                         result.phase().name()),
                 result.myHand().stream()

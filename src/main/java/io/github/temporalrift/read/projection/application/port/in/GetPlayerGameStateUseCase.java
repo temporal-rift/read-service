@@ -63,7 +63,8 @@ public interface GetPlayerGameStateUseCase {
             SubmissionProgress actionRoundProgress,
             SubmissionProgress paradoxResolutionProgress,
             List<UUID> affectedEventIds,
-            List<ResolutionCardOffer.Card> myEligibleResolutionCards) {
+            List<ResolutionCardOffer.Card> myEligibleResolutionCards,
+            Integer winScoreThreshold) {
 
         public record SubmissionProgress(int submittedCount, int totalPlayers, List<UUID> pendingPlayerIds) {
             public SubmissionProgress {
@@ -132,6 +133,7 @@ public interface GetPlayerGameStateUseCase {
                     null,
                     null,
                     List.of(),
+                    null,
                     null);
         }
 
@@ -208,7 +210,56 @@ public interface GetPlayerGameStateUseCase {
                     null,
                     null,
                     List.of(),
+                    null,
                     null);
+        }
+
+        public Result(
+                UUID gameId,
+                int eraNumber,
+                Phase phase,
+                String myFaction,
+                List<HandCard> myHand,
+                PendingHandSelection pendingHandSelection,
+                List<RevealedIntelEntry> myRevealedIntel,
+                int myScore,
+                List<GamePlayer> players,
+                List<GameActiveEvent> activeEvents,
+                Integer winScoreThreshold) {
+            this(
+                    gameId,
+                    eraNumber,
+                    phase,
+                    myFaction,
+                    myHand,
+                    pendingHandSelection,
+                    myRevealedIntel,
+                    myScore,
+                    players,
+                    activeEvents,
+                    null,
+                    null,
+                    null,
+                    0,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    false,
+                    false,
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    null,
+                    null,
+                    null,
+                    null,
+                    List.of(),
+                    null,
+                    winScoreThreshold);
         }
     }
 }

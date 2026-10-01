@@ -134,7 +134,7 @@ class GetPlayerGameStateQueryHandlerTest {
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
                 .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", hand)));
         given(gameProjections.findByGameId(gameId))
-                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1).withWinScoreThreshold(20)));
         var players = List.of(new GamePlayer(playerId, 7, true, null));
         given(gamePlayers.findByGameId(gameId)).willReturn(players);
         var activeEvents = List.<GameActiveEvent>of();
@@ -148,6 +148,7 @@ class GetPlayerGameStateQueryHandlerTest {
         assertThat(result.myFaction()).isEqualTo("ERASERS");
         assertThat(result.myHand()).isEqualTo(hand);
         assertThat(result.myScore()).isEqualTo(7);
+        assertThat(result.winScoreThreshold()).isEqualTo(20);
         assertThat(result.players()).isEqualTo(players);
         assertThat(result.activeEvents()).isEqualTo(activeEvents);
         assertThat(result.lastRoundSummary()).isNull();

@@ -80,6 +80,8 @@ class PlayerGameStateIT {
                 Map.of(
                         "gameId",
                         gameId,
+                        "winScoreThreshold",
+                        20,
                         "lobbyId",
                         UUID.randomUUID(),
                         "players",
@@ -232,6 +234,8 @@ class PlayerGameStateIT {
                 Map.of(
                         "gameId",
                         gameId,
+                        "winScoreThreshold",
+                        20,
                         "lobbyId",
                         UUID.randomUUID(),
                         "players",
@@ -500,6 +504,8 @@ class PlayerGameStateIT {
                 Map.of(
                         "gameId",
                         gameId,
+                        "winScoreThreshold",
+                        20,
                         "lobbyId",
                         UUID.randomUUID(),
                         "players",
@@ -598,6 +604,8 @@ class PlayerGameStateIT {
                         Map.of(
                                 "gameId",
                                 gameId,
+                                "winScoreThreshold",
+                                20,
                                 "lobbyId",
                                 UUID.randomUUID(),
                                 "players",
@@ -635,6 +643,8 @@ class PlayerGameStateIT {
                 Map.of(
                         "gameId",
                         gameId,
+                        "winScoreThreshold",
+                        20,
                         "lobbyId",
                         UUID.randomUUID(),
                         "players",
@@ -748,6 +758,8 @@ class PlayerGameStateIT {
                 Map.of(
                         "gameId",
                         gameId,
+                        "winScoreThreshold",
+                        20,
                         "lobbyId",
                         UUID.randomUUID(),
                         "players",
@@ -842,6 +854,8 @@ class PlayerGameStateIT {
                 Map.of(
                         "gameId",
                         gameId,
+                        "winScoreThreshold",
+                        20,
                         "lobbyId",
                         UUID.randomUUID(),
                         "players",
@@ -962,6 +976,8 @@ class PlayerGameStateIT {
                         Map.of(
                                 "gameId",
                                 gameId,
+                                "winScoreThreshold",
+                                20,
                                 "lobbyId",
                                 UUID.randomUUID(),
                                 "players",
@@ -1052,6 +1068,8 @@ class PlayerGameStateIT {
                 Map.of(
                         "gameId",
                         gameId,
+                        "winScoreThreshold",
+                        20,
                         "lobbyId",
                         UUID.randomUUID(),
                         "players",
@@ -1082,6 +1100,8 @@ class PlayerGameStateIT {
                 Map.of(
                         "gameId",
                         gameId,
+                        "winScoreThreshold",
+                        20,
                         "lobbyId",
                         UUID.randomUUID(),
                         "players",
@@ -1133,6 +1153,8 @@ class PlayerGameStateIT {
                         Map.of(
                                 "gameId",
                                 gameId,
+                                "winScoreThreshold",
+                                20,
                                 "lobbyId",
                                 UUID.randomUUID(),
                                 "playerIds",
@@ -1175,6 +1197,8 @@ class PlayerGameStateIT {
                 Map.of(
                         "gameId",
                         gameId,
+                        "winScoreThreshold",
+                        20,
                         "lobbyId",
                         UUID.randomUUID(),
                         "players",
@@ -1273,6 +1297,8 @@ class PlayerGameStateIT {
                 Map.of(
                         "gameId",
                         gameId,
+                        "winScoreThreshold",
+                        20,
                         "lobbyId",
                         UUID.randomUUID(),
                         "players",
@@ -1408,6 +1434,8 @@ class PlayerGameStateIT {
                 Map.of(
                         "gameId",
                         gameId,
+                        "winScoreThreshold",
+                        20,
                         "lobbyId",
                         UUID.randomUUID(),
                         "players",
@@ -1546,6 +1574,8 @@ class PlayerGameStateIT {
                 Map.of(
                         "gameId",
                         gameId,
+                        "winScoreThreshold",
+                        20,
                         "lobbyId",
                         UUID.randomUUID(),
                         "players",

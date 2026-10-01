@@ -42,6 +42,9 @@ class JpaGameProjectionAdapter implements GameProjectionRepository {
             entity.setCurrentRoundNumber(gameProjection.currentRoundNumber());
             entity.setActionRoundExpiresAt(gameProjection.actionRoundExpiresAt());
             entity.setParadoxResolutionExpiresAt(gameProjection.paradoxResolutionExpiresAt());
+            if (gameProjection.winScoreThreshold() != null) {
+                entity.setWinScoreThreshold(gameProjection.winScoreThreshold());
+            }
             // Freshness marker for one game's projection only — never cross-game or cross-topic order.
             entity.setRevision(entity.getRevision() + 1);
             entity.setLastUpdatedAt(Instant.now());

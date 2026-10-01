@@ -202,7 +202,7 @@ class ProjectionEventApplierTest {
     }
 
     @Test
-    void applyGameStarted_usesEnsuredProjectionAnchorAndCreatesOneNamedRowPerPlayer() {
+    void applyGameStarted_recordsThresholdAndCreatesOneNamedRowPerPlayer() {
         var player1 = UUID.randomUUID();
         var player2 = UUID.randomUUID();
         given(gamePlayers.findByGameIdAndPlayerId(eq(gameId), any())).willReturn(Optional.empty());
@@ -213,13 +213,28 @@ class ProjectionEventApplierTest {
                 UUID.randomUUID(),
                 List.of(new GameStartedPlayer(player1, "Ada"), new GameStartedPlayer(player2, "Ben")),
                 3,
-                30));
+                30,
+                20));
 
-        then(gameProjections).should(never()).save(any());
+        then(gameProjections).should().save(new GameProjection(gameId, 0, Phase.LOBBY).withWinScoreThreshold(20));
         then(gamePlayers).should().save(gameId, new GamePlayer(player1, 0, true, null, "Ada"));
         then(gamePlayers).should().save(gameId, new GamePlayer(player2, 0, true, null, "Ben"));
         then(playerGameStates).should().save(new PlayerGameState(gameId, player1, null, List.of()));
         then(playerGameStates).should().save(new PlayerGameState(gameId, player2, null, List.of()));
+    }
+
+    @Test
+    void applyGameStarted_redeliveryDoesNotReplaceTheRecordedThreshold() {
+        var playerId = UUID.randomUUID();
+        var existing = new GameProjection(gameId, 1, Phase.ACTION_ROUND_1).withWinScoreThreshold(20);
+        given(gameProjections.findByGameIdForUpdate(gameId)).willReturn(Optional.of(existing));
+        given(gamePlayers.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
+
+        applier.applyGameStarted(new GameStartedPayload(
+                gameId, UUID.randomUUID(), List.of(new GameStartedPlayer(playerId, "Ada")), 3, 30, 25));
+
+        then(gameProjections).should(never()).save(any());
     }
 
     @Test
@@ -236,7 +251,8 @@ class ProjectionEventApplierTest {
                 UUID.randomUUID(),
                 List.of(new GameStartedPlayer(player1, maxName), new GameStartedPlayer(player2, otherMaxName)),
                 3,
-                30));
+                30,
+                20));
 
         then(gamePlayers).should().save(gameId, new GamePlayer(player1, 0, true, null, maxName));
         then(gamePlayers).should().save(gameId, new GamePlayer(player2, 0, true, null, otherMaxName));
@@ -257,9 +273,9 @@ class ProjectionEventApplierTest {
         given(gamePlayers.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.of(existingPlayer));
 
         applier.applyGameStarted(new GameStartedPayload(
-                gameId, UUID.randomUUID(), List.of(new GameStartedPlayer(playerId, "Ada")), 3, 30));
+                gameId, UUID.randomUUID(), List.of(new GameStartedPlayer(playerId, "Ada")), 3, 30, 20));
 
-        then(gameProjections).should(never()).save(any());
+        then(gameProjections).should().save(existingProjection.withWinScoreThreshold(20));
         then(playerGameStates).should().save(existingPlayerState);
         then(gamePlayers).should().save(gameId, existingPlayer.withPlayerName("Ada"));
     }
@@ -272,7 +288,7 @@ class ProjectionEventApplierTest {
         given(gamePlayers.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
 
         applier.applyGameStarted(new GameStartedPayload(
-                gameId, UUID.randomUUID(), List.of(new GameStartedPlayer(playerId, "Ada")), 3, 30));
+                gameId, UUID.randomUUID(), List.of(new GameStartedPlayer(playerId, "Ada")), 3, 30, 20));
 
         then(playerGameStates).should().save(new PlayerGameState(gameId, playerId, "ERASERS", List.of()));
     }
@@ -286,7 +302,7 @@ class ProjectionEventApplierTest {
         given(gamePlayers.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
 
         applier.applyGameStarted(new GameStartedPayload(
-                gameId, UUID.randomUUID(), List.of(new GameStartedPlayer(playerId, "Ada")), 3, 30));
+                gameId, UUID.randomUUID(), List.of(new GameStartedPlayer(playerId, "Ada")), 3, 30, 20));
 
         then(playerGameStates).should().save(new PlayerGameState(gameId, playerId, null, List.of(card)));
     }
@@ -299,7 +315,7 @@ class ProjectionEventApplierTest {
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
 
         applier.applyGameStarted(new GameStartedPayload(
-                gameId, UUID.randomUUID(), List.of(new GameStartedPlayer(playerId, "Ada")), 3, 30));
+                gameId, UUID.randomUUID(), List.of(new GameStartedPlayer(playerId, "Ada")), 3, 30, 20));
 
         then(gamePlayers).should().save(gameId, new GamePlayer(playerId, 0, false, null, "Ada"));
     }
