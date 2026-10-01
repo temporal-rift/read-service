@@ -104,7 +104,7 @@ class ProjectionEventApplier {
     // silently undoing the out-of-order handling below rather than complementing it.
     void applyGameStarted(GameStartedPayload payload) {
         var projection = lockGame(payload.gameId());
-        if (projection.winScoreThreshold() == null) {
+        if (projection.winScoreThreshold() == null && payload.winScoreThreshold() >= 1) {
             stores.gameProjections().save(projection.withWinScoreThreshold(payload.winScoreThreshold()));
         }
         for (var player : payload.players()) {
