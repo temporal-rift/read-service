@@ -23,7 +23,8 @@ public record GameProjection(
         Instant paradoxResolutionExpiresAt,
         long revision,
         Instant lastUpdatedAt,
-        List<UUID> affectedEventIds) {
+        List<UUID> affectedEventIds,
+        Integer winScoreThreshold) {
 
     public GameProjection {
         pendingParadoxIds = List.copyOf(pendingParadoxIds);
@@ -31,16 +32,16 @@ public record GameProjection(
     }
 
     public GameProjection(UUID gameId, int eraNumber, Phase phase) {
-        this(gameId, eraNumber, phase, List.of(), null, null, null, null, 0, null, List.of());
+        this(gameId, eraNumber, phase, List.of(), null, null, null, null, 0, null, List.of(), null);
     }
 
     public GameProjection(UUID gameId, int eraNumber, Phase phase, List<UUID> pendingParadoxIds) {
-        this(gameId, eraNumber, phase, pendingParadoxIds, null, null, null, null, 0, null, List.of());
+        this(gameId, eraNumber, phase, pendingParadoxIds, null, null, null, null, 0, null, List.of(), null);
     }
 
     public GameProjection(
             UUID gameId, int eraNumber, Phase phase, List<UUID> pendingParadoxIds, LastRoundSummary lastRoundSummary) {
-        this(gameId, eraNumber, phase, pendingParadoxIds, lastRoundSummary, null, null, null, 0, null, List.of());
+        this(gameId, eraNumber, phase, pendingParadoxIds, lastRoundSummary, null, null, null, 0, null, List.of(), null);
     }
 
     public GameProjection(
@@ -65,6 +66,53 @@ public record GameProjection(
                 paradoxResolutionExpiresAt,
                 revision,
                 lastUpdatedAt,
-                List.of());
+                List.of(),
+                null);
+    }
+
+    public GameProjection(
+            UUID gameId,
+            int eraNumber,
+            Phase phase,
+            List<UUID> pendingParadoxIds,
+            LastRoundSummary lastRoundSummary,
+            Integer currentRoundNumber,
+            Instant actionRoundExpiresAt,
+            Instant paradoxResolutionExpiresAt,
+            long revision,
+            Instant lastUpdatedAt,
+            List<UUID> affectedEventIds) {
+        this(
+                gameId,
+                eraNumber,
+                phase,
+                pendingParadoxIds,
+                lastRoundSummary,
+                currentRoundNumber,
+                actionRoundExpiresAt,
+                paradoxResolutionExpiresAt,
+                revision,
+                lastUpdatedAt,
+                affectedEventIds,
+                null);
+    }
+
+    public GameProjection withWinScoreThreshold(int threshold) {
+        if (threshold < 1) {
+            throw new IllegalArgumentException("winScoreThreshold must be positive");
+        }
+        return new GameProjection(
+                gameId,
+                eraNumber,
+                phase,
+                pendingParadoxIds,
+                lastRoundSummary,
+                currentRoundNumber,
+                actionRoundExpiresAt,
+                paradoxResolutionExpiresAt,
+                revision,
+                lastUpdatedAt,
+                affectedEventIds,
+                threshold);
     }
 }

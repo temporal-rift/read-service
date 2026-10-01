@@ -639,6 +639,8 @@ class RecoverableParticipantViewIT {
                         Map.of(
                                 "gameId",
                                 gameId,
+                                "winScoreThreshold",
+                                20,
                                 "lobbyId",
                                 UUID.randomUUID(),
                                 "players",

@@ -70,6 +70,16 @@ class ProjectionRestMapperTest {
         assertThat(response.getMyEligibleResolutionCards()).isNull();
     }
 
+    @Test
+    void toResponse_includesTheTransmittedScoreVictoryThreshold() {
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID, 2, Phase.ACTION_ROUND_2, null, List.of(), null, List.of(), 14, List.of(), List.of(), 20);
+
+        var response = toResponse(result);
+
+        assertThat(response.getWinScoreThreshold()).isEqualTo(20);
+    }
+
     @ParameterizedTest
     @CsvSource({
         "TRACE, ACTION_ROUND_1, 1, false",

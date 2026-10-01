@@ -64,6 +64,9 @@ class GameProjectionEntity {
     @Column(name = "last_updated_at")
     private Instant lastUpdatedAt;
 
+    @Column(name = "win_score_threshold")
+    private Integer winScoreThreshold;
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "game_projection_last_round_summary_action", joinColumns = @JoinColumn(name = "game_id"))
     @OrderColumn(name = "action_position")
@@ -84,6 +87,7 @@ class GameProjectionEntity {
         entity.setParadoxResolutionExpiresAt(domain.paradoxResolutionExpiresAt());
         entity.setRevision(domain.revision());
         entity.setLastUpdatedAt(domain.lastUpdatedAt());
+        entity.setWinScoreThreshold(domain.winScoreThreshold());
         return entity;
     }
 
@@ -106,7 +110,8 @@ class GameProjectionEntity {
                 paradoxResolutionExpiresAt,
                 revision,
                 lastUpdatedAt,
-                List.copyOf(affectedEventIds));
+                List.copyOf(affectedEventIds),
+                winScoreThreshold);
     }
 
     UUID getGameId() {
@@ -155,6 +160,10 @@ class GameProjectionEntity {
 
     void setLastUpdatedAt(Instant lastUpdatedAt) {
         this.lastUpdatedAt = lastUpdatedAt;
+    }
+
+    void setWinScoreThreshold(Integer winScoreThreshold) {
+        this.winScoreThreshold = winScoreThreshold;
     }
 
     void setLastRoundSummary(LastRoundSummary lastRoundSummary) {

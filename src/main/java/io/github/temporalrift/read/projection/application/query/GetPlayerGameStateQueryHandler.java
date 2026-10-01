@@ -133,7 +133,8 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                                 .findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, gameProjection.eraNumber())
                                 .map(ResolutionCardOffer::cards)
                                 .orElse(null)
-                        : null);
+                        : null,
+                gameProjection.winScoreThreshold());
     }
 
     private Result.SubmissionProgress progress(

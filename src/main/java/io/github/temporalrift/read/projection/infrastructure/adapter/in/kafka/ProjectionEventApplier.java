@@ -103,7 +103,10 @@ class ProjectionEventApplier {
     // stomp that already-correct data back to defaults the instant GameStarted is finally applied,
     // silently undoing the out-of-order handling below rather than complementing it.
     void applyGameStarted(GameStartedPayload payload) {
-        lockGame(payload.gameId());
+        var projection = lockGame(payload.gameId());
+        if (projection.winScoreThreshold() == null) {
+            stores.gameProjections().save(projection.withWinScoreThreshold(payload.winScoreThreshold()));
+        }
         for (var player : payload.players()) {
             stores.gamePlayers()
                     .save(

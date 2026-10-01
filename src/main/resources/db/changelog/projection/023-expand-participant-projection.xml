@@ -4,6 +4,9 @@
     xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
         https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
   <changeSet id="023-expand-participant-projection" author="read-service">
+    <addColumn tableName="game_projection">
+      <column name="win_score_threshold" type="INT"/>
+    </addColumn>
     <createTable tableName="game_projection_affected_event">
       <column name="game_projection_id" type="UUID"><constraints nullable="false"/></column>
       <column name="event_id" type="UUID"><constraints nullable="false"/></column>
