@@ -143,11 +143,9 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                 gameProjection.winScoreThreshold());
     }
 
-    /** The game-wide window is open only while its era is still at ERA_START. */
+    /** The event-backed window fact is removed when the declaration window closes. */
     private Optional<DeclarationWindow> openDeclarationWindow(GameProjection projection) {
-        return projection.phase() == Phase.ERA_START
-                ? stores.declarationWindows().findByGameIdAndEraNumber(projection.gameId(), projection.eraNumber())
-                : Optional.empty();
+        return stores.declarationWindows().findByGameIdAndEraNumber(projection.gameId(), projection.eraNumber());
     }
 
     private List<DeclarationOffer.Mode> eligibleDeclarationModes(UUID gameId, UUID playerId, int eraNumber) {

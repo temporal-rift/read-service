@@ -597,7 +597,7 @@ class GetPlayerGameStateQueryHandlerTest {
     }
 
     @Test
-    void get_outsideEraStart_neverServesADeclarationWindow() {
+    void get_withoutDeclarationWindowFact_reportsClosedWindow() {
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
                 .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ACTIVISTS", List.of())));
         given(gameProjections.findByGameId(gameId))
@@ -610,7 +610,7 @@ class GetPlayerGameStateQueryHandlerTest {
         assertThat(result.declarationOpen()).isFalse();
         assertThat(result.declarationExpiresAt()).isNull();
         assertThat(result.myEligibleDeclarationModes()).isNull();
-        then(declarationWindows).shouldHaveNoInteractions();
+        then(declarationWindows).should().findByGameIdAndEraNumber(gameId, 2);
     }
 
     @Test
