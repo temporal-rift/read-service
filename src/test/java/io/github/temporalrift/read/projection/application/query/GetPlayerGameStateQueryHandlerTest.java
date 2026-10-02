@@ -18,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import io.github.temporalrift.read.projection.application.ProjectionRepositories;
 import io.github.temporalrift.read.projection.domain.model.ChainStatus;
+import io.github.temporalrift.read.projection.domain.model.DeclarationOffer;
 import io.github.temporalrift.read.projection.domain.model.ForesightPreview;
 import io.github.temporalrift.read.projection.domain.model.ForesightPreviewEvent;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
@@ -98,6 +99,9 @@ class GetPlayerGameStateQueryHandlerTest {
     PlayerSubmissionRepository playerSubmissions;
 
     @Mock
+    io.github.temporalrift.read.projection.domain.port.out.DeclarationOfferRepository declarationOffers;
+
+    @Mock
     io.github.temporalrift.read.projection.domain.port.out.ResolutionCardOfferRepository resolutionCardOffers;
 
     @Mock
@@ -124,6 +128,7 @@ class GetPlayerGameStateQueryHandlerTest {
                 publicDeclarations,
                 exposeFacts,
                 playerSubmissions,
+                declarationOffers,
                 resolutionCardOffers,
                 terminalResults));
     }
@@ -518,7 +523,29 @@ class GetPlayerGameStateQueryHandlerTest {
         assertThat(result.roundNumber()).isNull();
         assertThat(result.actionRoundExpiresAt()).isNull();
         assertThat(result.paradoxResolutionExpiresAt()).isNull();
+        assertThat(result.declarationOpen()).isFalse();
+        assertThat(result.declarationExpiresAt()).isNull();
+        assertThat(result.myEligibleDeclarationModes()).isNull();
+    }
+
+    @Test
+    void get_openDeclarationWindow_servesTheSharedDeadlineAndOnlyTheCallersOffer() {
+        var expiresAt = Instant.parse("2030-01-01T10:00:30Z");
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ACTIVISTS", List.of())));
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ERA_START).withDeclarationExpiresAt(expiresAt)));
+        given(gamePlayers.findByGameId(gameId)).willReturn(List.of(new GamePlayer(playerId, 0, true, null)));
+        given(gameActiveEvents.findByGameId(gameId)).willReturn(List.of());
+        given(declarationOffers.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(Optional.of(new DeclarationOffer(
+                        gameId, playerId, 2, List.of(DeclarationOffer.Mode.RALLY))));
+
+        var result = handler.get(gameId, playerId);
+
         assertThat(result.declarationOpen()).isTrue();
+        assertThat(result.declarationExpiresAt()).isEqualTo(expiresAt);
+        assertThat(result.myEligibleDeclarationModes()).containsExactly(DeclarationOffer.Mode.RALLY);
     }
 
     @Test
@@ -538,7 +565,9 @@ class GetPlayerGameStateQueryHandlerTest {
         assertThat(result.phase()).isEqualTo(Phase.HAND_SELECTION);
         assertThat(result.pendingHandSelection()).isEqualTo(pending);
         assertThat(result.handSelectionExpiresAt()).isEqualTo(expiresAt);
-        assertThat(result.declarationOpen()).isTrue();
+        assertThat(result.declarationOpen()).isFalse();
+        assertThat(result.declarationExpiresAt()).isNull();
+        assertThat(result.myEligibleDeclarationModes()).isNull();
     }
 
     @Test

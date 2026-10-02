@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import io.github.temporalrift.read.projection.domain.model.DeclarationOffer;
 import io.github.temporalrift.read.projection.domain.model.ExposeFact;
 import io.github.temporalrift.read.projection.domain.model.ForesightPreview;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
@@ -50,8 +51,10 @@ public interface GetPlayerGameStateUseCase {
             Integer roundNumber,
             Instant handSelectionExpiresAt,
             Instant actionRoundExpiresAt,
+            Instant declarationExpiresAt,
             Instant paradoxResolutionExpiresAt,
             boolean declarationOpen,
+            List<DeclarationOffer.Mode> myEligibleDeclarationModes,
             boolean paradoxOpen,
             List<UUID> openParadoxIds,
             List<PublicBand> publicBands,
@@ -120,8 +123,10 @@ public interface GetPlayerGameStateUseCase {
                     roundNumber,
                     handSelectionExpiresAt,
                     actionRoundExpiresAt,
+                    null,
                     paradoxResolutionExpiresAt,
                     declarationOpen,
+                    null,
                     paradoxOpen,
                     openParadoxIds,
                     publicBands,
