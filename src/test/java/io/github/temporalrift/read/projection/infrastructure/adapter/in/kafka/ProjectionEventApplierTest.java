@@ -2397,6 +2397,22 @@ class ProjectionEventApplierTest {
     }
 
     @Test
+    void applyDeclarationOptionsOffered_redelivery_keepsTheRecordedOffer() {
+        var playerId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ERA_START)));
+        given(declarationOffers.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(
+                        Optional.of(new DeclarationOffer(gameId, playerId, 2, List.of(DeclarationOffer.Mode.RALLY))));
+
+        applier.applyDeclarationOptionsOffered(
+                new DeclarationOptionsOfferedPayload(gameId, 2, playerId, List.of(ActivistDeclarationMode.MOMENTUM)));
+
+        then(declarationOffers).should(never()).saveIfAbsent(any());
+        then(gameProjections).should(never()).save(any());
+    }
+
+    @Test
     void applyDeclarationOptionsOffered_afterTheFirstActionRound_isDiscarded() {
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));

@@ -17,6 +17,7 @@ import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameS
 import io.github.temporalrift.read.projection.domain.model.CarryOverState;
 import io.github.temporalrift.read.projection.domain.model.ChainStatus;
 import io.github.temporalrift.read.projection.domain.model.DealtCard;
+import io.github.temporalrift.read.projection.domain.model.DeclarationOffer;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
 import io.github.temporalrift.read.projection.domain.model.ExposeFact;
 import io.github.temporalrift.read.projection.domain.model.ForesightPreview;
@@ -41,6 +42,7 @@ import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOu
 import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
 import io.github.temporalrift.read.projection.domain.model.TerminalResult;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActionFamily;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActivistDeclarationMode;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CardCategory;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CardGrade;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CardType;
@@ -477,6 +479,61 @@ class ProjectionRestMapperTest {
         assertThat(response.getPhaseContext().getDeclarationOpen()).isFalse();
         assertThat(response.getPhaseContext().getParadoxOpen()).isTrue();
         assertThat(response.getPhaseContext().getParadoxIds()).containsExactly(paradoxId);
+    }
+
+    @Test
+    void toResponse_mapsAnOpenDeclarationWindowWithTheCallersEligibleModes() {
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID,
+                2,
+                Phase.ERA_START,
+                "ACTIVISTS",
+                List.of(),
+                null,
+                List.of(),
+                0,
+                List.of(),
+                List.of(),
+                null,
+                null,
+                null,
+                7,
+                null,
+                null,
+                null,
+                null,
+                Instant.parse("2026-09-16T00:00:30Z"),
+                null,
+                true,
+                List.of(DeclarationOffer.Mode.MOMENTUM, DeclarationOffer.Mode.RALLY),
+                false,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                null,
+                null,
+                null,
+                null,
+                List.of(),
+                null,
+                null);
+
+        var response = toResponse(result);
+
+        assertThat(response.getDeadlines().getDeclarationExpiresAt())
+                .isEqualTo(OffsetDateTime.parse("2026-09-16T00:00:30Z"));
+        assertThat(response.getPhaseContext().getDeclarationOpen()).isTrue();
+        assertThat(response.getMyEligibleDeclarationModes())
+                .containsExactly(ActivistDeclarationMode.MOMENTUM, ActivistDeclarationMode.RALLY);
+    }
+
+    @Test
+    void toResponse_closedDeclarationWindowOmitsEligibleModes() {
+        var response = toResponse(resultWithHand(Phase.ACTION_ROUND_1, 2, List.of()));
+
+        assertThat(response.getMyEligibleDeclarationModes()).isNull();
     }
 
     @Test

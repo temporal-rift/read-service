@@ -7,6 +7,7 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -20,8 +21,11 @@ import tools.jackson.databind.ObjectMapper;
 
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionFamily;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundStartedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActivistDeclarationMode;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardCategory;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.DeclarationOptionsOfferedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.DeclarationWindowOpenedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.HandCardInterceptedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.InfluenceTracedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.RoundSummaryPublishedPayload;
@@ -131,6 +135,52 @@ class GameEventsKafkaConsumerTest {
                         eventId, "GameStarted".getBytes(StandardCharsets.UTF_8)));
 
         then(applier).should().applyGameStarted(any());
+    }
+
+    @Test
+    void handle_declarationWindowOpened_dispatchesToApplier() {
+        var eventId = UUID.randomUUID();
+        var gameId = UUID.randomUUID();
+        var payload = """
+                {"gameId": "%s", "eraNumber": 2, "expiresAt": "2030-01-01T10:00:30Z"}
+                """.formatted(gameId);
+        given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
+
+        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics)
+                .handle(jsonMessage(eventId, "DeclarationWindowOpened", payload));
+
+        then(applier)
+                .should()
+                .applyDeclarationWindowOpened(
+                        new DeclarationWindowOpenedPayload(gameId, 2, Instant.parse("2030-01-01T10:00:30Z")));
+    }
+
+    @Test
+    void handle_declarationOptionsOffered_dispatchesToApplier() {
+        var eventId = UUID.randomUUID();
+        var gameId = UUID.randomUUID();
+        var playerId = UUID.randomUUID();
+        var payload = """
+                {"gameId": "%s", "eraNumber": 2, "playerId": "%s", "eligibleModes": ["RALLY", "MOMENTUM"]}
+                """.formatted(gameId, playerId);
+        given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
+
+        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics)
+                .handle(jsonMessage(eventId, "DeclarationOptionsOffered", payload));
+
+        then(applier)
+                .should()
+                .applyDeclarationOptionsOffered(new DeclarationOptionsOfferedPayload(
+                        gameId, 2, playerId, List.of(ActivistDeclarationMode.RALLY, ActivistDeclarationMode.MOMENTUM)));
+    }
+
+    private static org.springframework.messaging.Message<Object> jsonMessage(
+            UUID eventId, String eventType, String payload) {
+        return MessageBuilder.withPayload((Object) payload.getBytes(StandardCharsets.UTF_8))
+                .setHeader("eventId", eventId.toString())
+                .setHeader("eventType", eventType)
+                .setHeader("version", "1")
+                .build();
     }
 
     @Test
