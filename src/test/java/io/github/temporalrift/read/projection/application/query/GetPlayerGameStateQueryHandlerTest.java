@@ -18,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import io.github.temporalrift.read.projection.application.ProjectionRepositories;
 import io.github.temporalrift.read.projection.domain.model.ChainStatus;
+import io.github.temporalrift.read.projection.domain.model.DetectedParadox;
 import io.github.temporalrift.read.projection.domain.model.ForesightPreview;
 import io.github.temporalrift.read.projection.domain.model.ForesightPreviewEvent;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
@@ -26,6 +27,7 @@ import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.GameProjection;
 import io.github.temporalrift.read.projection.domain.model.HandCard;
 import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
+import io.github.temporalrift.read.projection.domain.model.ParadoxType;
 import io.github.temporalrift.read.projection.domain.model.PendingHandCard;
 import io.github.temporalrift.read.projection.domain.model.PendingHandSelection;
 import io.github.temporalrift.read.projection.domain.model.Phase;
@@ -101,6 +103,9 @@ class GetPlayerGameStateQueryHandlerTest {
     io.github.temporalrift.read.projection.domain.port.out.ResolutionCardOfferRepository resolutionCardOffers;
 
     @Mock
+    io.github.temporalrift.read.projection.domain.port.out.DetectedParadoxRepository detectedParadoxes;
+
+    @Mock
     TerminalResultRepository terminalResults;
 
     private GetPlayerGameStateQueryHandler handler;
@@ -125,6 +130,7 @@ class GetPlayerGameStateQueryHandlerTest {
                 exposeFacts,
                 playerSubmissions,
                 resolutionCardOffers,
+                detectedParadoxes,
                 terminalResults));
     }
 
@@ -501,6 +507,41 @@ class GetPlayerGameStateQueryHandlerTest {
                 .singleElement()
                 .extracting(PlayerSubmission::choice)
                 .isEqualTo(PlayerSubmission.SubmissionChoice.PASS);
+    }
+
+    @Test
+    void get_openParadoxPhase_listsDetectedDetailForPendingParadoxesInPhaseOrder() {
+        var first = UUID.randomUUID();
+        var second = UUID.randomUUID();
+        var undetected = UUID.randomUUID();
+        var firstDetail = new DetectedParadox(
+                gameId, 1, first, ParadoxType.DEAD_HEAT, UUID.randomUUID(), List.of(UUID.randomUUID()));
+        var secondDetail = new DetectedParadox(
+                gameId, 1, second, ParadoxType.CHAIN_CONFLICT, UUID.randomUUID(), List.of(UUID.randomUUID()));
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, null, List.of())));
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(
+                        new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(second, undetected, first))));
+        given(detectedParadoxes.findByGameIdAndParadoxIds(gameId, List.of(second, undetected, first)))
+                .willReturn(List.of(firstDetail, secondDetail));
+
+        var result = handler.get(gameId, playerId);
+
+        assertThat(result.openParadoxes()).containsExactly(secondDetail, firstDetail);
+    }
+
+    @Test
+    void get_noOpenParadoxPhase_listsNoParadoxesWithoutQueryingDetail() {
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, null, List.of())));
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.RESOLUTION)));
+
+        var result = handler.get(gameId, playerId);
+
+        assertThat(result.openParadoxes()).isEmpty();
+        then(detectedParadoxes).shouldHaveNoInteractions();
     }
 
     @Test

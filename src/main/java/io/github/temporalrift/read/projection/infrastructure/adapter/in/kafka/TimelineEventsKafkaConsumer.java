@@ -19,6 +19,7 @@ import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.C
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainReAnchoredPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.OutcomeAppliedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxDetectedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolutionPhaseStartedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolvedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedPayload;
@@ -96,6 +97,7 @@ class TimelineEventsKafkaConsumer {
                 // No eventType header — nothing to dispatch.
             }
             case "OutcomeApplied" -> applier.applyOutcomeApplied(read(message, OutcomeAppliedPayload.class));
+            case "ParadoxDetected" -> applier.applyParadoxDetected(read(message, ParadoxDetectedPayload.class));
             case "ParadoxResolutionPhaseStarted" ->
                 applier.applyParadoxResolutionPhaseStarted(
                         read(message, ParadoxResolutionPhaseStartedPayload.class), occurredAt(message));
