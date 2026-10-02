@@ -3,6 +3,7 @@ package io.github.temporalrift.read.projection.application.query;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.IntFunction;
@@ -13,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.temporalrift.read.projection.application.ProjectionRepositories;
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
 import io.github.temporalrift.read.projection.domain.model.DeclarationOffer;
+import io.github.temporalrift.read.projection.domain.model.DeclarationWindow;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.GameProjection;
 import io.github.temporalrift.read.projection.domain.model.Phase;
@@ -52,18 +54,11 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
         var inActionRound = isActionRound(gameProjection.phase());
         var paradoxOpen = gameProjection.phase() == Phase.PARADOX_RESOLUTION
                 && !gameProjection.pendingParadoxIds().isEmpty();
-        var declarationWindow = gameProjection.phase() == Phase.ERA_START
-                ? stores.declarationWindows()
-                        .findByGameIdAndEraNumber(gameId, gameProjection.eraNumber())
-                        .orElse(null)
-                : null;
-        var declarationOpen = declarationWindow != null;
+        var declarationWindow = openDeclarationWindow(gameProjection);
         var mySubmissions = duringOpenEra(
                 gameProjection,
                 era -> stores.playerSubmissions().findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, era),
                 List.<PlayerSubmission>of());
-        var alreadyResolved = mySubmissions.stream()
-                .anyMatch(submission -> submission.window() == PlayerSubmission.SubmissionWindow.PARADOX_RESOLUTION);
 
         // The projection tracks game-wide phase; the hand-selection window is per player.
         var participantPhase =
@@ -94,15 +89,12 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                         ? null
                         : playerGameState.pendingHandSelection().expiresAt(),
                 inActionRound ? gameProjection.actionRoundExpiresAt() : null,
-                declarationOpen ? declarationWindow.expiresAt() : null,
+                declarationWindow.map(DeclarationWindow::expiresAt).orElse(null),
                 paradoxOpen ? gameProjection.paradoxResolutionExpiresAt() : null,
-                declarationOpen,
-                declarationOpen
-                        ? stores.declarationOffers()
-                                .findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, gameProjection.eraNumber())
-                                .map(DeclarationOffer::eligibleModes)
-                                .orElse(List.of())
-                        : null,
+                declarationWindow.isPresent(),
+                declarationWindow
+                        .map(window -> eligibleDeclarationModes(gameId, playerId, window.eraNumber()))
+                        .orElse(null),
                 paradoxOpen,
                 paradoxOpen ? gameProjection.pendingParadoxIds() : List.of(),
                 duringOpenEra(
@@ -140,13 +132,37 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                                 players)
                         : null,
                 paradoxOpen ? gameProjection.affectedEventIds() : List.of(),
-                paradoxOpen && !alreadyResolved
-                        ? stores.resolutionCardOffers()
-                                .findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, gameProjection.eraNumber())
-                                .map(ResolutionCardOffer::cards)
-                                .orElse(null)
+                paradoxOpen
+                        ? eligibleResolutionCards(gameId, playerId, gameProjection.eraNumber(), mySubmissions)
                         : null,
                 gameProjection.winScoreThreshold());
+    }
+
+    /** The game-wide window is open only while its era is still at ERA_START. */
+    private Optional<DeclarationWindow> openDeclarationWindow(GameProjection projection) {
+        return projection.phase() == Phase.ERA_START
+                ? stores.declarationWindows().findByGameIdAndEraNumber(projection.gameId(), projection.eraNumber())
+                : Optional.empty();
+    }
+
+    private List<DeclarationOffer.Mode> eligibleDeclarationModes(UUID gameId, UUID playerId, int eraNumber) {
+        return stores.declarationOffers()
+                .findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, eraNumber)
+                .map(DeclarationOffer::eligibleModes)
+                .orElse(List.of());
+    }
+
+    private List<ResolutionCardOffer.Card> eligibleResolutionCards(
+            UUID gameId, UUID playerId, int eraNumber, List<PlayerSubmission> mySubmissions) {
+        var alreadyResolved = mySubmissions.stream()
+                .anyMatch(submission -> submission.window() == PlayerSubmission.SubmissionWindow.PARADOX_RESOLUTION);
+        if (alreadyResolved) {
+            return null;
+        }
+        return stores.resolutionCardOffers()
+                .findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, eraNumber)
+                .map(ResolutionCardOffer::cards)
+                .orElse(null);
     }
 
     private Result.SubmissionProgress progress(
