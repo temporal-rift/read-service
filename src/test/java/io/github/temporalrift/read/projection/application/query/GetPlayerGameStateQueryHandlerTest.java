@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import io.github.temporalrift.read.projection.application.ProjectionRepositories;
 import io.github.temporalrift.read.projection.domain.model.ChainStatus;
 import io.github.temporalrift.read.projection.domain.model.DeclarationOffer;
+import io.github.temporalrift.read.projection.domain.model.DeclarationWindow;
 import io.github.temporalrift.read.projection.domain.model.ForesightPreview;
 import io.github.temporalrift.read.projection.domain.model.ForesightPreviewEvent;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
@@ -99,6 +100,9 @@ class GetPlayerGameStateQueryHandlerTest {
     PlayerSubmissionRepository playerSubmissions;
 
     @Mock
+    io.github.temporalrift.read.projection.domain.port.out.DeclarationWindowRepository declarationWindows;
+
+    @Mock
     io.github.temporalrift.read.projection.domain.port.out.DeclarationOfferRepository declarationOffers;
 
     @Mock
@@ -128,6 +132,7 @@ class GetPlayerGameStateQueryHandlerTest {
                 publicDeclarations,
                 exposeFacts,
                 playerSubmissions,
+                declarationWindows,
                 declarationOffers,
                 resolutionCardOffers,
                 terminalResults));
@@ -534,8 +539,9 @@ class GetPlayerGameStateQueryHandlerTest {
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
                 .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ACTIVISTS", List.of())));
         given(gameProjections.findByGameId(gameId))
-                .willReturn(Optional.of(
-                        new GameProjection(gameId, 2, Phase.ERA_START).withDeclarationExpiresAt(expiresAt)));
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ERA_START)));
+        given(declarationWindows.findByGameIdAndEraNumber(gameId, 2))
+                .willReturn(Optional.of(new DeclarationWindow(gameId, 2, expiresAt)));
         given(gamePlayers.findByGameId(gameId)).willReturn(List.of(new GamePlayer(playerId, 0, true, null)));
         given(gameActiveEvents.findByGameId(gameId)).willReturn(List.of());
         given(declarationOffers.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
@@ -547,6 +553,23 @@ class GetPlayerGameStateQueryHandlerTest {
         assertThat(result.declarationOpen()).isTrue();
         assertThat(result.declarationExpiresAt()).isEqualTo(expiresAt);
         assertThat(result.myEligibleDeclarationModes()).containsExactly(DeclarationOffer.Mode.RALLY);
+    }
+
+    @Test
+    void get_outsideEraStart_neverServesADeclarationWindow() {
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ACTIVISTS", List.of())));
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));
+        given(gamePlayers.findByGameId(gameId)).willReturn(List.of());
+        given(gameActiveEvents.findByGameId(gameId)).willReturn(List.of());
+
+        var result = handler.get(gameId, playerId);
+
+        assertThat(result.declarationOpen()).isFalse();
+        assertThat(result.declarationExpiresAt()).isNull();
+        assertThat(result.myEligibleDeclarationModes()).isNull();
+        then(declarationWindows).shouldHaveNoInteractions();
     }
 
     @Test

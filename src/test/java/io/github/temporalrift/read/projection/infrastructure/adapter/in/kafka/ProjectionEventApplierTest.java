@@ -89,6 +89,7 @@ import io.github.temporalrift.read.projection.application.ProjectionRepositories
 import io.github.temporalrift.read.projection.domain.model.CarryOverState;
 import io.github.temporalrift.read.projection.domain.model.ChainStatus;
 import io.github.temporalrift.read.projection.domain.model.DeclarationOffer;
+import io.github.temporalrift.read.projection.domain.model.DeclarationWindow;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
 import io.github.temporalrift.read.projection.domain.model.ExposeFact;
 import io.github.temporalrift.read.projection.domain.model.ForesightPreview;
@@ -172,6 +173,9 @@ class ProjectionEventApplierTest {
     PlayerSubmissionRepository playerSubmissions;
 
     @Mock
+    io.github.temporalrift.read.projection.domain.port.out.DeclarationWindowRepository declarationWindows;
+
+    @Mock
     io.github.temporalrift.read.projection.domain.port.out.DeclarationOfferRepository declarationOffers;
 
     @Mock
@@ -203,6 +207,7 @@ class ProjectionEventApplierTest {
                 publicDeclarations,
                 exposeFacts,
                 playerSubmissions,
+                declarationWindows,
                 declarationOffers,
                 resolutionCardOffers,
                 terminalResults));
@@ -2327,35 +2332,57 @@ class ProjectionEventApplierTest {
     }
 
     @Test
-    void applyDeclarationWindowOpened_recordsTheFirstCurrentEraDeadlineOnly() {
+    void applyDeclarationWindowOpened_recordsTheCurrentEraDeadline() {
         var expiresAt = Instant.parse("2030-01-01T10:00:30Z");
         var projection = new GameProjection(gameId, 2, Phase.ERA_START);
         given(gameProjections.findByGameIdForUpdate(gameId)).willReturn(Optional.of(projection));
 
         applier.applyDeclarationWindowOpened(new DeclarationWindowOpenedPayload(gameId, 2, expiresAt));
 
-        then(gameProjections).should().save(projection.withDeclarationExpiresAt(expiresAt));
+        then(declarationWindows).should().saveIfAbsent(new DeclarationWindow(gameId, 2, expiresAt));
+        then(gameProjections).should().save(projection);
     }
 
     @Test
-    void applyDeclarationWindowOpened_redeliveryAndPriorEraDoNotChangeCurrentState() {
-        var projection = new GameProjection(gameId, 2, Phase.ERA_START)
-                .withDeclarationExpiresAt(Instant.parse("2030-01-01T10:00:30Z"));
-        given(gameProjections.findByGameIdForUpdate(gameId)).willReturn(Optional.of(projection));
+    void applyDeclarationWindowOpened_beforeItsEraStarts_isRetainedForThatEra() {
+        var expiresAt = Instant.parse("2030-01-01T10:00:30Z");
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_3)));
+
+        applier.applyDeclarationWindowOpened(new DeclarationWindowOpenedPayload(gameId, 2, expiresAt));
+
+        then(declarationWindows).should().saveIfAbsent(new DeclarationWindow(gameId, 2, expiresAt));
+    }
+
+    @Test
+    void applyDeclarationWindowOpened_priorOrClosedEraDoesNotChangeState() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));
 
         applier.applyDeclarationWindowOpened(
                 new DeclarationWindowOpenedPayload(gameId, 2, Instant.parse("2030-01-01T10:00:45Z")));
         applier.applyDeclarationWindowOpened(
                 new DeclarationWindowOpenedPayload(gameId, 1, Instant.parse("2030-01-01T10:00:15Z")));
 
+        then(declarationWindows).should(never()).saveIfAbsent(any());
         then(gameProjections).should(never()).save(any());
     }
 
     @Test
-    void applyDeclarationOptionsOffered_keepsTheFirstRecipientScopedOffer() {
+    void applyActionRoundStarted_firstRound_closesTheDeclarationWindow() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ERA_START)));
+
+        applier.applyActionRoundStarted(new ActionRoundStartedPayload(gameId, 2, 1, 45, List.of()), Instant.EPOCH);
+
+        then(declarationWindows).should().deleteByGameIdAndEraNumber(gameId, 2);
+        then(declarationOffers).should().deleteByGameIdAndEraNumber(gameId, 2);
+    }
+
+    @Test
+    void applyDeclarationOptionsOffered_beforeTheWindowOpens_keepsTheFirstRecipientScopedOffer() {
         var playerId = UUID.randomUUID();
-        var projection = new GameProjection(gameId, 2, Phase.ERA_START)
-                .withDeclarationExpiresAt(Instant.parse("2030-01-01T10:00:30Z"));
+        var projection = new GameProjection(gameId, 2, Phase.ERA_START);
         given(gameProjections.findByGameIdForUpdate(gameId)).willReturn(Optional.of(projection));
         given(declarationOffers.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
                 .willReturn(Optional.empty());
@@ -2367,5 +2394,16 @@ class ProjectionEventApplierTest {
                 .should()
                 .saveIfAbsent(new DeclarationOffer(gameId, playerId, 2, List.of(DeclarationOffer.Mode.RALLY)));
         then(gameProjections).should().save(projection);
+    }
+
+    @Test
+    void applyDeclarationOptionsOffered_afterTheFirstActionRound_isDiscarded() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));
+
+        applier.applyDeclarationOptionsOffered(new DeclarationOptionsOfferedPayload(
+                gameId, 2, UUID.randomUUID(), List.of(ActivistDeclarationMode.RALLY)));
+
+        then(declarationOffers).should(never()).saveIfAbsent(any());
     }
 }

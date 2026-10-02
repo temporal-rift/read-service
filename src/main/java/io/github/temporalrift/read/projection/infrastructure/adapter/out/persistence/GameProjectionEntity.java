@@ -55,9 +55,6 @@ class GameProjectionEntity {
     @Column(name = "action_round_expires_at")
     private Instant actionRoundExpiresAt;
 
-    @Column(name = "declaration_expires_at")
-    private Instant declarationExpiresAt;
-
     @Column(name = "paradox_resolution_expires_at")
     private Instant paradoxResolutionExpiresAt;
 
@@ -87,7 +84,6 @@ class GameProjectionEntity {
         entity.setLastRoundSummary(domain.lastRoundSummary());
         entity.setCurrentRoundNumber(domain.currentRoundNumber());
         entity.setActionRoundExpiresAt(domain.actionRoundExpiresAt());
-        entity.setDeclarationExpiresAt(domain.declarationExpiresAt());
         entity.setParadoxResolutionExpiresAt(domain.paradoxResolutionExpiresAt());
         entity.setRevision(domain.revision());
         entity.setLastUpdatedAt(domain.lastUpdatedAt());
@@ -111,7 +107,6 @@ class GameProjectionEntity {
                                         .toList()),
                 currentRoundNumber,
                 actionRoundExpiresAt,
-                declarationExpiresAt,
                 paradoxResolutionExpiresAt,
                 revision,
                 lastUpdatedAt,
@@ -149,10 +144,6 @@ class GameProjectionEntity {
 
     void setActionRoundExpiresAt(Instant actionRoundExpiresAt) {
         this.actionRoundExpiresAt = actionRoundExpiresAt;
-    }
-
-    void setDeclarationExpiresAt(Instant declarationExpiresAt) {
-        this.declarationExpiresAt = declarationExpiresAt;
     }
 
     void setParadoxResolutionExpiresAt(Instant paradoxResolutionExpiresAt) {
