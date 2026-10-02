@@ -81,6 +81,8 @@ import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.C
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainReAnchoredPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.OutcomeAppliedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxDetectedParadox;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxDetectedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolutionPhaseStartedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolvedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedOutcomeState;
@@ -90,6 +92,7 @@ import io.github.temporalrift.read.projection.domain.model.CarryOverState;
 import io.github.temporalrift.read.projection.domain.model.ChainStatus;
 import io.github.temporalrift.read.projection.domain.model.DeclarationOffer;
 import io.github.temporalrift.read.projection.domain.model.DeclarationWindow;
+import io.github.temporalrift.read.projection.domain.model.DetectedParadox;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
 import io.github.temporalrift.read.projection.domain.model.ExposeFact;
 import io.github.temporalrift.read.projection.domain.model.ForesightPreview;
@@ -101,6 +104,7 @@ import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.GameProjection;
 import io.github.temporalrift.read.projection.domain.model.HandCard;
 import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
+import io.github.temporalrift.read.projection.domain.model.ParadoxType;
 import io.github.temporalrift.read.projection.domain.model.PendingHandCard;
 import io.github.temporalrift.read.projection.domain.model.PendingHandSelection;
 import io.github.temporalrift.read.projection.domain.model.Phase;
@@ -182,6 +186,9 @@ class ProjectionEventApplierTest {
     io.github.temporalrift.read.projection.domain.port.out.ResolutionCardOfferRepository resolutionCardOffers;
 
     @Mock
+    io.github.temporalrift.read.projection.domain.port.out.DetectedParadoxRepository detectedParadoxes;
+
+    @Mock
     TerminalResultRepository terminalResults;
 
     private ProjectionEventApplier applier;
@@ -210,6 +217,7 @@ class ProjectionEventApplierTest {
                 declarationWindows,
                 declarationOffers,
                 resolutionCardOffers,
+                detectedParadoxes,
                 terminalResults));
     }
 
@@ -1458,6 +1466,49 @@ class ProjectionEventApplierTest {
     }
 
     @Test
+    void applyParadoxDetected_recordsEachParadoxDetailForItsEra() {
+        var paradoxId = UUID.randomUUID();
+        var eventId = UUID.randomUUID();
+        var outcomeId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.RESOLUTION)));
+
+        applier.applyParadoxDetected(new ParadoxDetectedPayload(
+                gameId,
+                1,
+                List.of(new ParadoxDetectedParadox(
+                        paradoxId,
+                        io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxType
+                                .CHAIN_CONFLICT,
+                        eventId,
+                        List.of(outcomeId),
+                        "Chain conflict"))));
+
+        then(detectedParadoxes)
+                .should()
+                .saveIfAbsent(new DetectedParadox(
+                        gameId, 1, paradoxId, ParadoxType.CHAIN_CONFLICT, eventId, List.of(outcomeId)));
+    }
+
+    @Test
+    void applyParadoxDetected_forAnEndedEra_isSkipped() {
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ERA_END)));
+
+        applier.applyParadoxDetected(new ParadoxDetectedPayload(
+                gameId,
+                1,
+                List.of(new ParadoxDetectedParadox(
+                        UUID.randomUUID(),
+                        io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxType.DEAD_HEAT,
+                        UUID.randomUUID(),
+                        List.of(UUID.randomUUID()),
+                        "Dead heat"))));
+
+        then(detectedParadoxes).shouldHaveNoInteractions();
+    }
+
+    @Test
     void applyParadoxResolutionPhaseStarted_opensPhaseWithPendingParadoxIds() {
         var paradox1 = UUID.randomUUID();
         var paradox2 = UUID.randomUUID();
@@ -2166,6 +2217,7 @@ class ProjectionEventApplierTest {
         then(publicDeclarations).should().deleteByGameIdAndEraNumber(gameId, 1);
         then(exposeFacts).should().deleteByGameIdAndEraNumber(gameId, 1);
         then(playerSubmissions).should().deleteByGameIdAndEraNumber(gameId, 1);
+        then(detectedParadoxes).should().deleteByGameIdAndEraNumber(gameId, 1);
     }
 
     @Test
@@ -2185,6 +2237,7 @@ class ProjectionEventApplierTest {
                         eq(List.of(new TerminalResult.TerminalScore(playerId, "WEAVERS", 20))));
         then(publicBands).should().deleteByGameId(gameId);
         then(playerSubmissions).should().deleteByGameId(gameId);
+        then(detectedParadoxes).should().deleteByGameId(gameId);
     }
 
     @Test

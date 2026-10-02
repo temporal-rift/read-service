@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 import io.github.temporalrift.read.projection.domain.model.DeclarationOffer;
+import io.github.temporalrift.read.projection.domain.model.DetectedParadox;
 import io.github.temporalrift.read.projection.domain.model.ExposeFact;
 import io.github.temporalrift.read.projection.domain.model.ForesightPreview;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
@@ -56,7 +57,7 @@ public interface GetPlayerGameStateUseCase {
             boolean declarationOpen,
             List<DeclarationOffer.Mode> myEligibleDeclarationModes,
             boolean paradoxOpen,
-            List<UUID> openParadoxIds,
+            List<DetectedParadox> openParadoxes,
             List<PublicBand> publicBands,
             List<PublicDeclaration> declarations,
             List<ExposeFact> exposeFacts,
@@ -97,7 +98,7 @@ public interface GetPlayerGameStateUseCase {
                 Instant paradoxResolutionExpiresAt,
                 boolean declarationOpen,
                 boolean paradoxOpen,
-                List<UUID> openParadoxIds,
+                List<DetectedParadox> openParadoxes,
                 List<PublicBand> publicBands,
                 List<PublicDeclaration> declarations,
                 List<ExposeFact> exposeFacts,
@@ -128,7 +129,7 @@ public interface GetPlayerGameStateUseCase {
                     declarationOpen,
                     null,
                     paradoxOpen,
-                    openParadoxIds,
+                    openParadoxes,
                     publicBands,
                     declarations,
                     exposeFacts,

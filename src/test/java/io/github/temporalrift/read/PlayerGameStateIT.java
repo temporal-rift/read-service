@@ -519,6 +519,21 @@ class PlayerGameStateIT {
         publish(GAME_EVENTS_TOPIC, "ResolutionStarted", gameId, Map.of("gameId", gameId, "eraNumber", 1));
         awaitPhase(gameId, "RESOLUTION");
 
+        var affectedEventId = UUID.randomUUID();
+        var affectedOutcomeId = UUID.randomUUID();
+        publish(
+                TIMELINE_EVENTS_TOPIC,
+                "ParadoxDetected",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "paradoxes",
+                        List.of(
+                                detectedParadox(paradox1, "DEAD_HEAT", affectedEventId, affectedOutcomeId),
+                                detectedParadox(paradox2, "CHAIN_CONFLICT", affectedEventId, affectedOutcomeId))));
         publish(
                 TIMELINE_EVENTS_TOPIC,
                 "ParadoxResolutionPhaseStarted",
@@ -537,7 +552,15 @@ class PlayerGameStateIT {
         mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
                         .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(player1)))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.phase").value("PARADOX_RESOLUTION"));
+                .andExpect(jsonPath("$.phase").value("PARADOX_RESOLUTION"))
+                .andExpect(jsonPath("$.phaseContext.paradoxIds").doesNotExist())
+                .andExpect(jsonPath("$.phaseContext.paradoxes[0].paradoxId").value(paradox1.toString()))
+                .andExpect(jsonPath("$.phaseContext.paradoxes[0].type").value("DEAD_HEAT"))
+                .andExpect(
+                        jsonPath("$.phaseContext.paradoxes[0].affectedEventId").value(affectedEventId.toString()))
+                .andExpect(jsonPath("$.phaseContext.paradoxes[0].affectedOutcomeIds[0]")
+                        .value(affectedOutcomeId.toString()))
+                .andExpect(jsonPath("$.phaseContext.paradoxes[1].type").value("CHAIN_CONFLICT"));
 
         publish(
                 TIMELINE_EVENTS_TOPIC,
@@ -558,6 +581,8 @@ class PlayerGameStateIT {
         mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
                         .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(player1)))))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.phaseContext.paradoxes.length()").value(1))
+                .andExpect(jsonPath("$.phaseContext.paradoxes[0].paradoxId").value(paradox2.toString()))
                 .andExpect(jsonPath("$.phase").value("PARADOX_RESOLUTION"));
 
         publish(
@@ -1767,6 +1792,21 @@ class PlayerGameStateIT {
         assertThat(jdbcTemplate.queryForObject(
                         "SELECT phase FROM game_projection WHERE game_id = ?", String.class, gameId))
                 .isEqualTo("ERA_END");
+    }
+
+    private static Map<String, Object> detectedParadox(
+            UUID paradoxId, String type, UUID affectedEventId, UUID affectedOutcomeId) {
+        return Map.of(
+                "paradoxId",
+                paradoxId,
+                "type",
+                type,
+                "affectedEventId",
+                affectedEventId,
+                "affectedOutcomeIds",
+                List.of(affectedOutcomeId),
+                "description",
+                type);
     }
 
     private static Map<String, Object> cardPlayedPayload(

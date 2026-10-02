@@ -23,6 +23,7 @@ import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.C
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainLinkAddedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainReAnchoredPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxDetectedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedPayload;
 import io.github.temporalrift.read.shared.ProcessedEventPort;
 
@@ -80,6 +81,34 @@ class TimelineEventsKafkaConsumerTest {
         new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics).handle(message);
 
         then(applier).should().applyAdjustedBandsPublished(payload);
+    }
+
+    @Test
+    void handle_paradoxDetected_isAppliedWithItsParadoxes() {
+        var eventId = UUID.randomUUID();
+        var gameId = UUID.randomUUID();
+        var paradoxId = UUID.randomUUID();
+        var affectedEventId = UUID.randomUUID();
+        var outcomeId = UUID.randomUUID();
+        var body = """
+                {"gameId":"%s","eraNumber":1,"paradoxes":[{"paradoxId":"%s","type":"DEAD_HEAT",\
+                "affectedEventId":"%s","affectedOutcomeIds":["%s"],"description":"Dead heat"}]}
+                """.formatted(gameId, paradoxId, affectedEventId, outcomeId);
+        var message = MessageBuilder.withPayload((Object) body.getBytes(StandardCharsets.UTF_8))
+                .setHeader("eventId", eventId.toString())
+                .setHeader("eventType", "ParadoxDetected")
+                .setHeader("version", "1")
+                .build();
+        given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(true);
+
+        new TimelineEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics).handle(message);
+
+        var captor = ArgumentCaptor.forClass(ParadoxDetectedPayload.class);
+        then(applier).should().applyParadoxDetected(captor.capture());
+        assertThat(captor.getValue().paradoxes()).singleElement().satisfies(paradox -> {
+            assertThat(paradox.paradoxId()).isEqualTo(paradoxId);
+            assertThat(paradox.affectedOutcomeIds()).containsExactly(outcomeId);
+        });
     }
 
     @Test

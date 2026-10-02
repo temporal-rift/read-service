@@ -50,6 +50,7 @@ import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.C
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainReAnchoredPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.OutcomeAppliedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxDetectedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolutionPhaseStartedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolvedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedPayload;
@@ -58,6 +59,7 @@ import io.github.temporalrift.read.projection.domain.model.CarryOverState;
 import io.github.temporalrift.read.projection.domain.model.ChainStatus;
 import io.github.temporalrift.read.projection.domain.model.DeclarationOffer;
 import io.github.temporalrift.read.projection.domain.model.DeclarationWindow;
+import io.github.temporalrift.read.projection.domain.model.DetectedParadox;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
 import io.github.temporalrift.read.projection.domain.model.ExposeFact;
 import io.github.temporalrift.read.projection.domain.model.ForesightPreview;
@@ -69,6 +71,7 @@ import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.GameProjection;
 import io.github.temporalrift.read.projection.domain.model.HandCard;
 import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
+import io.github.temporalrift.read.projection.domain.model.ParadoxType;
 import io.github.temporalrift.read.projection.domain.model.PendingHandCard;
 import io.github.temporalrift.read.projection.domain.model.PendingHandSelection;
 import io.github.temporalrift.read.projection.domain.model.Phase;
@@ -328,6 +331,7 @@ class ProjectionEventApplier {
         stores.declarationWindows().deleteByGameIdAndEraNumber(gameId, eraNumber);
         stores.declarationOffers().deleteByGameIdAndEraNumber(gameId, eraNumber);
         stores.resolutionCardOffers().deleteByGameIdAndEraNumber(gameId, eraNumber);
+        stores.detectedParadoxes().deleteByGameIdAndEraNumber(gameId, eraNumber);
     }
 
     // A winner can end the game directly from the final era without an intervening EraEnded for that
@@ -355,6 +359,7 @@ class ProjectionEventApplier {
         stores.declarationWindows().deleteByGameId(payload.gameId());
         stores.declarationOffers().deleteByGameId(payload.gameId());
         stores.resolutionCardOffers().deleteByGameId(payload.gameId());
+        stores.detectedParadoxes().deleteByGameId(payload.gameId());
         stores.gameActiveEvents().deleteByGameId(payload.gameId());
         stores.gameChains().deleteByGameId(payload.gameId());
         stores.terminalResults()
@@ -1032,6 +1037,27 @@ class ProjectionEventApplier {
 
     private boolean isStaleChainMessage(Optional<GameChain> existing, UUID chainId) {
         return isSameChain(existing, chainId) && existing.get().status() != ChainStatus.ACTIVE;
+    }
+
+    void applyParadoxDetected(ParadoxDetectedPayload payload) {
+        var existing = lockGame(payload.gameId());
+        if (isSupersededOrGameEnded(payload.eraNumber(), existing)) {
+            log.warn(
+                    "ParadoxDetected for past/ended era {} in game {} — skipping",
+                    payload.eraNumber(),
+                    payload.gameId());
+            return;
+        }
+        for (var paradox : payload.paradoxes()) {
+            stores.detectedParadoxes()
+                    .saveIfAbsent(new DetectedParadox(
+                            payload.gameId(),
+                            payload.eraNumber(),
+                            paradox.paradoxId(),
+                            ParadoxType.valueOf(paradox.type().name()),
+                            paradox.affectedEventId(),
+                            paradox.affectedOutcomeIds()));
+        }
     }
 
     void applyParadoxResolutionPhaseStarted(ParadoxResolutionPhaseStartedPayload payload, Instant occurredAt) {

@@ -3,10 +3,13 @@ package io.github.temporalrift.read.projection.application.query;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.function.IntFunction;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +18,7 @@ import io.github.temporalrift.read.projection.application.ProjectionRepositories
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
 import io.github.temporalrift.read.projection.domain.model.DeclarationOffer;
 import io.github.temporalrift.read.projection.domain.model.DeclarationWindow;
+import io.github.temporalrift.read.projection.domain.model.DetectedParadox;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.GameProjection;
 import io.github.temporalrift.read.projection.domain.model.Phase;
@@ -96,7 +100,7 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                         .map(window -> eligibleDeclarationModes(gameId, playerId, window.eraNumber()))
                         .orElse(null),
                 paradoxOpen,
-                paradoxOpen ? gameProjection.pendingParadoxIds() : List.of(),
+                paradoxOpen ? openParadoxes(gameId, gameProjection.pendingParadoxIds()) : List.of(),
                 duringOpenEra(
                         gameProjection, era -> stores.publicBands().findByGameIdAndEraNumber(gameId, era), List.of()),
                 duringOpenEra(
@@ -164,6 +168,16 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
         return stores.resolutionCardOffers()
                 .findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, eraNumber)
                 .map(ResolutionCardOffer::cards);
+    }
+
+    /** Pending paradoxes in phase-start order; one without recorded detail is omitted rather than invented. */
+    private List<DetectedParadox> openParadoxes(UUID gameId, List<UUID> pendingParadoxIds) {
+        var detected = stores.detectedParadoxes().findByGameIdAndParadoxIds(gameId, pendingParadoxIds).stream()
+                .collect(Collectors.toMap(DetectedParadox::paradoxId, Function.identity()));
+        return pendingParadoxIds.stream()
+                .map(detected::get)
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     private Result.SubmissionProgress progress(

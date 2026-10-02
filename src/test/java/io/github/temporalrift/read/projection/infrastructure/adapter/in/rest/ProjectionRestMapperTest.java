@@ -18,6 +18,7 @@ import io.github.temporalrift.read.projection.domain.model.CarryOverState;
 import io.github.temporalrift.read.projection.domain.model.ChainStatus;
 import io.github.temporalrift.read.projection.domain.model.DealtCard;
 import io.github.temporalrift.read.projection.domain.model.DeclarationOffer;
+import io.github.temporalrift.read.projection.domain.model.DetectedParadox;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
 import io.github.temporalrift.read.projection.domain.model.ExposeFact;
 import io.github.temporalrift.read.projection.domain.model.ForesightPreview;
@@ -28,6 +29,7 @@ import io.github.temporalrift.read.projection.domain.model.GameChain;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.HandCard;
 import io.github.temporalrift.read.projection.domain.model.LastRoundSummary;
+import io.github.temporalrift.read.projection.domain.model.ParadoxType;
 import io.github.temporalrift.read.projection.domain.model.PendingHandCard;
 import io.github.temporalrift.read.projection.domain.model.PendingHandSelection;
 import io.github.temporalrift.read.projection.domain.model.Phase;
@@ -437,6 +439,8 @@ class ProjectionRestMapperTest {
     @Test
     void toResponse_mapsRecoverableCoordinatesDeadlinesAndContext() {
         var paradoxId = UUID.randomUUID();
+        var affectedEventId = UUID.randomUUID();
+        var affectedOutcomeId = UUID.randomUUID();
         var result = new GetPlayerGameStateUseCase.Result(
                 GAME_ID,
                 2,
@@ -459,7 +463,8 @@ class ProjectionRestMapperTest {
                 Instant.parse("2026-09-16T00:05:00Z"),
                 false,
                 true,
-                List.of(paradoxId),
+                List.of(new DetectedParadox(
+                        GAME_ID, 2, paradoxId, ParadoxType.DEAD_HEAT, affectedEventId, List.of(affectedOutcomeId))),
                 List.of(),
                 List.of(),
                 List.of(),
@@ -478,7 +483,15 @@ class ProjectionRestMapperTest {
                 .isEqualTo(OffsetDateTime.parse("2026-09-16T00:05:00Z"));
         assertThat(response.getPhaseContext().getDeclarationOpen()).isFalse();
         assertThat(response.getPhaseContext().getParadoxOpen()).isTrue();
-        assertThat(response.getPhaseContext().getParadoxIds()).containsExactly(paradoxId);
+        assertThat(response.getPhaseContext().getParadoxes()).singleElement().satisfies(paradox -> {
+            assertThat(paradox.getParadoxId()).isEqualTo(paradoxId);
+            assertThat(paradox.getType())
+                    .isEqualTo(
+                            io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ParadoxType
+                                    .DEAD_HEAT);
+            assertThat(paradox.getAffectedEventId()).isEqualTo(affectedEventId);
+            assertThat(paradox.getAffectedOutcomeIds()).containsExactly(affectedOutcomeId);
+        });
     }
 
     @Test

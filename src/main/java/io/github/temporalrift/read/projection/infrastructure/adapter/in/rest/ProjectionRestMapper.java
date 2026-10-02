@@ -8,6 +8,7 @@ import java.util.List;
 import io.github.temporalrift.read.projection.application.port.in.GetGameHistoryUseCase;
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
 import io.github.temporalrift.read.projection.domain.model.DealtCard;
+import io.github.temporalrift.read.projection.domain.model.DetectedParadox;
 import io.github.temporalrift.read.projection.domain.model.ExposeFact;
 import io.github.temporalrift.read.projection.domain.model.ForesightPreview;
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
@@ -47,6 +48,8 @@ import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.GameWinner;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.HandCard;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.MySubmission;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.OpenParadox;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ParadoxType;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PendingHandSelection;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PhaseContext;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerGameStateResponse;
@@ -185,7 +188,9 @@ final class ProjectionRestMapper {
     private static PhaseContext toPhaseContext(GetPlayerGameStateUseCase.Result result) {
         var context = new PhaseContext(result.declarationOpen(), result.paradoxOpen());
         if (result.paradoxOpen()) {
-            context.setParadoxIds(List.copyOf(result.openParadoxIds()));
+            context.setParadoxes(result.openParadoxes().stream()
+                    .map(ProjectionRestMapper::toOpenParadox)
+                    .toList());
             context.setAffectedEventIds(List.copyOf(result.affectedEventIds()));
         }
         if (result.actionRoundProgress() != null) {
@@ -195,6 +200,14 @@ final class ProjectionRestMapper {
             context.setParadoxResolutionProgress(toSubmissionProgress(result.paradoxResolutionProgress()));
         }
         return context;
+    }
+
+    private static OpenParadox toOpenParadox(DetectedParadox paradox) {
+        return new OpenParadox(
+                paradox.paradoxId(),
+                ParadoxType.fromValue(paradox.type().name()),
+                paradox.affectedEventId(),
+                List.copyOf(paradox.affectedOutcomeIds()));
     }
 
     private static SubmissionProgress toSubmissionProgress(
