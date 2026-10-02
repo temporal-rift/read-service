@@ -13,6 +13,8 @@ import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.Act
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActionRoundStartedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActivistDeclarationRecordedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.DeclarationOptionsOfferedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.DeclarationWindowOpenedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ExposeBehaviorChangedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ExposeSignatureRevealedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.HandCardInterceptedPayload;
@@ -55,6 +57,8 @@ import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.P
 import io.github.temporalrift.read.projection.application.ProjectionRepositories;
 import io.github.temporalrift.read.projection.domain.model.CarryOverState;
 import io.github.temporalrift.read.projection.domain.model.ChainStatus;
+import io.github.temporalrift.read.projection.domain.model.DeclarationOffer;
+import io.github.temporalrift.read.projection.domain.model.DeclarationWindow;
 import io.github.temporalrift.read.projection.domain.model.DetectedParadox;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
 import io.github.temporalrift.read.projection.domain.model.ExposeFact;
@@ -324,6 +328,8 @@ class ProjectionEventApplier {
         stores.publicDeclarations().deleteByGameIdAndEraNumber(gameId, eraNumber);
         stores.exposeFacts().deleteByGameIdAndEraNumber(gameId, eraNumber);
         stores.playerSubmissions().deleteByGameIdAndEraNumber(gameId, eraNumber);
+        stores.declarationWindows().deleteByGameIdAndEraNumber(gameId, eraNumber);
+        stores.declarationOffers().deleteByGameIdAndEraNumber(gameId, eraNumber);
         stores.resolutionCardOffers().deleteByGameIdAndEraNumber(gameId, eraNumber);
         stores.detectedParadoxes().deleteByGameIdAndEraNumber(gameId, eraNumber);
     }
@@ -350,6 +356,8 @@ class ProjectionEventApplier {
         stores.publicDeclarations().deleteByGameId(payload.gameId());
         stores.exposeFacts().deleteByGameId(payload.gameId());
         stores.playerSubmissions().deleteByGameId(payload.gameId());
+        stores.declarationWindows().deleteByGameId(payload.gameId());
+        stores.declarationOffers().deleteByGameId(payload.gameId());
         stores.resolutionCardOffers().deleteByGameId(payload.gameId());
         stores.detectedParadoxes().deleteByGameId(payload.gameId());
         stores.gameActiveEvents().deleteByGameId(payload.gameId());
@@ -423,6 +431,10 @@ class ProjectionEventApplier {
         }
         // The round timer is an authoritative owner fact: expiry is opening time plus allotted seconds.
         var expiresAt = occurredAt == null ? null : occurredAt.plusSeconds(payload.timerSeconds());
+        if (payload.roundNumber() == 1) {
+            stores.declarationWindows().deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
+            stores.declarationOffers().deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
+        }
         stores.gameProjections()
                 .save(new GameProjection(
                         payload.gameId(),
@@ -435,6 +447,45 @@ class ProjectionEventApplier {
                         null,
                         existing.revision(),
                         existing.lastUpdatedAt()));
+    }
+
+    void applyDeclarationWindowOpened(DeclarationWindowOpenedPayload payload) {
+        var existing = lockGame(payload.gameId());
+        if (isDeclarationFactStale(payload.gameId(), payload.eraNumber(), existing)) {
+            log.warn(
+                    "DeclarationWindowOpened for stale or closed era {} in game {} — skipping",
+                    payload.eraNumber(),
+                    payload.gameId());
+            return;
+        }
+        stores.declarationWindows()
+                .saveIfAbsent(new DeclarationWindow(payload.gameId(), payload.eraNumber(), payload.expiresAt()));
+        touchRevision(payload.gameId());
+    }
+
+    void applyDeclarationOptionsOffered(DeclarationOptionsOfferedPayload payload) {
+        var existing = lockGame(payload.gameId());
+        if (isDeclarationFactStale(payload.gameId(), payload.eraNumber(), existing)) {
+            log.warn(
+                    "DeclarationOptionsOffered for stale or closed era {} in game {} — skipping",
+                    payload.eraNumber(),
+                    payload.gameId());
+            return;
+        }
+        if (stores.declarationOffers()
+                .findByGameIdAndPlayerIdAndEraNumber(payload.gameId(), payload.playerId(), payload.eraNumber())
+                .isPresent()) {
+            return;
+        }
+        stores.declarationOffers()
+                .saveIfAbsent(new DeclarationOffer(
+                        payload.gameId(),
+                        payload.playerId(),
+                        payload.eraNumber(),
+                        payload.eligibleModes().stream()
+                                .map(mode -> DeclarationOffer.Mode.valueOf(mode.name()))
+                                .toList()));
+        touchRevision(payload.gameId());
     }
 
     void applyCardPlayed(CardPlayedPayload payload) {
@@ -681,6 +732,15 @@ class ProjectionEventApplier {
         var known = lockGame(gameId);
         if (isSupersededOrGameEnded(eraNumber, known)) {
             log.warn("{} for past/ended era {} in game {} — skipping", eventType, eraNumber, gameId);
+            return true;
+        }
+        return false;
+    }
+
+    private boolean isDeclarationFactStale(UUID gameId, int eraNumber, GameProjection projection) {
+        if (isSupersededOrGameEnded(eraNumber, projection)
+                || (eraNumber == projection.eraNumber() && projection.phase() != Phase.ERA_START)) {
+            log.warn("Declaration fact for stale or closed era {} in game {} — skipping", eraNumber, gameId);
             return true;
         }
         return false;

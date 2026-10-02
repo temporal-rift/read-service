@@ -2,6 +2,8 @@ package io.github.temporalrift.read.projection.application;
 
 import org.springframework.stereotype.Component;
 
+import io.github.temporalrift.read.projection.domain.port.out.DeclarationOfferRepository;
+import io.github.temporalrift.read.projection.domain.port.out.DeclarationWindowRepository;
 import io.github.temporalrift.read.projection.domain.port.out.DetectedParadoxRepository;
 import io.github.temporalrift.read.projection.domain.port.out.ExposeFactRepository;
 import io.github.temporalrift.read.projection.domain.port.out.ForesightPreviewRepository;
@@ -39,6 +41,8 @@ public record ProjectionRepositories(
         PublicDeclarationRepository publicDeclarations,
         ExposeFactRepository exposeFacts,
         PlayerSubmissionRepository playerSubmissions,
+        DeclarationWindowRepository declarationWindows,
+        DeclarationOfferRepository declarationOffers,
         ResolutionCardOfferRepository resolutionCardOffers,
         DetectedParadoxRepository detectedParadoxes,
         TerminalResultRepository terminalResults) {}

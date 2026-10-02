@@ -27,6 +27,7 @@ import io.github.temporalrift.read.projection.domain.model.TerminalResult;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActionFamily;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActionSummary;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActiveEvent;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActivistDeclarationMode;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CardCategory;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CardGrade;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CardType;
@@ -142,6 +143,12 @@ final class ProjectionRestMapper {
                                         CardType.valueOf(card.cardType()),
                                         toCardGrade(card.grade())))
                                 .toList());
+        response.setMyEligibleDeclarationModes(
+                result.myEligibleDeclarationModes() == null
+                        ? null
+                        : new LinkedHashSet<>(result.myEligibleDeclarationModes().stream()
+                                .map(mode -> ActivistDeclarationMode.valueOf(mode.name()))
+                                .toList()));
         // Budgets and objective progress stay absent: no owner fact supplies them (see use-case docs).
         response.setResult(toGameResult(result.terminalResult()));
         return response;
@@ -167,12 +174,14 @@ final class ProjectionRestMapper {
     private static Deadlines toDeadlines(GetPlayerGameStateUseCase.Result result) {
         if (result.handSelectionExpiresAt() == null
                 && result.actionRoundExpiresAt() == null
+                && result.declarationExpiresAt() == null
                 && result.paradoxResolutionExpiresAt() == null) {
             return null;
         }
         return new Deadlines()
                 .handSelectionExpiresAt(toOffsetDateTime(result.handSelectionExpiresAt()))
                 .actionRoundExpiresAt(toOffsetDateTime(result.actionRoundExpiresAt()))
+                .declarationExpiresAt(toOffsetDateTime(result.declarationExpiresAt()))
                 .paradoxResolutionExpiresAt(toOffsetDateTime(result.paradoxResolutionExpiresAt()));
     }
 

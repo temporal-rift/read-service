@@ -5,6 +5,8 @@ import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.Act
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActivistDeclarationRecordedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.Consumer;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.DeclarationOptionsOfferedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.DeclarationWindowOpenedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.EventHeaders;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ExposeBehaviorChangedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ExposeSignatureRevealedPayload;
@@ -29,6 +31,16 @@ class ActionEventDispatcher implements Consumer {
 
     ActionEventDispatcher(ProjectionEventApplier applier) {
         this.applier = applier;
+    }
+
+    @Override
+    public void onDeclarationWindowOpened(DeclarationWindowOpenedPayload payload, EventHeaders headers) {
+        applier.applyDeclarationWindowOpened(payload);
+    }
+
+    @Override
+    public void onDeclarationOptionsOffered(DeclarationOptionsOfferedPayload payload, EventHeaders headers) {
+        applier.applyDeclarationOptionsOffered(payload);
     }
 
     @Override

@@ -15,5 +15,22 @@
         baseColumnNames="game_projection_id" referencedTableName="game_projection"
         referencedColumnNames="game_id" constraintName="fk_game_projection_affected_event_game_projection"
         onDelete="CASCADE"/>
+    <createTable tableName="declaration_offer">
+      <column name="id" type="UUID"><constraints primaryKey="true" nullable="false"/></column>
+      <column name="game_id" type="UUID"><constraints nullable="false"/></column>
+      <column name="player_id" type="UUID"><constraints nullable="false"/></column>
+      <column name="era_number" type="INT"><constraints nullable="false"/></column>
+      <column name="eligible_modes" type="JSONB"><constraints nullable="false"/></column>
+    </createTable>
+    <addUniqueConstraint tableName="declaration_offer" columnNames="game_id, player_id, era_number"
+        constraintName="uq_declaration_offer_identity"/>
+    <createTable tableName="declaration_window">
+      <column name="id" type="UUID"><constraints primaryKey="true" nullable="false"/></column>
+      <column name="game_id" type="UUID"><constraints nullable="false"/></column>
+      <column name="era_number" type="INT"><constraints nullable="false"/></column>
+      <column name="expires_at" type="TIMESTAMP WITH TIME ZONE"><constraints nullable="false"/></column>
+    </createTable>
+    <addUniqueConstraint tableName="declaration_window" columnNames="game_id, era_number"
+        constraintName="uq_declaration_window_identity"/>
   </changeSet>
 </databaseChangeLog>
