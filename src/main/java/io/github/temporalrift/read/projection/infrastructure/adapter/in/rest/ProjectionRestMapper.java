@@ -143,9 +143,9 @@ final class ProjectionRestMapper {
         response.setMyEligibleDeclarationModes(
                 result.myEligibleDeclarationModes() == null
                         ? null
-                        : result.myEligibleDeclarationModes().stream()
+                        : new LinkedHashSet<>(result.myEligibleDeclarationModes().stream()
                                 .map(mode -> ActivistDeclarationMode.valueOf(mode.name()))
-                                .toList());
+                                .toList()));
         // Budgets and objective progress stay absent: no owner fact supplies them (see use-case docs).
         response.setResult(toGameResult(result.terminalResult()));
         return response;

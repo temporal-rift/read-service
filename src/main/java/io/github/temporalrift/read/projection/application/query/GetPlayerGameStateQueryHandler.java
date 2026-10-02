@@ -52,8 +52,12 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
         var inActionRound = isActionRound(gameProjection.phase());
         var paradoxOpen = gameProjection.phase() == Phase.PARADOX_RESOLUTION
                 && !gameProjection.pendingParadoxIds().isEmpty();
-        var declarationOpen =
-                gameProjection.phase() == Phase.ERA_START && gameProjection.declarationExpiresAt() != null;
+        var declarationWindow = gameProjection.phase() == Phase.ERA_START
+                ? stores.declarationWindows()
+                        .findByGameIdAndEraNumber(gameId, gameProjection.eraNumber())
+                        .orElse(null)
+                : null;
+        var declarationOpen = declarationWindow != null;
         var mySubmissions = duringOpenEra(
                 gameProjection,
                 era -> stores.playerSubmissions().findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, era),
@@ -90,7 +94,7 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                         ? null
                         : playerGameState.pendingHandSelection().expiresAt(),
                 inActionRound ? gameProjection.actionRoundExpiresAt() : null,
-                declarationOpen ? gameProjection.declarationExpiresAt() : null,
+                declarationOpen ? declarationWindow.expiresAt() : null,
                 paradoxOpen ? gameProjection.paradoxResolutionExpiresAt() : null,
                 declarationOpen,
                 declarationOpen

@@ -20,7 +20,6 @@ public record GameProjection(
         LastRoundSummary lastRoundSummary,
         Integer currentRoundNumber,
         Instant actionRoundExpiresAt,
-        Instant declarationExpiresAt,
         Instant paradoxResolutionExpiresAt,
         long revision,
         Instant lastUpdatedAt,
@@ -33,29 +32,16 @@ public record GameProjection(
     }
 
     public GameProjection(UUID gameId, int eraNumber, Phase phase) {
-        this(gameId, eraNumber, phase, List.of(), null, null, null, null, null, 0, null, List.of(), null);
+        this(gameId, eraNumber, phase, List.of(), null, null, null, null, 0, null, List.of(), null);
     }
 
     public GameProjection(UUID gameId, int eraNumber, Phase phase, List<UUID> pendingParadoxIds) {
-        this(gameId, eraNumber, phase, pendingParadoxIds, null, null, null, null, null, 0, null, List.of(), null);
+        this(gameId, eraNumber, phase, pendingParadoxIds, null, null, null, null, 0, null, List.of(), null);
     }
 
     public GameProjection(
             UUID gameId, int eraNumber, Phase phase, List<UUID> pendingParadoxIds, LastRoundSummary lastRoundSummary) {
-        this(
-                gameId,
-                eraNumber,
-                phase,
-                pendingParadoxIds,
-                lastRoundSummary,
-                null,
-                null,
-                null,
-                null,
-                0,
-                null,
-                List.of(),
-                null);
+        this(gameId, eraNumber, phase, pendingParadoxIds, lastRoundSummary, null, null, null, 0, null, List.of(), null);
     }
 
     public GameProjection(
@@ -77,7 +63,6 @@ public record GameProjection(
                 lastRoundSummary,
                 currentRoundNumber,
                 actionRoundExpiresAt,
-                null,
                 paradoxResolutionExpiresAt,
                 revision,
                 lastUpdatedAt,
@@ -105,7 +90,6 @@ public record GameProjection(
                 lastRoundSummary,
                 currentRoundNumber,
                 actionRoundExpiresAt,
-                null,
                 paradoxResolutionExpiresAt,
                 revision,
                 lastUpdatedAt,
@@ -125,28 +109,10 @@ public record GameProjection(
                 lastRoundSummary,
                 currentRoundNumber,
                 actionRoundExpiresAt,
-                declarationExpiresAt,
                 paradoxResolutionExpiresAt,
                 revision,
                 lastUpdatedAt,
                 affectedEventIds,
                 threshold);
-    }
-
-    public GameProjection withDeclarationExpiresAt(Instant expiresAt) {
-        return new GameProjection(
-                gameId,
-                eraNumber,
-                phase,
-                pendingParadoxIds,
-                lastRoundSummary,
-                currentRoundNumber,
-                actionRoundExpiresAt,
-                expiresAt,
-                paradoxResolutionExpiresAt,
-                revision,
-                lastUpdatedAt,
-                affectedEventIds,
-                winScoreThreshold);
     }
 }
