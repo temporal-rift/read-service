@@ -134,6 +134,7 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                 paradoxOpen ? gameProjection.affectedEventIds() : List.of(),
                 paradoxOpen
                         ? eligibleResolutionCards(gameId, playerId, gameProjection.eraNumber(), mySubmissions)
+                                .orElse(null)
                         : null,
                 gameProjection.winScoreThreshold());
     }
@@ -152,17 +153,17 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                 .orElse(List.of());
     }
 
-    private List<ResolutionCardOffer.Card> eligibleResolutionCards(
+    /** Empty when no offer is open for the caller; an open offer may still list no cards. */
+    private Optional<List<ResolutionCardOffer.Card>> eligibleResolutionCards(
             UUID gameId, UUID playerId, int eraNumber, List<PlayerSubmission> mySubmissions) {
         var alreadyResolved = mySubmissions.stream()
                 .anyMatch(submission -> submission.window() == PlayerSubmission.SubmissionWindow.PARADOX_RESOLUTION);
         if (alreadyResolved) {
-            return null;
+            return Optional.empty();
         }
         return stores.resolutionCardOffers()
                 .findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, eraNumber)
-                .map(ResolutionCardOffer::cards)
-                .orElse(null);
+                .map(ResolutionCardOffer::cards);
     }
 
     private Result.SubmissionProgress progress(
