@@ -28,6 +28,8 @@ import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.Act
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ActivistDeclarationRecordedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardCategory;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CardPlayedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.DeclarationOptionsOfferedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.DeclarationWindowOpenedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ExposeBehaviorChangedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ExposeInfluenceSignature;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ExposeSignatureRevealedPayload;
@@ -86,6 +88,7 @@ import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.P
 import io.github.temporalrift.read.projection.application.ProjectionRepositories;
 import io.github.temporalrift.read.projection.domain.model.CarryOverState;
 import io.github.temporalrift.read.projection.domain.model.ChainStatus;
+import io.github.temporalrift.read.projection.domain.model.DeclarationOffer;
 import io.github.temporalrift.read.projection.domain.model.EventOutcome;
 import io.github.temporalrift.read.projection.domain.model.ExposeFact;
 import io.github.temporalrift.read.projection.domain.model.ForesightPreview;
@@ -169,6 +172,9 @@ class ProjectionEventApplierTest {
     PlayerSubmissionRepository playerSubmissions;
 
     @Mock
+    io.github.temporalrift.read.projection.domain.port.out.DeclarationOfferRepository declarationOffers;
+
+    @Mock
     io.github.temporalrift.read.projection.domain.port.out.ResolutionCardOfferRepository resolutionCardOffers;
 
     @Mock
@@ -197,6 +203,7 @@ class ProjectionEventApplierTest {
                 publicDeclarations,
                 exposeFacts,
                 playerSubmissions,
+                declarationOffers,
                 resolutionCardOffers,
                 terminalResults));
     }
@@ -2317,5 +2324,47 @@ class ProjectionEventApplierTest {
         then(revealedInfluenceIntel)
                 .should()
                 .upsertLatest(new RevealedInfluenceIntel(gameId, viewerId, 1, targetEventId, 2, List.of(), List.of()));
+    }
+
+    @Test
+    void applyDeclarationWindowOpened_recordsTheFirstCurrentEraDeadlineOnly() {
+        var expiresAt = Instant.parse("2030-01-01T10:00:30Z");
+        var projection = new GameProjection(gameId, 2, Phase.ERA_START);
+        given(gameProjections.findByGameIdForUpdate(gameId)).willReturn(Optional.of(projection));
+
+        applier.applyDeclarationWindowOpened(new DeclarationWindowOpenedPayload(gameId, 2, expiresAt));
+
+        then(gameProjections).should().save(projection.withDeclarationExpiresAt(expiresAt));
+    }
+
+    @Test
+    void applyDeclarationWindowOpened_redeliveryAndPriorEraDoNotChangeCurrentState() {
+        var projection = new GameProjection(gameId, 2, Phase.ERA_START)
+                .withDeclarationExpiresAt(Instant.parse("2030-01-01T10:00:30Z"));
+        given(gameProjections.findByGameIdForUpdate(gameId)).willReturn(Optional.of(projection));
+
+        applier.applyDeclarationWindowOpened(
+                new DeclarationWindowOpenedPayload(gameId, 2, Instant.parse("2030-01-01T10:00:45Z")));
+        applier.applyDeclarationWindowOpened(
+                new DeclarationWindowOpenedPayload(gameId, 1, Instant.parse("2030-01-01T10:00:15Z")));
+
+        then(gameProjections).should(never()).save(any());
+    }
+
+    @Test
+    void applyDeclarationOptionsOffered_keepsTheFirstRecipientScopedOffer() {
+        var playerId = UUID.randomUUID();
+        var projection = new GameProjection(gameId, 2, Phase.ERA_START)
+                .withDeclarationExpiresAt(Instant.parse("2030-01-01T10:00:30Z"));
+        given(gameProjections.findByGameIdForUpdate(gameId)).willReturn(Optional.of(projection));
+        given(declarationOffers.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2)).willReturn(Optional.empty());
+
+        applier.applyDeclarationOptionsOffered(new DeclarationOptionsOfferedPayload(
+                gameId, 2, playerId, List.of(ActivistDeclarationMode.RALLY)));
+
+        then(declarationOffers)
+                .should()
+                .saveIfAbsent(new DeclarationOffer(gameId, playerId, 2, List.of(DeclarationOffer.Mode.RALLY)));
+        then(gameProjections).should().save(projection);
     }
 }

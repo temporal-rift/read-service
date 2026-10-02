@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import io.github.temporalrift.read.projection.application.ProjectionRepositories;
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
+import io.github.temporalrift.read.projection.domain.model.DeclarationOffer;
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 import io.github.temporalrift.read.projection.domain.model.GameProjection;
 import io.github.temporalrift.read.projection.domain.model.Phase;
@@ -51,6 +52,8 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
         var inActionRound = isActionRound(gameProjection.phase());
         var paradoxOpen = gameProjection.phase() == Phase.PARADOX_RESOLUTION
                 && !gameProjection.pendingParadoxIds().isEmpty();
+        var declarationOpen = gameProjection.phase() == Phase.ERA_START
+                && gameProjection.declarationExpiresAt() != null;
         var mySubmissions = duringOpenEra(
                 gameProjection,
                 era -> stores.playerSubmissions().findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, era),
@@ -87,10 +90,15 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                         ? null
                         : playerGameState.pendingHandSelection().expiresAt(),
                 inActionRound ? gameProjection.actionRoundExpiresAt() : null,
+                declarationOpen ? gameProjection.declarationExpiresAt() : null,
                 paradoxOpen ? gameProjection.paradoxResolutionExpiresAt() : null,
-                // No owner event marks the declaration window; it opens once hands are dealt (ERA_START)
-                // and closes when Round 1 starts. This approximation is documented on the response.
-                gameProjection.phase() == Phase.ERA_START,
+                declarationOpen,
+                declarationOpen
+                        ? stores.declarationOffers()
+                                .findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, gameProjection.eraNumber())
+                                .map(DeclarationOffer::eligibleModes)
+                                .orElse(List.of())
+                        : null,
                 paradoxOpen,
                 paradoxOpen ? gameProjection.pendingParadoxIds() : List.of(),
                 duringOpenEra(

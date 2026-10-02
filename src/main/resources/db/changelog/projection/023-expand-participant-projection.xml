@@ -6,6 +6,7 @@
   <changeSet id="023-expand-participant-projection" author="read-service">
     <addColumn tableName="game_projection">
       <column name="win_score_threshold" type="INT"/>
+      <column name="declaration_expires_at" type="TIMESTAMP WITH TIME ZONE"/>
     </addColumn>
     <createTable tableName="game_projection_affected_event">
       <column name="game_projection_id" type="UUID"><constraints nullable="false"/></column>
@@ -15,5 +16,14 @@
         baseColumnNames="game_projection_id" referencedTableName="game_projection"
         referencedColumnNames="game_id" constraintName="fk_game_projection_affected_event_game_projection"
         onDelete="CASCADE"/>
+    <createTable tableName="declaration_offer">
+      <column name="id" type="UUID"><constraints primaryKey="true" nullable="false"/></column>
+      <column name="game_id" type="UUID"><constraints nullable="false"/></column>
+      <column name="player_id" type="UUID"><constraints nullable="false"/></column>
+      <column name="era_number" type="INT"><constraints nullable="false"/></column>
+      <column name="eligible_modes" type="JSONB"><constraints nullable="false"/></column>
+    </createTable>
+    <addUniqueConstraint tableName="declaration_offer" columnNames="game_id, player_id, era_number"
+        constraintName="uq_declaration_offer_identity"/>
   </changeSet>
 </databaseChangeLog>
