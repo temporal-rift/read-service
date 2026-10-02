@@ -20,8 +20,7 @@ class JpaDeclarationOfferAdapter implements DeclarationOfferRepository {
     }
 
     @Override
-    public Optional<DeclarationOffer> findByGameIdAndPlayerIdAndEraNumber(
-            UUID gameId, UUID playerId, int eraNumber) {
+    public Optional<DeclarationOffer> findByGameIdAndPlayerIdAndEraNumber(UUID gameId, UUID playerId, int eraNumber) {
         return repository
                 .findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, eraNumber)
                 .map(entity -> entity.toDomain(mapper));
@@ -29,7 +28,8 @@ class JpaDeclarationOfferAdapter implements DeclarationOfferRepository {
 
     @Override
     public void saveIfAbsent(DeclarationOffer offer) {
-        if (repository.findByGameIdAndPlayerIdAndEraNumber(offer.gameId(), offer.playerId(), offer.eraNumber())
+        if (repository
+                .findByGameIdAndPlayerIdAndEraNumber(offer.gameId(), offer.playerId(), offer.eraNumber())
                 .isEmpty()) {
             repository.save(DeclarationOfferEntity.fromDomain(UUID.randomUUID(), offer, mapper));
         }

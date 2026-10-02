@@ -2357,10 +2357,11 @@ class ProjectionEventApplierTest {
         var projection = new GameProjection(gameId, 2, Phase.ERA_START)
                 .withDeclarationExpiresAt(Instant.parse("2030-01-01T10:00:30Z"));
         given(gameProjections.findByGameIdForUpdate(gameId)).willReturn(Optional.of(projection));
-        given(declarationOffers.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2)).willReturn(Optional.empty());
+        given(declarationOffers.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(Optional.empty());
 
-        applier.applyDeclarationOptionsOffered(new DeclarationOptionsOfferedPayload(
-                gameId, 2, playerId, List.of(ActivistDeclarationMode.RALLY)));
+        applier.applyDeclarationOptionsOffered(
+                new DeclarationOptionsOfferedPayload(gameId, 2, playerId, List.of(ActivistDeclarationMode.RALLY)));
 
         then(declarationOffers)
                 .should()

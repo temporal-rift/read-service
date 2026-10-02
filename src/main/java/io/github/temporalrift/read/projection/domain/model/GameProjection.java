@@ -42,7 +42,20 @@ public record GameProjection(
 
     public GameProjection(
             UUID gameId, int eraNumber, Phase phase, List<UUID> pendingParadoxIds, LastRoundSummary lastRoundSummary) {
-        this(gameId, eraNumber, phase, pendingParadoxIds, lastRoundSummary, null, null, null, null, 0, null, List.of(), null);
+        this(
+                gameId,
+                eraNumber,
+                phase,
+                pendingParadoxIds,
+                lastRoundSummary,
+                null,
+                null,
+                null,
+                null,
+                0,
+                null,
+                List.of(),
+                null);
     }
 
     public GameProjection(

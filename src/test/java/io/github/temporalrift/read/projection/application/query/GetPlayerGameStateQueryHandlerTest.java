@@ -534,12 +534,13 @@ class GetPlayerGameStateQueryHandlerTest {
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
                 .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ACTIVISTS", List.of())));
         given(gameProjections.findByGameId(gameId))
-                .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ERA_START).withDeclarationExpiresAt(expiresAt)));
+                .willReturn(Optional.of(
+                        new GameProjection(gameId, 2, Phase.ERA_START).withDeclarationExpiresAt(expiresAt)));
         given(gamePlayers.findByGameId(gameId)).willReturn(List.of(new GamePlayer(playerId, 0, true, null)));
         given(gameActiveEvents.findByGameId(gameId)).willReturn(List.of());
         given(declarationOffers.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
-                .willReturn(Optional.of(new DeclarationOffer(
-                        gameId, playerId, 2, List.of(DeclarationOffer.Mode.RALLY))));
+                .willReturn(
+                        Optional.of(new DeclarationOffer(gameId, playerId, 2, List.of(DeclarationOffer.Mode.RALLY))));
 
         var result = handler.get(gameId, playerId);
 
