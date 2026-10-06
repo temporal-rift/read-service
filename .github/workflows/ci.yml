@@ -75,7 +75,7 @@ jobs:
       - name: Snyk scan
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: snyk test -d --file=pom.xml --package-manager=maven --fail-on=upgradable --severity-threshold=high --org=temporal-rift
+        run: snyk test --file=pom.xml --package-manager=maven --fail-on=upgradable --severity-threshold=high --org=temporal-rift
 
   build-test-analyze:
     needs: format-check
