@@ -38,7 +38,7 @@ import io.github.temporalrift.read.shared.infrastructure.config.PlayerAuthentica
 /**
  * The same ordered records, delivered through Kafka to the production configuration and through
  * {@code simulationEventDelivery} to the {@code in-memory} profile, must leave every seat reading an identical
- * game state after each single record.
+ * game state after each single fact.
  */
 @ReadServiceIntegrationTest
 class InMemoryEquivalenceIT {
@@ -75,15 +75,15 @@ class InMemoryEquivalenceIT {
                     .apply(springSecurity())
                     .build();
 
-            for (var record : records) {
-                publishToKafka(record);
-                delivery.accept(record.asDeliveredRecord(objectMapper));
-                if (record.awaitsClaim()) {
-                    awaitClaim(record);
+            for (var fact : records) {
+                publishToKafka(fact);
+                delivery.accept(fact.asDeliveredRecord(objectMapper));
+                if (fact.awaitsClaim()) {
+                    awaitClaim(fact);
                 }
                 for (var seat : List.of(player1, player2)) {
                     assertThat(state(inMemoryMvc, gameId, seat))
-                            .as("state of %s after %s", seat, record.eventType())
+                            .as("state of %s after %s", seat, fact.eventType())
                             .isEqualTo(state(productionMvc, gameId, seat));
                 }
                 assertThat(state(inMemoryMvc, gameId, stranger)).isEqualTo(state(productionMvc, gameId, stranger));
@@ -113,21 +113,21 @@ class InMemoryEquivalenceIT {
                         "--spring.security.oauth2.resourceserver.jwt.jwk-set-uri=https://host-issuer.invalid/jwks");
     }
 
-    private void publishToKafka(Fact record) {
+    private void publishToKafka(Fact fact) {
         var producerRecord = new ProducerRecord<Object, Object>(
-                record.topic(), null, record.gameId().toString(), record.payload(objectMapper));
+                fact.topic(), null, fact.gameId().toString(), fact.payload(objectMapper));
         HEADER_MAPPER.fromHeaders(
-                new MessageHeaders(new HashMap<String, Object>(record.headers())), producerRecord.headers());
+                new MessageHeaders(new HashMap<String, Object>(fact.headers())), producerRecord.headers());
         kafkaTemplate.send(producerRecord).join();
     }
 
-    private void awaitClaim(Fact record) {
-        var consumer = GAME_EVENTS.equals(record.topic()) ? "projection.game-events" : "projection.timeline-events";
+    private void awaitClaim(Fact fact) {
+        var consumer = GAME_EVENTS.equals(fact.topic()) ? "projection.game-events" : "projection.timeline-events";
         await().atMost(Duration.ofSeconds(30))
                 .untilAsserted(() -> assertThat(jdbcTemplate.queryForObject(
                                 "SELECT COUNT(*) FROM processed_events WHERE event_id = ? AND consumer = ?",
                                 Integer.class,
-                                record.eventId(),
+                                fact.eventId(),
                                 consumer))
                         .isEqualTo(1));
     }

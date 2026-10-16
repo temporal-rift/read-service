@@ -24,13 +24,13 @@ import org.springframework.util.ClassUtils;
 import org.springframework.util.ReflectionUtils;
 
 /**
- * Inbound transport of the {@code in-memory} profile, in place of Kafka. A record is a map of JDK types only:
+ * Inbound transport of the {@code in-memory} profile, in place of Kafka. A deliveredRecord is a map of JDK types only:
  * {@code topic}, {@code key} (strings), {@code headers} (a string-to-string map) and {@code payload} (the JSON
  * bytes). Delivery invokes, on the transactional bean, the unchanged listener method of every consumer group
  * subscribed to the topic and returns once their transactions have committed.
  *
  * <p>Retries and dead-lettering are not simulated: a failing group rolls back and its failure is reported to the
- * caller after the remaining groups have handled the record.
+ * caller after the remaining groups have handled the deliveredRecord.
  */
 @Component("simulationEventDelivery")
 @Profile("in-memory")
@@ -79,9 +79,9 @@ class SimulationEventDelivery implements Consumer<Map<String, Object>>, SmartIni
     }
 
     @Override
-    public void accept(Map<String, Object> record) {
-        var topic = require(record, "topic", String.class);
-        var message = message(topic, record);
+    public void accept(Map<String, Object> deliveredRecord) {
+        var topic = require(deliveredRecord, "topic", String.class);
+        var message = message(topic, deliveredRecord);
         var failures = new ArrayList<Throwable>();
         for (var endpoint :
                 endpointsByTopicAndGroup.getOrDefault(topic, Map.of()).values()) {
@@ -94,28 +94,29 @@ class SimulationEventDelivery implements Consumer<Map<String, Object>>, SmartIni
             }
         }
         if (!failures.isEmpty()) {
-            var failure = new IllegalStateException("Handling a " + topic + " record failed", failures.getFirst());
+            var failure =
+                    new IllegalStateException("Handling a " + topic + " deliveredRecord failed", failures.getFirst());
             failures.stream().skip(1).forEach(failure::addSuppressed);
             throw failure;
         }
     }
 
-    private static Message<Object> message(String topic, Map<String, Object> record) {
+    private static Message<Object> message(String topic, Map<String, Object> deliveredRecord) {
         var headers = new HashMap<String, Object>();
-        if (record.get("headers") instanceof Map<?, ?> recordHeaders) {
+        if (deliveredRecord.get("headers") instanceof Map<?, ?> recordHeaders) {
             recordHeaders.forEach((name, value) -> headers.put(String.valueOf(name), value));
         }
         headers.put(KafkaHeaders.RECEIVED_TOPIC, topic);
-        if (record.get("key") instanceof String key) {
+        if (deliveredRecord.get("key") instanceof String key) {
             headers.put(KafkaHeaders.RECEIVED_KEY, key);
         }
-        return MessageBuilder.<Object>withPayload(require(record, "payload", byte[].class))
+        return MessageBuilder.<Object>withPayload(require(deliveredRecord, "payload", byte[].class))
                 .copyHeaders(headers)
                 .build();
     }
 
-    private static <T> T require(Map<String, Object> record, String name, Class<T> type) {
-        var value = record.get(name);
+    private static <T> T require(Map<String, Object> deliveredRecord, String name, Class<T> type) {
+        var value = deliveredRecord.get(name);
         if (!type.isInstance(value)) {
             throw new IllegalArgumentException(
                     "Record entry '" + name + "' must be a " + type.getSimpleName() + " but was " + value);

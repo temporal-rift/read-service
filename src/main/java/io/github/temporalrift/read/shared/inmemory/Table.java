@@ -206,7 +206,7 @@ public final class Table<P, V> {
                 partitionRows.put(key, new Row<>((V) change.value(), existing == null ? 0 : existing.version() + 1));
             }
             if (partitionRows.isEmpty()) {
-                committed.remove((P) partition);
+                committed.remove(partition);
             }
         }));
     }

@@ -208,7 +208,7 @@ class InMemoryTransactionManagerTest {
     private static void await(CountDownLatch latch) {
         try {
             latch.await(5, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
+        } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
         }
     }
