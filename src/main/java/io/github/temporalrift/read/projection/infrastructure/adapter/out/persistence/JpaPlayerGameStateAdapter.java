@@ -3,12 +3,14 @@ package io.github.temporalrift.read.projection.infrastructure.adapter.out.persis
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import io.github.temporalrift.read.projection.domain.model.PlayerGameState;
 import io.github.temporalrift.read.projection.domain.port.out.PlayerGameStateRepository;
 
 @Repository
+@Profile("!in-memory")
 class JpaPlayerGameStateAdapter implements PlayerGameStateRepository {
 
     private final PlayerGameStateJpaRepository repository;

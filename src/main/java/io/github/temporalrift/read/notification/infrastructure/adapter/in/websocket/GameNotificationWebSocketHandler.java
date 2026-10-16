@@ -7,41 +7,31 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
-import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
-import tools.jackson.databind.ObjectMapper;
 
 import io.github.temporalrift.read.notification.application.port.in.ConnectNotificationSessionUseCase;
-import io.github.temporalrift.read.notification.infrastructure.adapter.out.websocket.WebSocketNotificationDeliveryAdapter;
-import io.github.temporalrift.read.notification.infrastructure.config.NotificationWebSocketProperties;
 import io.github.temporalrift.read.shared.CurrentPlayer;
 
 @Component
 public class GameNotificationWebSocketHandler extends TextWebSocketHandler {
 
     private final ConnectNotificationSessionUseCase sessions;
-    private final ObjectMapper objectMapper;
-    private final NotificationWebSocketProperties properties;
+    private final NotificationDeliveryFactory deliveries;
 
     GameNotificationWebSocketHandler(
-            ConnectNotificationSessionUseCase sessions,
-            ObjectMapper objectMapper,
-            NotificationWebSocketProperties properties) {
+            ConnectNotificationSessionUseCase sessions, NotificationDeliveryFactory deliveries) {
         this.sessions = sessions;
-        this.objectMapper = objectMapper;
-        this.properties = properties;
+        this.deliveries = deliveries;
     }
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws IOException {
-        var decoratedSession = new ConcurrentWebSocketSessionDecorator(
-                session, properties.sendTimeLimitMillis(), properties.sendBufferSizeBytes());
         try {
             sessions.connect(
                     session.getId(),
                     gameId(session),
                     CurrentPlayer.id(session.getPrincipal()),
-                    new WebSocketNotificationDeliveryAdapter(decoratedSession, objectMapper));
+                    deliveries.open(session));
         } catch (RuntimeException _) {
             session.close(CloseStatus.POLICY_VIOLATION);
         }

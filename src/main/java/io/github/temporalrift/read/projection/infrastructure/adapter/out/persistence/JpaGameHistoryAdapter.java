@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 import tools.jackson.databind.ObjectMapper;
 
@@ -11,6 +12,7 @@ import io.github.temporalrift.read.projection.domain.model.GameHistoryProjection
 import io.github.temporalrift.read.projection.domain.port.out.GameHistoryRepository;
 
 @Repository
+@Profile("!in-memory")
 class JpaGameHistoryAdapter implements GameHistoryRepository {
 
     private final GameHistoryProjectionJpaRepository repository;

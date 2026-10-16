@@ -4,12 +4,14 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import io.github.temporalrift.read.projection.domain.model.GameProjection;
 import io.github.temporalrift.read.projection.domain.port.out.GameProjectionRepository;
 
 @Repository
+@Profile("!in-memory")
 class JpaGameProjectionAdapter implements GameProjectionRepository {
 
     private final GameProjectionJpaRepository repository;

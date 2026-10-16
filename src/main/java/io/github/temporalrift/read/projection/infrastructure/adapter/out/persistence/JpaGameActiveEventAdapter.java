@@ -3,12 +3,14 @@ package io.github.temporalrift.read.projection.infrastructure.adapter.out.persis
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRepository;
 
 @Repository
+@Profile("!in-memory")
 class JpaGameActiveEventAdapter implements GameActiveEventRepository {
 
     private final GameActiveEventJpaRepository repository;
