@@ -1,5 +1,7 @@
 package io.github.temporalrift.read.shared.inmemory;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -15,9 +17,16 @@ public class InMemoryDatabase {
 
     private final ReentrantReadWriteLock storeLock = new ReentrantReadWriteLock();
     private final RowLocks locks = new RowLocks();
+    private final Map<String, Table<?, ?>> tables = new HashMap<>();
 
-    public <P, V> Table<P, V> table(String name, boolean versioned) {
-        return new Table<>(this, name, versioned);
+    /** Returns the one table of that name, so two adapters naming the same table share its rows. */
+    @SuppressWarnings("unchecked")
+    public synchronized <P, V> Table<P, V> table(String name, boolean versioned) {
+        var existing = tables.computeIfAbsent(name, n -> new Table<>(this, n, versioned));
+        if (existing.isVersioned() != versioned) {
+            throw new IllegalStateException("Table " + name + " is already defined with versioned=" + !versioned);
+        }
+        return (Table<P, V>) existing;
     }
 
     <R> R inTransaction(Function<TransactionState, R> operation) {

@@ -12,6 +12,7 @@ final class TransactionState {
     private final Map<Table<?, ?>, Map<Object, Map<RowKey, Pending<?>>>> pending = new LinkedHashMap<>();
     private final Map<Table<?, ?>, Map<Object, Map<RowKey, Long>>> observedVersions = new HashMap<>();
     private final List<Object> heldLocks = new ArrayList<>();
+    private final Thread thread = Thread.currentThread();
     private boolean rollbackOnly;
 
     <V> Map<RowKey, Pending<V>> pendingFor(Table<?, V> table, Object partition) {
@@ -33,6 +34,10 @@ final class TransactionState {
 
     List<Object> heldLocks() {
         return heldLocks;
+    }
+
+    Thread thread() {
+        return thread;
     }
 
     boolean isRollbackOnly() {

@@ -122,6 +122,15 @@ class SimulationEventDeliveryTest {
         assertThat(HANDLED).isEmpty();
     }
 
+    @Test
+    void aKeyThatIsNotAStringIsRejectedBeforeAnyHandlerRuns() {
+        var wrongKey = Map.<String, Object>of("topic", "game.events", "key", 42, "payload", new byte[0]);
+
+        assertThatThrownBy(() -> delivery.accept(wrongKey)).isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(HANDLED).isEmpty();
+    }
+
     private static Map<String, Object> recordOn(String topic, String body) {
         return Map.of(
                 "topic",

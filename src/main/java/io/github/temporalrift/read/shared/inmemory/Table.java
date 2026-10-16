@@ -33,6 +33,10 @@ public final class Table<P, V> {
         this.versioned = versioned;
     }
 
+    boolean isVersioned() {
+        return versioned;
+    }
+
     public Optional<V> find(P partition, RowKey key) {
         return database.inTransaction(tx -> visibleRows(tx, partition).stream()
                 .filter(entry -> entry.key().equals(key))
