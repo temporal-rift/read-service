@@ -1,0 +1,25 @@
+# Runs read-service with no PostgreSQL and no Kafka: every driven port is backed by an in-memory adapter and records
+# arrive through the simulationEventDelivery bean. Hosts embedding the application set server.port and the JWT
+# issuer themselves.
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceTransactionManagerAutoConfiguration
+      - org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration
+      - org.springframework.boot.data.jpa.autoconfigure.DataJpaRepositoriesAutoConfiguration
+      - org.springframework.boot.liquibase.autoconfigure.LiquibaseAutoConfiguration
+      - org.springframework.boot.kafka.autoconfigure.KafkaAutoConfiguration
+
+notification:
+  websocket:
+    # A config server normally supplies these; the in-memory profile must start without one.
+    allowed-origins: "*"
+    send-time-limit: 10s
+    send-buffer-size: 512KB
+    max-pending-messages: 256
+
+management:
+  tracing:
+    sampling:
+      probability: 0.0

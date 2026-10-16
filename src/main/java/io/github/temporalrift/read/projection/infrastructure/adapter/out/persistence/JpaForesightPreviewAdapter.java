@@ -3,6 +3,7 @@ package io.github.temporalrift.read.projection.infrastructure.adapter.out.persis
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 import tools.jackson.databind.ObjectMapper;
 
@@ -10,6 +11,7 @@ import io.github.temporalrift.read.projection.domain.model.ForesightPreview;
 import io.github.temporalrift.read.projection.domain.port.out.ForesightPreviewRepository;
 
 @Repository
+@Profile("!in-memory")
 class JpaForesightPreviewAdapter implements ForesightPreviewRepository {
 
     private final ForesightPreviewJpaRepository repository;

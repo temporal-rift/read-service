@@ -3,12 +3,14 @@ package io.github.temporalrift.read.projection.infrastructure.adapter.out.persis
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import io.github.temporalrift.read.projection.domain.model.GameChain;
 import io.github.temporalrift.read.projection.domain.port.out.GameChainRepository;
 
 @Repository
+@Profile("!in-memory")
 class JpaGameChainAdapter implements GameChainRepository {
 
     private final GameChainJpaRepository repository;

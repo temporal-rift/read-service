@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 import tools.jackson.databind.ObjectMapper;
 
@@ -11,6 +12,7 @@ import io.github.temporalrift.read.projection.domain.model.DetectedParadox;
 import io.github.temporalrift.read.projection.domain.port.out.DetectedParadoxRepository;
 
 @Repository
+@Profile("!in-memory")
 class JpaDetectedParadoxAdapter implements DetectedParadoxRepository {
     private final DetectedParadoxJpaRepository repository;
     private final ObjectMapper objectMapper;

@@ -4,12 +4,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import io.github.temporalrift.read.projection.domain.model.TerminalResult;
 import io.github.temporalrift.read.projection.domain.port.out.TerminalResultRepository;
 
 @Repository
+@Profile("!in-memory")
 class JpaTerminalResultAdapter implements TerminalResultRepository {
 
     private final TerminalResultJpaRepository results;
