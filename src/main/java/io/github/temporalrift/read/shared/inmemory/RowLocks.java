@@ -12,7 +12,7 @@ final class RowLocks {
 
     synchronized void acquire(TransactionState transaction, Object lockKey) {
         try {
-            while (owners.get(lockKey) != null && owners.get(lockKey) != transaction) {
+            for (var owner = owners.get(lockKey); owner != null && owner != transaction; owner = owners.get(lockKey)) {
                 wait();
             }
         } catch (InterruptedException e) {

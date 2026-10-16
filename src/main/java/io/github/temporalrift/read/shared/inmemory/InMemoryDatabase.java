@@ -60,8 +60,8 @@ public class InMemoryDatabase {
     void commit(TransactionState transaction) {
         storeLock.writeLock().lock();
         try {
-            transaction.allPending().forEach((table, writes) -> table.validate(writes));
-            transaction.allPending().forEach((table, writes) -> table.apply(writes));
+            transaction.allPending().forEach(Table::validate);
+            transaction.allPending().forEach(Table::apply);
         } finally {
             storeLock.writeLock().unlock();
         }

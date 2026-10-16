@@ -53,28 +53,28 @@ class SimulationEventDeliveryTest {
 
     @Test
     void everyGroupSubscribedToTheTopicHandlesTheRecordOnce() {
-        delivery.accept(record("game.events", "fine"));
+        delivery.accept(recordOn("game.events", "fine"));
 
         assertThat(HANDLED).containsExactlyInAnyOrder("first:fine", "second:fine", "both-game:fine");
     }
 
     @Test
     void aGroupOnAnotherTopicIsNotInvoked() {
-        delivery.accept(record("timeline.events", "fine"));
+        delivery.accept(recordOn("timeline.events", "fine"));
 
         assertThat(HANDLED).containsExactly("both-timeline:fine");
     }
 
     @Test
     void recordsForOtherTopicsAreIgnored() {
-        delivery.accept(record("other.events", "fine"));
+        delivery.accept(recordOn("other.events", "fine"));
 
         assertThat(HANDLED).isEmpty();
     }
 
     @Test
     void headersKeyAndPayloadReachTheHandlerAsTheyWouldFromKafka() {
-        delivery.accept(record("timeline.events", "payload"));
+        delivery.accept(recordOn("timeline.events", "payload"));
 
         assertThat(HANDLED).containsExactly("both-timeline:payload");
         assertThat(BothTopicsListener.lastHeaders)
@@ -85,7 +85,8 @@ class SimulationEventDeliveryTest {
 
     @Test
     void aFailingGroupDoesNotStarveTheOthersAndTheCallerSeesTheFailure() {
-        assertThatThrownBy(() -> delivery.accept(record("game.events", "fail")))
+        var failing = recordOn("game.events", "fail");
+        assertThatThrownBy(() -> delivery.accept(failing))
                 .isInstanceOf(IllegalStateException.class)
                 .hasRootCauseMessage("first failed");
 
@@ -94,35 +95,34 @@ class SimulationEventDeliveryTest {
 
     @Test
     void aFailingHandlerRollsItsClaimBackSoARedeliveryRunsItAgain() {
-        assertThatThrownBy(() -> delivery.accept(record("game.events", "fail")))
-                .isInstanceOf(IllegalStateException.class);
+        var failing = recordOn("game.events", "fail");
+        assertThatThrownBy(() -> delivery.accept(failing)).isInstanceOf(IllegalStateException.class);
         HANDLED.clear();
 
-        assertThatThrownBy(() -> delivery.accept(record("game.events", "fail")))
-                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> delivery.accept(failing)).isInstanceOf(IllegalStateException.class);
 
         assertThat(HANDLED).containsExactly("first:fail");
     }
 
     @Test
     void aRedeliveredRecordIsNotHandledASecondTimeByTheSameGroup() {
-        delivery.accept(record("game.events", "fine"));
+        delivery.accept(recordOn("game.events", "fine"));
         HANDLED.clear();
 
-        delivery.accept(record("game.events", "fine"));
+        delivery.accept(recordOn("game.events", "fine"));
 
         assertThat(HANDLED).isEmpty();
     }
 
     @Test
     void aMalformedRecordIsRejectedBeforeAnyHandlerRuns() {
-        assertThatThrownBy(() -> delivery.accept(Map.of("topic", "game.events")))
-                .isInstanceOf(IllegalArgumentException.class);
+        var malformed = Map.<String, Object>of("topic", "game.events");
+        assertThatThrownBy(() -> delivery.accept(malformed)).isInstanceOf(IllegalArgumentException.class);
 
         assertThat(HANDLED).isEmpty();
     }
 
-    private static Map<String, Object> record(String topic, String body) {
+    private static Map<String, Object> recordOn(String topic, String body) {
         return Map.of(
                 "topic",
                 topic,

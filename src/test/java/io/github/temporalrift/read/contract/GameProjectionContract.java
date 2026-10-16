@@ -93,7 +93,7 @@ public abstract class GameProjectionContract extends PortContract {
         try {
             second.get(1, TimeUnit.SECONDS);
             throw new AssertionError("The second transaction should still be waiting for the lock");
-        } catch (TimeoutException expected) {
+        } catch (TimeoutException _) {
             release.countDown();
         }
         second.get(10, TimeUnit.SECONDS);
@@ -127,7 +127,7 @@ public abstract class GameProjectionContract extends PortContract {
     private static void await(CountDownLatch latch) {
         try {
             latch.await(15, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
+        } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
         }
     }
