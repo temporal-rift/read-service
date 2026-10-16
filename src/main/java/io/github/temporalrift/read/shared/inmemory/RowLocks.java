@@ -9,18 +9,36 @@ import org.springframework.dao.CannotAcquireLockException;
 final class RowLocks {
 
     private final Map<Object, TransactionState> owners = new HashMap<>();
+    private final Map<TransactionState, TransactionState> waitingFor = new HashMap<>();
 
     synchronized void acquire(TransactionState transaction, Object lockKey) {
         try {
             while (heldByAnother(lockKey, transaction)) {
+                var owner = owners.get(lockKey);
+                failIfDeadlocked(transaction, owner, lockKey);
+                waitingFor.put(transaction, owner);
                 wait();
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new CannotAcquireLockException("Interrupted while waiting for row lock " + lockKey, e);
+        } finally {
+            waitingFor.remove(transaction);
         }
         if (owners.put(lockKey, transaction) == null) {
             transaction.heldLocks().add(lockKey);
+        }
+    }
+
+    /**
+     * Fails the requester when waiting could never end, as PostgreSQL aborts a deadlock victim: the owner
+     * (transitively) waits for this transaction, or runs on this very thread and so cannot finish while it blocks.
+     */
+    private void failIfDeadlocked(TransactionState transaction, TransactionState owner, Object lockKey) {
+        for (var holder = owner; holder != null; holder = waitingFor.get(holder)) {
+            if (holder == transaction || holder.thread() == transaction.thread()) {
+                throw new CannotAcquireLockException("Deadlock detected while waiting for row lock " + lockKey);
+            }
         }
     }
 

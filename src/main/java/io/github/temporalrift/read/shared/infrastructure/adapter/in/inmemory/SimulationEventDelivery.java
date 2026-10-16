@@ -89,13 +89,12 @@ class SimulationEventDelivery implements Consumer<Map<String, Object>>, SmartIni
                 endpoint.method().invoke(endpoint.bean(), message);
             } catch (InvocationTargetException e) {
                 failures.add(e.getCause());
-            } catch (IllegalAccessException e) {
-                throw new IllegalStateException("Cannot invoke the listener of group " + endpoint.groupId(), e);
+            } catch (IllegalAccessException | RuntimeException e) {
+                failures.add(e);
             }
         }
         if (!failures.isEmpty()) {
-            var failure =
-                    new IllegalStateException("Handling a " + topic + " deliveredRecord failed", failures.getFirst());
+            var failure = new IllegalStateException("Handling a " + topic + " record failed", failures.getFirst());
             failures.stream().skip(1).forEach(failure::addSuppressed);
             throw failure;
         }
@@ -107,8 +106,8 @@ class SimulationEventDelivery implements Consumer<Map<String, Object>>, SmartIni
             recordHeaders.forEach((name, value) -> headers.put(String.valueOf(name), value));
         }
         headers.put(KafkaHeaders.RECEIVED_TOPIC, topic);
-        if (deliveredRecord.get("key") instanceof String key) {
-            headers.put(KafkaHeaders.RECEIVED_KEY, key);
+        if (deliveredRecord.get("key") != null) {
+            headers.put(KafkaHeaders.RECEIVED_KEY, require(deliveredRecord, "key", String.class));
         }
         return MessageBuilder.<Object>withPayload(require(deliveredRecord, "payload", byte[].class))
                 .copyHeaders(headers)

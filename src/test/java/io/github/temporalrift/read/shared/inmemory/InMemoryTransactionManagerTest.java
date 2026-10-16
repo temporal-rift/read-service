@@ -12,6 +12,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.transaction.IllegalTransactionStateException;
@@ -194,6 +195,56 @@ class InMemoryTransactionManagerTest {
         rows.removePartition(game);
 
         assertThat(rows.list(game)).isEmpty();
+    }
+
+    @Test
+    void transactionsLockingRowsInOppositeOrderFailOneInsteadOfHangingForever() throws Exception {
+        var other = RowKey.of("other");
+        var firstHolds = new CountDownLatch(1);
+        var secondHolds = new CountDownLatch(1);
+        var first = CompletableFuture.runAsync(() -> transaction.executeWithoutResult(status -> {
+            rows.lock(game, ROW);
+            firstHolds.countDown();
+            await(secondHolds);
+            rows.lock(game, other);
+        }));
+        var second = CompletableFuture.runAsync(() -> transaction.executeWithoutResult(status -> {
+            await(firstHolds);
+            rows.lock(game, other);
+            secondHolds.countDown();
+            rows.lock(game, ROW);
+        }));
+
+        var outcomes = new ArrayList<Throwable>();
+        for (var future : List.of(first, second)) {
+            try {
+                future.get(10, TimeUnit.SECONDS);
+            } catch (ExecutionException e) {
+                outcomes.add(e.getCause());
+            }
+        }
+
+        assertThat(outcomes).hasSize(1);
+        assertThat(outcomes.getFirst()).isInstanceOf(CannotAcquireLockException.class);
+    }
+
+    @Test
+    void aRequiresNewTransactionLockingARowHeldByItsSuspendedOuterTransactionFailsInsteadOfHanging() {
+        var inner = new TransactionTemplate(transaction.getTransactionManager());
+        inner.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+        assertThatThrownBy(() -> transaction.executeWithoutResult(status -> {
+                    rows.lock(game, ROW);
+                    inner.executeWithoutResult(innerStatus -> rows.lock(game, ROW));
+                }))
+                .isInstanceOf(CannotAcquireLockException.class);
+    }
+
+    @Test
+    void aTableNameIsOneTableAndCannotChangeItsVersioning() {
+        assertThat(database.<UUID, String>table("rows", false)).isSameAs(rows);
+
+        assertThatThrownBy(() -> database.table("rows", true)).isInstanceOf(IllegalStateException.class);
     }
 
     private static void register(List<String> events, String name) {
