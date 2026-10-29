@@ -37,6 +37,7 @@ class ExecutionRepositoryAdapter implements ExecutionRepository {
 
     private static final String CASE_KEY = "caseKey";
     private static final String GAME_ID = "gameId";
+    private static final String REVISION = "revision";
 
     private final JdbcClient jdbc;
 
@@ -72,7 +73,7 @@ class ExecutionRepositoryAdapter implements ExecutionRepository {
                 .param("rulesDigest", context.rulesDigest())
                 .param("configuredLogicalTime", utc(context.logicalTime()))
                 .param("logicalTime", utc(execution.logicalTime()))
-                .param("revision", execution.revision())
+                .param(REVISION, execution.revision())
                 .update();
         if (inserted == 0) {
             return false;
@@ -93,7 +94,7 @@ class ExecutionRepositoryAdapter implements ExecutionRepository {
     public void update(Execution execution) {
         jdbc.sql("UPDATE simulation_execution SET logical_time = :logicalTime, revision = :revision WHERE id = 1")
                 .param("logicalTime", utc(execution.logicalTime()))
-                .param("revision", execution.revision())
+                .param(REVISION, execution.revision())
                 .update();
     }
 
@@ -167,7 +168,7 @@ class ExecutionRepositoryAdapter implements ExecutionRepository {
                 instant(rs, "configured_logical_time"),
                 seats());
         return new Execution(
-                context, rs.getLong("revision"), instant(rs, "logical_time"), rs.getObject("game_id", UUID.class));
+                context, rs.getLong(REVISION), instant(rs, "logical_time"), rs.getObject("game_id", UUID.class));
     }
 
     private ExecutionScope toScope(ResultSet rs, int row) throws SQLException {

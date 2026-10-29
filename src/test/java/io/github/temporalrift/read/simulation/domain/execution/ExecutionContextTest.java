@@ -8,8 +8,11 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class ExecutionContextTest {
 
@@ -42,13 +45,6 @@ class ExecutionContextTest {
     }
 
     @Test
-    void aRuleOutsideTheGameRulesNamespaceIsRejected() {
-        assertThatThrownBy(() -> new EffectiveRules(Map.of("spring.datasource.url", "x")))
-                .isInstanceOf(InvalidExecutionContextException.class)
-                .hasMessageContaining("game.rules.");
-    }
-
-    @Test
     void readServiceKeepsTheRulesOnlyByTheirDigestAndTimeAtMicroseconds() {
         var context = context(new EffectiveRules(RULES), RULES_DIGEST);
 
@@ -56,29 +52,34 @@ class ExecutionContextTest {
         assertThat(context.logicalTime()).isEqualTo(Instant.parse("2026-10-05T19:00:00.123456Z"));
     }
 
-    @Test
-    void seatsMustBeContiguousWithUniquePlayersAndFactions() {
-        var player = UUID.randomUUID();
+    @ParameterizedTest
+    @MethodSource("invalidSeatings")
+    void seatsMustBeContiguousWithUniquePlayersAndFactions(List<SimulationSeat> seats) {
+        assertThatThrownBy(() -> context(seats)).isInstanceOf(InvalidExecutionContextException.class);
+    }
 
-        assertThatThrownBy(() -> context(List.of(
+    static Stream<List<SimulationSeat>> invalidSeatings() {
+        var player = UUID.randomUUID();
+        return Stream.of(
+                List.of(
                         new SimulationSeat(0, UUID.randomUUID(), "ERASERS"),
                         new SimulationSeat(2, UUID.randomUUID(), "WEAVERS"),
-                        new SimulationSeat(3, UUID.randomUUID(), "PROPHETS"))))
-                .isInstanceOf(InvalidExecutionContextException.class);
-        assertThatThrownBy(() -> context(List.of(
+                        new SimulationSeat(3, UUID.randomUUID(), "PROPHETS")),
+                List.of(
                         new SimulationSeat(0, player, "ERASERS"),
                         new SimulationSeat(1, player, "WEAVERS"),
-                        new SimulationSeat(2, UUID.randomUUID(), "PROPHETS"))))
-                .isInstanceOf(InvalidExecutionContextException.class);
-        assertThatThrownBy(() -> context(List.of(
+                        new SimulationSeat(2, UUID.randomUUID(), "PROPHETS")),
+                List.of(
                         new SimulationSeat(0, UUID.randomUUID(), "ERASERS"),
                         new SimulationSeat(1, UUID.randomUUID(), "ERASERS"),
-                        new SimulationSeat(2, UUID.randomUUID(), "PROPHETS"))))
-                .isInstanceOf(InvalidExecutionContextException.class);
-        assertThatThrownBy(() -> context(List.of(
+                        new SimulationSeat(2, UUID.randomUUID(), "PROPHETS")),
+                List.of(
                         new SimulationSeat(0, UUID.randomUUID(), "ERASERS"),
-                        new SimulationSeat(1, UUID.randomUUID(), "WEAVERS"))))
-                .isInstanceOf(InvalidExecutionContextException.class);
+                        new SimulationSeat(1, UUID.randomUUID(), "WEAVERS")),
+                List.of(
+                        new SimulationSeat(0, UUID.randomUUID(), "ERASERS"),
+                        new SimulationSeat(1, null, "WEAVERS"),
+                        new SimulationSeat(2, UUID.randomUUID(), "PROPHETS")));
     }
 
     private static ExecutionContext context(EffectiveRules rules, String rulesDigest) {

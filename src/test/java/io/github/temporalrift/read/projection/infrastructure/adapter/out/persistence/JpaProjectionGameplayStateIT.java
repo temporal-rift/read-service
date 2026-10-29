@@ -24,7 +24,7 @@ class JpaProjectionGameplayStateIT {
                   AND table_name NOT LIKE 'simulation\\_%' AND table_name NOT LIKE 'databasechangelog%'
                 """, String.class);
 
-        assertThat(JpaProjectionGameplayState.TABLES).containsExactlyInAnyOrderElementsOf(tables);
+        assertThat(tables).containsExactlyInAnyOrderElementsOf(JpaProjectionGameplayState.TABLES);
     }
 
     @Test
@@ -39,6 +39,7 @@ class JpaProjectionGameplayStateIT {
         var order = JpaProjectionGameplayState.TABLES;
 
         assertThat(foreignKeys)
+                .isNotEmpty()
                 .allSatisfy(foreignKey -> assertThat(order.indexOf((String) foreignKey.get("child")))
                         .as("%s before %s", foreignKey.get("child"), foreignKey.get("parent"))
                         .isLessThan(order.indexOf((String) foreignKey.get("parent"))));
