@@ -3,6 +3,7 @@ package io.github.temporalrift.read.simulation.infrastructure.adapter.out.scope;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -25,6 +26,8 @@ class ExecutionInboundScopeTest {
 
     private static final UUID CASE_KEY = UUID.randomUUID();
     private static final UUID GAME_ID = UUID.randomUUID();
+    private static final ExecutionScope UNBOUND = new ExecutionScope(CASE_KEY, null);
+    private static final ExecutionScope HOSTING = new ExecutionScope(CASE_KEY, GAME_ID);
 
     @Mock
     ExecutionRepository executions;
@@ -41,82 +44,106 @@ class ExecutionInboundScopeTest {
     }
 
     @Test
-    void aRecordBelowTheCloseFenceIsNotAdmittedWhateverItsGame() {
-        given(eventFence.isFenced("game.events", 1, 3L)).willReturn(true);
-
-        assertThat(scope().admits(new InboundRecord("game.events", 1, 3L, GAME_ID)))
-                .isFalse();
-
-        verifyNoInteractions(executions);
-    }
-
-    @Test
     void withNoContextOpenNothingIsAdmitted() {
         given(executions.findScope()).willReturn(Optional.empty());
 
-        assertThat(scope().admits(inMemory(GAME_ID))).isFalse();
+        assertThat(scope().admits(fromKafka(3L))).isFalse();
 
         verify(executions, never()).bindGame(any(), any());
     }
 
     @Test
-    void theFirstRecordOfAContextBindsItsGame() {
-        given(executions.findScope()).willReturn(Optional.of(new ExecutionScope(CASE_KEY, null)));
+    void theFirstRecordOfAContextBindsItsGameHoldingTheContextExclusively() {
+        given(executions.findScope()).willReturn(Optional.of(UNBOUND));
+        given(executions.findScopeForBinding()).willReturn(Optional.of(UNBOUND));
+        given(eventFence.isFenced("game.events", 0, 3L)).willReturn(false);
         given(executions.isClosedGame(GAME_ID)).willReturn(false);
-        given(executions.findScopeForHandling()).willReturn(Optional.of(new ExecutionScope(CASE_KEY, GAME_ID)));
 
-        assertThat(scope().admits(inMemory(GAME_ID))).isTrue();
+        assertThat(scope().admits(fromKafka(3L))).isTrue();
 
-        verify(executions).bindGame(CASE_KEY, GAME_ID);
+        var order = inOrder(executions, eventFence);
+        order.verify(executions).findScopeForBinding();
+        order.verify(eventFence).isFenced("game.events", 0, 3L);
+        order.verify(executions).bindGame(CASE_KEY, GAME_ID);
+        verify(executions, never()).findScopeForHandling();
+    }
+
+    @Test
+    void theFenceIsCheckedOnlyOnceTheContextIsHeld() {
+        // The unlocked read can see a context whose open captured a newer fence than any check made before it.
+        given(executions.findScope()).willReturn(Optional.of(UNBOUND));
+        given(executions.findScopeForBinding()).willReturn(Optional.of(UNBOUND));
+        given(eventFence.isFenced("game.events", 0, 3L)).willReturn(true);
+
+        assertThat(scope().admits(fromKafka(3L))).isFalse();
+
+        var order = inOrder(executions, eventFence);
+        order.verify(executions).findScopeForBinding();
+        order.verify(eventFence).isFenced("game.events", 0, 3L);
+        verify(executions, never()).bindGame(any(), any());
     }
 
     @Test
     void aGameOfAClosedContextDoesNotBindTheOpenOne() {
-        given(executions.findScope()).willReturn(Optional.of(new ExecutionScope(CASE_KEY, null)));
+        given(executions.findScope()).willReturn(Optional.of(UNBOUND));
+        given(executions.findScopeForBinding()).willReturn(Optional.of(UNBOUND));
         given(executions.isClosedGame(GAME_ID)).willReturn(true);
-        given(executions.findScopeForHandling()).willReturn(Optional.of(new ExecutionScope(CASE_KEY, null)));
 
-        assertThat(scope().admits(inMemory(GAME_ID))).isFalse();
+        assertThat(scope().admits(inMemory())).isFalse();
 
+        verify(executions, never()).bindGame(any(), any());
+    }
+
+    @Test
+    void aRecordOfTheHostedGameIsAdmittedUnderASharedLock() {
+        given(executions.findScope()).willReturn(Optional.of(HOSTING));
+        given(executions.findScopeForHandling()).willReturn(Optional.of(HOSTING));
+        given(eventFence.isFenced("game.events", 0, 9L)).willReturn(false);
+
+        assertThat(scope().admits(fromKafka(9L))).isTrue();
+
+        verify(executions, never()).findScopeForBinding();
         verify(executions, never()).bindGame(any(), any());
     }
 
     @Test
     void anotherGameThanTheHostedOneIsNotAdmitted() {
-        var hosted = new ExecutionScope(CASE_KEY, UUID.randomUUID());
-        given(executions.findScope()).willReturn(Optional.of(hosted));
-        given(executions.findScopeForHandling()).willReturn(Optional.of(hosted));
+        var hostingAnother = new ExecutionScope(CASE_KEY, UUID.randomUUID());
+        given(executions.findScope()).willReturn(Optional.of(hostingAnother));
+        given(executions.findScopeForHandling()).willReturn(Optional.of(hostingAnother));
 
-        assertThat(scope().admits(inMemory(GAME_ID))).isFalse();
+        assertThat(scope().admits(inMemory())).isFalse();
+    }
+
+    @Test
+    void aContextClosedBeforeItIsHeldAdmitsNothing() {
+        given(executions.findScope()).willReturn(Optional.of(UNBOUND));
+        given(executions.findScopeForBinding()).willReturn(Optional.empty());
+
+        assertThat(scope().admits(inMemory())).isFalse();
 
         verify(executions, never()).bindGame(any(), any());
     }
 
     @Test
-    void aContextClosedWhileBindingAdmitsNothing() {
-        given(executions.findScope()).willReturn(Optional.of(new ExecutionScope(CASE_KEY, null)));
-        given(executions.isClosedGame(GAME_ID)).willReturn(false);
-        given(executions.findScopeForHandling()).willReturn(Optional.empty());
+    void aContextReopenedBeforeItIsHeldUnderASharedLockIsNotBound() {
+        given(executions.findScope()).willReturn(Optional.of(HOSTING));
+        given(executions.findScopeForHandling()).willReturn(Optional.of(UNBOUND));
 
-        assertThat(scope().admits(inMemory(GAME_ID))).isFalse();
-    }
+        assertThat(scope().admits(inMemory())).isFalse();
 
-    @Test
-    void aRecordAboveTheFenceOfTheHostedGameIsAdmitted() {
-        given(eventFence.isFenced("timeline.events", 0, 9L)).willReturn(false);
-        var hosted = new ExecutionScope(CASE_KEY, GAME_ID);
-        given(executions.findScope()).willReturn(Optional.of(hosted));
-        given(executions.findScopeForHandling()).willReturn(Optional.of(hosted));
-
-        assertThat(scope().admits(new InboundRecord("timeline.events", 0, 9L, GAME_ID)))
-                .isTrue();
+        verify(executions, never()).bindGame(any(), any());
     }
 
     private ExecutionInboundScope scope() {
         return new ExecutionInboundScope(executions, eventFence);
     }
 
-    private static InboundRecord inMemory(UUID gameId) {
-        return new InboundRecord("game.events", null, null, gameId);
+    private static InboundRecord fromKafka(long offset) {
+        return new InboundRecord("game.events", 0, offset, GAME_ID);
+    }
+
+    private static InboundRecord inMemory() {
+        return new InboundRecord("game.events", null, null, GAME_ID);
     }
 }
