@@ -32,6 +32,7 @@ import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.Rou
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.SpecialActionPlayedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.WinConditionMetPayload;
 import io.github.temporalrift.read.shared.ProcessedEventPort;
+import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.InboundEventAdmission;
 
 @ExtendWith(MockitoExtension.class)
 class GameEventsKafkaConsumerTest {
@@ -53,7 +54,7 @@ class GameEventsKafkaConsumerTest {
         var eventId = UUID.randomUUID();
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics)
+        new GameEventsKafkaConsumer(admission(), applier, objectMapper, skipMetrics)
                 .handle(KafkaTestMessages.withEventId(eventId));
 
         then(processedEvents).should().claim(eventId, "projection.game-events");
@@ -64,7 +65,7 @@ class GameEventsKafkaConsumerTest {
         var eventId = UUID.randomUUID();
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics)
+        new GameEventsKafkaConsumer(admission(), applier, objectMapper, skipMetrics)
                 .handle(KafkaTestMessages.withEventId(eventId));
 
         verifyNoInteractions(applier);
@@ -74,7 +75,7 @@ class GameEventsKafkaConsumerTest {
     void handle_unrecognizedEventType_doesNotClaimOrThrow() {
         var eventId = UUID.randomUUID();
 
-        new GameEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics)
+        new GameEventsKafkaConsumer(admission(), applier, objectMapper, skipMetrics)
                 .handle(KafkaTestMessages.withEventIdAndEventType(eventId, "SomeFutureEventType"));
 
         verifyNoInteractions(processedEvents, applier);
@@ -93,7 +94,7 @@ class GameEventsKafkaConsumerTest {
                 .setHeader("version", "1")
                 .build();
 
-        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics).handle(message);
+        new GameEventsKafkaConsumer(admission(), applier, new ObjectMapper(), skipMetrics).handle(message);
 
         then(processedEvents).should().claim(eventId, "projection.game-events");
         verifyNoInteractions(applier);
@@ -108,7 +109,7 @@ class GameEventsKafkaConsumerTest {
                 .setHeader("version", "2")
                 .build();
 
-        new GameEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics).handle(message);
+        new GameEventsKafkaConsumer(admission(), applier, objectMapper, skipMetrics).handle(message);
 
         verifyNoInteractions(processedEvents, applier);
         then(skipMetrics).should().recordUnsupportedVersion("projection.game-events");
@@ -119,7 +120,7 @@ class GameEventsKafkaConsumerTest {
         var eventId = UUID.randomUUID();
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics)
+        new GameEventsKafkaConsumer(admission(), applier, objectMapper, skipMetrics)
                 .handle(KafkaTestMessages.withEventIdAndEventType(eventId, "GameStarted"));
 
         then(applier).should().applyGameStarted(any());
@@ -130,7 +131,7 @@ class GameEventsKafkaConsumerTest {
         var eventId = UUID.randomUUID();
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics)
+        new GameEventsKafkaConsumer(admission(), applier, objectMapper, skipMetrics)
                 .handle(KafkaTestMessages.withEventIdAndEventType(
                         eventId, "GameStarted".getBytes(StandardCharsets.UTF_8)));
 
@@ -146,7 +147,7 @@ class GameEventsKafkaConsumerTest {
                 """.formatted(gameId);
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics)
+        new GameEventsKafkaConsumer(admission(), applier, new ObjectMapper(), skipMetrics)
                 .handle(jsonMessage(eventId, "DeclarationWindowOpened", payload));
 
         then(applier)
@@ -165,7 +166,7 @@ class GameEventsKafkaConsumerTest {
                 """.formatted(gameId, playerId);
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics)
+        new GameEventsKafkaConsumer(admission(), applier, new ObjectMapper(), skipMetrics)
                 .handle(jsonMessage(eventId, "DeclarationOptionsOffered", payload));
 
         then(applier)
@@ -209,7 +210,7 @@ class GameEventsKafkaConsumerTest {
                 .build();
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics).handle(message);
+        new GameEventsKafkaConsumer(admission(), applier, new ObjectMapper(), skipMetrics).handle(message);
 
         var payloadCaptor = ArgumentCaptor.forClass(CardPlayedPayload.class);
         then(applier).should().applyCardPlayed(payloadCaptor.capture());
@@ -245,7 +246,7 @@ class GameEventsKafkaConsumerTest {
                 .build();
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics).handle(message);
+        new GameEventsKafkaConsumer(admission(), applier, new ObjectMapper(), skipMetrics).handle(message);
 
         var payloadCaptor = ArgumentCaptor.forClass(CardPlayedPayload.class);
         then(applier).should().applyCardPlayed(payloadCaptor.capture());
@@ -278,7 +279,7 @@ class GameEventsKafkaConsumerTest {
                 .build();
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics).handle(message);
+        new GameEventsKafkaConsumer(admission(), applier, new ObjectMapper(), skipMetrics).handle(message);
 
         var payloadCaptor = ArgumentCaptor.forClass(RoundSummaryPublishedPayload.class);
         then(applier).should().applyRoundSummaryPublished(payloadCaptor.capture());
@@ -316,7 +317,7 @@ class GameEventsKafkaConsumerTest {
                 .build();
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics).handle(message);
+        new GameEventsKafkaConsumer(admission(), applier, new ObjectMapper(), skipMetrics).handle(message);
 
         var payloadCaptor = ArgumentCaptor.forClass(InfluenceTracedPayload.class);
         then(applier).should().applyInfluenceTraced(payloadCaptor.capture());
@@ -349,7 +350,7 @@ class GameEventsKafkaConsumerTest {
                 .build();
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics).handle(message);
+        new GameEventsKafkaConsumer(admission(), applier, new ObjectMapper(), skipMetrics).handle(message);
 
         var payloadCaptor = ArgumentCaptor.forClass(InfluenceTracedPayload.class);
         then(applier).should().applyInfluenceTraced(payloadCaptor.capture());
@@ -384,7 +385,7 @@ class GameEventsKafkaConsumerTest {
                 .build();
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics).handle(message);
+        new GameEventsKafkaConsumer(admission(), applier, new ObjectMapper(), skipMetrics).handle(message);
 
         var payloadCaptor = ArgumentCaptor.forClass(HandCardInterceptedPayload.class);
         then(applier).should().applyHandCardIntercepted(payloadCaptor.capture());
@@ -418,7 +419,7 @@ class GameEventsKafkaConsumerTest {
                 .build();
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics).handle(message);
+        new GameEventsKafkaConsumer(admission(), applier, new ObjectMapper(), skipMetrics).handle(message);
 
         var payloadCaptor = ArgumentCaptor.forClass(ActionRoundStartedPayload.class);
         var occurredAtCaptor = ArgumentCaptor.forClass(java.time.Instant.class);
@@ -450,7 +451,7 @@ class GameEventsKafkaConsumerTest {
                 .build();
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics).handle(message);
+        new GameEventsKafkaConsumer(admission(), applier, new ObjectMapper(), skipMetrics).handle(message);
 
         var payloadCaptor = ArgumentCaptor.forClass(SpecialActionPlayedPayload.class);
         then(applier).should().applySpecialActionPlayed(payloadCaptor.capture());
@@ -479,10 +480,14 @@ class GameEventsKafkaConsumerTest {
                 .build();
         given(processedEvents.claim(eventId, "projection.game-events")).willReturn(true);
 
-        new GameEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics).handle(message);
+        new GameEventsKafkaConsumer(admission(), applier, new ObjectMapper(), skipMetrics).handle(message);
 
         var payloadCaptor = ArgumentCaptor.forClass(WinConditionMetPayload.class);
         then(applier).should().applyWinConditionMet(payloadCaptor.capture());
         assertThat(payloadCaptor.getValue().winnerId()).isEqualTo(winnerId);
+    }
+
+    private InboundEventAdmission admission() {
+        return new InboundEventAdmission(inbound -> true, processedEvents);
     }
 }

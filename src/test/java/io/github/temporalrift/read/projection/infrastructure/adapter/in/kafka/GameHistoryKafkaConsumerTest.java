@@ -15,6 +15,7 @@ import org.springframework.messaging.support.MessageBuilder;
 import tools.jackson.databind.ObjectMapper;
 
 import io.github.temporalrift.read.shared.ProcessedEventPort;
+import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.InboundEventAdmission;
 
 @ExtendWith(MockitoExtension.class)
 class GameHistoryKafkaConsumerTest {
@@ -105,6 +106,10 @@ class GameHistoryKafkaConsumerTest {
     }
 
     private GameHistoryKafkaConsumer consumer() {
-        return new GameHistoryKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics);
+        return new GameHistoryKafkaConsumer(admission(), applier, objectMapper, skipMetrics);
+    }
+
+    private InboundEventAdmission admission() {
+        return new InboundEventAdmission(inbound -> true, processedEvents);
     }
 }

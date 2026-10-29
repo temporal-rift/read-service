@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
-import io.github.temporalrift.read.shared.ProcessedEventPort;
+import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.InboundEventAdmission;
 import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.MessageHeaders;
 
 /**
@@ -122,7 +122,7 @@ class GameEventsKafkaConsumer {
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.EXPOSE_BEHAVIOR_CHANGED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.SCORES_UPDATED_EVENT_TYPE);
 
-    private final ProcessedEventPort processedEvents;
+    private final InboundEventAdmission admission;
     private final SessionEventDispatcher session;
     private final ActionEventDispatcher action;
     private final ScoringEventDispatcher scoring;
@@ -130,11 +130,11 @@ class GameEventsKafkaConsumer {
     private final KafkaSkipMetrics skipMetrics;
 
     GameEventsKafkaConsumer(
-            ProcessedEventPort processedEvents,
+            InboundEventAdmission admission,
             ProjectionEventApplier applier,
             ObjectMapper objectMapper,
             KafkaSkipMetrics skipMetrics) {
-        this.processedEvents = processedEvents;
+        this.admission = admission;
         this.session = new SessionEventDispatcher(applier);
         this.action = new ActionEventDispatcher(applier);
         this.scoring = new ScoringEventDispatcher(applier);
@@ -151,7 +151,7 @@ class GameEventsKafkaConsumer {
                         KNOWN_EVENT_TYPES,
                         UnsupportedEventGate.CURRENT_ENVELOPE_VERSION,
                         skipMetrics,
-                        processedEvents)
+                        admission)
                 .ifPresent(eventId -> dispatch(message));
     }
 

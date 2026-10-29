@@ -8,17 +8,16 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.temporalrift.read.notification.application.port.in.FanOutNotificationUseCase;
-import io.github.temporalrift.read.shared.ProcessedEventPort;
-import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.InboundEventClaim;
+import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.InboundEventAdmission;
 
 @Component
 class NotificationKafkaConsumer {
 
-    private final ProcessedEventPort processedEvents;
+    private final InboundEventAdmission admission;
     private final FanOutNotificationUseCase fanOut;
 
-    NotificationKafkaConsumer(ProcessedEventPort processedEvents, FanOutNotificationUseCase fanOut) {
-        this.processedEvents = processedEvents;
+    NotificationKafkaConsumer(InboundEventAdmission admission, FanOutNotificationUseCase fanOut) {
+        this.admission = admission;
         this.fanOut = fanOut;
     }
 
@@ -35,6 +34,6 @@ class NotificationKafkaConsumer {
     }
 
     private void handle(Message<Object> message, String consumer) {
-        InboundEventClaim.accept(message, consumer, processedEvents).ifPresent(ignored -> fanOut.fanOut(message));
+        admission.admit(message, consumer).ifPresent(ignored -> fanOut.fanOut(message));
     }
 }
