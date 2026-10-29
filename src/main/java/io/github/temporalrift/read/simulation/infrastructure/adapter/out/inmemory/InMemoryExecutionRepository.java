@@ -75,6 +75,11 @@ class InMemoryExecutionRepository implements ExecutionRepository {
     }
 
     @Override
+    public Optional<ExecutionScope> findScopeForBinding() {
+        return findWithLock().map(InMemoryExecutionRepository::scopeOf);
+    }
+
+    @Override
     public void bindGame(UUID caseKey, UUID gameId) {
         findWithLock()
                 .filter(open -> open.context().caseKey().equals(caseKey) && open.gameId() == null)

@@ -109,6 +109,11 @@ class ExecutionRepositoryAdapter implements ExecutionRepository {
     }
 
     @Override
+    public Optional<ExecutionScope> findScopeForBinding() {
+        return jdbc.sql(SELECT_SCOPE + " FOR UPDATE").query(this::toScope).optional();
+    }
+
+    @Override
     public void bindGame(UUID caseKey, UUID gameId) {
         jdbc.sql("""
                         UPDATE simulation_execution SET game_id = :gameId

@@ -28,6 +28,12 @@ public interface ExecutionRepository {
      */
     Optional<ExecutionScope> findScopeForHandling();
 
+    /**
+     * Reads the open context's case and game holding it exclusively until the surrounding transaction ends, as the
+     * handler that binds its game does.
+     */
+    Optional<ExecutionScope> findScopeForBinding();
+
     /** Binds the open context of {@code caseKey} to {@code gameId}, unless it is closed or already hosts a game. */
     void bindGame(UUID caseKey, UUID gameId);
 

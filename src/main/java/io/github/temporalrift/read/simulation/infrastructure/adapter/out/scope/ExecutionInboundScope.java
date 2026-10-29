@@ -10,12 +10,13 @@ import io.github.temporalrift.read.simulation.domain.port.out.ExecutionRepositor
 
 /**
  * Admits only records of the game the open context hosts. read-service learns that game from its records, so the
- * first admitted record of a context binds it. Records already in their source when the context opened stay fenced, and
- * games of closed contexts never bind a later one, so a closed game's late records never reach the next game.
+ * first admitted record of a context binds it. Records already in their source when the context opened stay fenced,
+ * and games of closed contexts never bind a later one, so a closed game's late records never reach the next game.
  *
- * <p>The scope is read with a lock held until the handler's transaction ends. A close takes the same lock exclusively,
- * so it either waits for a handler that already passed this check or makes a later handler find no context; a handler
- * can never write into the projections a close just discarded.
+ * <p>Every decision is taken holding the execution until the handler's transaction ends. An open captures its fence
+ * before its context commits, so a record checked under the lock meets the fence of the context it would act on. A
+ * close takes the same lock exclusively, so it either waits for a handler that already passed this check or makes a
+ * later handler find no context; a handler can never write into the projections a close just discarded.
  */
 @Component
 @ConditionalOnProperty(name = "game.simulation.enabled", havingValue = "true")
@@ -32,20 +33,29 @@ class ExecutionInboundScope implements InboundScope {
     @Override
     public boolean admits(InboundRecord inbound) {
         var gameId = inbound.gameId();
-        if (gameId == null || isFenced(inbound)) {
+        if (gameId == null) {
             return false;
         }
         var seen = executions.findScope().orElse(null);
         if (seen == null) {
             return false;
         }
-        if (seen.gameId() == null && !executions.isClosedGame(gameId)) {
-            // Bound before the handling lock is taken, so concurrent binders queue on the row's write lock instead of
-            // each holding a shared lock the other one needs to upgrade.
-            executions.bindGame(seen.caseKey(), gameId);
+        // Only the lock to take is chosen without it: a context with no game yet is held exclusively, so its first
+        // binders queue on one lock instead of each holding a shared lock the other one needs to upgrade.
+        var binding = seen.gameId() == null;
+        var scope = (binding ? executions.findScopeForBinding() : executions.findScopeForHandling()).orElse(null);
+        if (scope == null || isFenced(inbound)) {
+            return false;
         }
-        var scope = executions.findScopeForHandling().orElse(null);
-        return scope != null && gameId.equals(scope.gameId());
+        if (scope.gameId() != null) {
+            return gameId.equals(scope.gameId());
+        }
+        // A context opened since the unlocked read fenced every record already in the log, this one included.
+        if (!binding || executions.isClosedGame(gameId)) {
+            return false;
+        }
+        executions.bindGame(scope.caseKey(), gameId);
+        return true;
     }
 
     private boolean isFenced(InboundRecord inbound) {
