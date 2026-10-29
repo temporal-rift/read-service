@@ -1,12 +1,13 @@
 package io.github.temporalrift.read.simulation.domain.port.out;
 
 /**
- * Fences inbound records that were already in their source when an execution context closed. Such a record belongs to
- * the closed context whatever its game, so it must never act on a later one, including a replay of the same case.
+ * Fences inbound records that were already in their source when the open execution context opened. Such a record
+ * belongs to an earlier context or to none, whatever its game, so it must never act on the open one, including a
+ * replay of a closed case.
  */
 public interface EventFence {
 
-    /** Whether {@code offset} in {@code topic}/{@code partition} predates the last close. */
+    /** Whether {@code offset} in {@code topic}/{@code partition} predates the last capture. */
     boolean isFenced(String topic, int partition, long offset);
 
     /** Captures the end of every source, so every record already present is fenced. */

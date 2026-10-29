@@ -5,9 +5,8 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.springframework.stereotype.Component;
 
 /**
- * Serialises the operator's open and close operations on one service instance. A close must finish recording its
- * source fence before the next context can open, or a record published for the new game could be mistaken for the
- * closed context's backlog. Each simulation lane hosts one service instance.
+ * Serialises the operator's open and close operations on one service instance, so the source fence an open captures
+ * cannot interleave with another open or close. Each simulation lane hosts one service instance.
  */
 @Component
 class SimulationControlLock {
