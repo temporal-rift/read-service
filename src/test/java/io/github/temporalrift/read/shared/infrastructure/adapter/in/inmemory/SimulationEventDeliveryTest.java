@@ -73,6 +73,19 @@ class SimulationEventDeliveryTest {
     }
 
     @Test
+    void eachGroupsPositionCountsTheRecordsItHandledOnEachTopic() {
+        delivery.accept(recordOn("game.events", "fine"));
+        delivery.accept(recordOn("game.events", "fine"));
+
+        assertThat(context.getBean(SimulationEventDelivery.class).positions())
+                .containsExactly(
+                        new SimulationEventDelivery.ConsumerPosition("both", "game.events", 0, 2),
+                        new SimulationEventDelivery.ConsumerPosition("both", "timeline.events", 0, 0),
+                        new SimulationEventDelivery.ConsumerPosition("first", "game.events", 0, 2),
+                        new SimulationEventDelivery.ConsumerPosition("second", "game.events", 0, 2));
+    }
+
+    @Test
     void headersKeyAndPayloadReachTheHandlerAsTheyWouldFromKafka() {
         delivery.accept(recordOn("timeline.events", "payload"));
 

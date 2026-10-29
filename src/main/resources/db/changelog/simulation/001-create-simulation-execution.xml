@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!-- The execution context of an isolated simulation deployment, which projects one game per context. -->
+    <changeSet id="simulation-001-create-simulation-execution" author="read-service">
+        <createTable tableName="simulation_execution">
+            <column name="id" type="SMALLINT" defaultValueNumeric="1"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="case_key" type="UUID"><constraints nullable="false"/></column>
+            <column name="seed" type="VARCHAR(20)"><constraints nullable="false"/></column>
+            <column name="entropy_version" type="VARCHAR(32)"><constraints nullable="false"/></column>
+            <column name="manifest_digest" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="rules_digest" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="configured_logical_time" type="TIMESTAMPTZ"><constraints nullable="false"/></column>
+            <column name="logical_time" type="TIMESTAMPTZ"><constraints nullable="false"/></column>
+            <column name="revision" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="game_id" type="UUID"/>
+        </createTable>
+        <sql>ALTER TABLE simulation_execution ADD CONSTRAINT ck_simulation_execution_singleton CHECK (id = 1)</sql>
+        <createTable tableName="simulation_seat">
+            <column name="seat_index" type="INT"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="player_id" type="UUID"><constraints nullable="false" unique="true"/></column>
+            <column name="faction" type="VARCHAR(32)"><constraints nullable="false" unique="true"/></column>
+        </createTable>
+        <createTable tableName="simulation_closed_execution">
+            <column name="id" type="SMALLINT" defaultValueNumeric="1"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="case_key" type="UUID"><constraints nullable="false"/></column>
+        </createTable>
+        <sql>ALTER TABLE simulation_closed_execution ADD CONSTRAINT ck_simulation_closed_execution_singleton CHECK (id = 1)</sql>
+        <createTable tableName="simulation_closed_game">
+            <column name="game_id" type="UUID"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="case_key" type="UUID"><constraints nullable="false"/></column>
+        </createTable>
+        <createTable tableName="simulation_clock_operation">
+            <column name="operation_id" type="UUID"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="expected_revision" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="target_time" type="TIMESTAMPTZ"><constraints nullable="false"/></column>
+            <column name="applied_revision" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="logical_time" type="TIMESTAMPTZ"><constraints nullable="false"/></column>
+        </createTable>
+        <createTable tableName="simulation_event_fence">
+            <column name="topic" type="VARCHAR(255)"><constraints nullable="false"/></column>
+            <column name="partition_number" type="INT"><constraints nullable="false"/></column>
+            <column name="next_offset" type="BIGINT"><constraints nullable="false"/></column>
+        </createTable>
+        <addPrimaryKey tableName="simulation_event_fence" columnNames="topic,partition_number"
+                constraintName="pk_simulation_event_fence"/>
+    </changeSet>
+</databaseChangeLog>

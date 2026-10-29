@@ -1,7 +1,10 @@
 package io.github.temporalrift.read.shared.inmemory;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -27,6 +30,25 @@ public class InMemoryDatabase {
             throw new IllegalStateException("Table " + name + " is already defined with versioned=" + !versioned);
         }
         return (Table<P, V>) existing;
+    }
+
+    /** The names of every table an adapter has defined so far. */
+    public synchronized Set<String> tableNames() {
+        return Set.copyOf(tables.keySet());
+    }
+
+    /** Whether none of the named tables holds a row; a table no adapter defined is empty. */
+    public boolean isEmpty(Collection<String> names) {
+        return names.stream().map(this::defined).allMatch(table -> table == null || table.isEmpty());
+    }
+
+    /** Removes every row of the named tables. */
+    public void clear(Collection<String> names) {
+        names.stream().map(this::defined).filter(Objects::nonNull).forEach(Table::clear);
+    }
+
+    private synchronized Table<?, ?> defined(String name) {
+        return tables.get(name);
     }
 
     <R> R inTransaction(Function<TransactionState, R> operation) {

@@ -37,4 +37,7 @@
     <include file="db/changelog/projection/023-expand-participant-projection.xml"/>
     <include file="db/changelog/projection/024-create-game-detected-paradox.xml"/>
 
+    <!-- Simulation: execution context of an isolated simulation deployment -->
+    <include file="db/changelog/simulation/001-create-simulation-execution.xml"/>
+
 </databaseChangeLog>

@@ -62,6 +62,7 @@
         <action-event.version>9.3.0</action-event.version>
         <scoring-event.version>3.0.0</scoring-event.version>
         <timeline-event.version>7.1.0</timeline-event.version>
+        <simulation-control-api.version>2.1.0</simulation-control-api.version>
     </properties>
 
     <dependencies>
@@ -71,6 +72,14 @@
             <groupId>io.github.temporal-rift</groupId>
             <artifactId>projection-api</artifactId>
             <version>${projection-api.version}</version>
+        </dependency>
+        <!-- Spec-only: bundles simulation-control-api's OpenAPI specification, which this service serves only in an
+             isolated simulation deployment. Codegen for it is driven by the openapi-generator-maven-plugin
+             execution below. -->
+        <dependency>
+            <groupId>io.github.temporal-rift</groupId>
+            <artifactId>simulation-control-api</artifactId>
+            <version>${simulation-control-api.version}</version>
         </dependency>
         <!-- Spec-only: bundles session-event's asyncapi.yml, no compiled code. Consumed for the session-owned
              game.events facts GameEventsKafkaConsumer and GameHistoryKafkaConsumer project, which this service
@@ -283,6 +292,36 @@
                             </modelPackage>
                         </configuration>
                     </execution>
+                    <execution>
+                        <id>generate-simulation-control-api</id>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <configuration>
+                            <inputSpec>
+                                ${project.build.directory}/dependency-specs/simulation-control-api-${simulation-control-api.version}-jar/openapi/v1/simulation-control.yml
+                            </inputSpec>
+                            <output>${project.build.directory}/generated-sources/openapi/simulation</output>
+                            <apiPackage>
+                                io.github.temporalrift.read.simulation.infrastructure.adapter.in.rest.v1
+                            </apiPackage>
+                            <modelPackage>
+                                io.github.temporalrift.read.simulation.infrastructure.adapter.in.rest.v1.model
+                            </modelPackage>
+                            <!-- A rules value is a number, boolean, string or an array of those; the generator would
+                                 emit a deserialization-incapable marker interface for that union. -->
+                            <schemaMappings>
+                                <schemaMapping>EffectiveRules_properties_value=java.lang.Object</schemaMapping>
+                            </schemaMappings>
+                            <!-- Every response field of this contract is required, including the nullable ones, so the
+                                 service-wide non_null inclusion must not drop them. -->
+                            <configOptions>
+                                <additionalModelTypeAnnotations>
+                                    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS)
+                                </additionalModelTypeAnnotations>
+                            </configOptions>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
             <!-- BOM 1.5.1 configures the compiler output directory globally. Keep test compilation
@@ -313,6 +352,9 @@
                             <sources>
                                 <source>
                                     ${project.build.directory}/generated-sources/openapi/projection/src/main/java
+                                </source>
+                                <source>
+                                    ${project.build.directory}/generated-sources/openapi/simulation/src/main/java
                                 </source>
                             </sources>
                         </configuration>

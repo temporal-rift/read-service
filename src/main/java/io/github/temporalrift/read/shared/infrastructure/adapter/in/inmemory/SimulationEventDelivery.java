@@ -3,10 +3,13 @@ package io.github.temporalrift.read.shared.infrastructure.adapter.in.inmemory;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import org.springframework.aop.support.AopUtils;
@@ -31,15 +34,20 @@ import org.springframework.util.ReflectionUtils;
  *
  * <p>Retries and dead-lettering are not simulated: a failing group rolls back and its failure is reported to the
  * caller after the remaining groups have handled the deliveredRecord.
+ *
+ * <p>Every topic has the single partition 0; a group's position on it counts the records the group
+ * handled, as a committed offset would.
  */
 @Component("simulationEventDelivery")
 @Profile("in-memory")
-class SimulationEventDelivery implements Consumer<Map<String, Object>>, SmartInitializingSingleton {
+public class SimulationEventDelivery implements Consumer<Map<String, Object>>, SmartInitializingSingleton {
 
     private static final String APPLICATION_PACKAGE = "io.github.temporalrift.read";
+    private static final int PARTITION = 0;
 
     private final ConfigurableListableBeanFactory beanFactory;
     private final Map<String, Map<String, Endpoint>> endpointsByTopicAndGroup = new HashMap<>();
+    private final Map<GroupTopic, AtomicLong> handled = new ConcurrentHashMap<>();
 
     SimulationEventDelivery(ConfigurableListableBeanFactory beanFactory) {
         this.beanFactory = beanFactory;
@@ -87,6 +95,8 @@ class SimulationEventDelivery implements Consumer<Map<String, Object>>, SmartIni
                 endpointsByTopicAndGroup.getOrDefault(topic, Map.of()).values()) {
             try {
                 endpoint.method().invoke(endpoint.bean(), message);
+                handled.computeIfAbsent(new GroupTopic(endpoint.groupId(), topic), key -> new AtomicLong())
+                        .incrementAndGet();
             } catch (InvocationTargetException e) {
                 failures.add(e.getCause());
             } catch (IllegalAccessException | RuntimeException e) {
@@ -98,6 +108,23 @@ class SimulationEventDelivery implements Consumer<Map<String, Object>>, SmartIni
             failures.stream().skip(1).forEach(failure::addSuppressed);
             throw failure;
         }
+    }
+
+    /** Each consumer group's position on each topic it subscribes to: the offset of the next record it handles. */
+    public List<ConsumerPosition> positions() {
+        var positions = new ArrayList<ConsumerPosition>();
+        endpointsByTopicAndGroup.forEach((topic, endpoints) -> endpoints
+                .keySet()
+                .forEach(groupId -> positions.add(new ConsumerPosition(
+                        groupId,
+                        topic,
+                        PARTITION,
+                        handled.getOrDefault(new GroupTopic(groupId, topic), new AtomicLong())
+                                .get()))));
+        positions.sort(Comparator.comparing(ConsumerPosition::groupId)
+                .thenComparing(ConsumerPosition::topic)
+                .thenComparingInt(ConsumerPosition::partition));
+        return List.copyOf(positions);
     }
 
     private static Message<Object> message(String topic, Map<String, Object> deliveredRecord) {
@@ -123,5 +150,10 @@ class SimulationEventDelivery implements Consumer<Map<String, Object>>, SmartIni
         return type.cast(value);
     }
 
+    /** A consumer group's progress on one partition: the offset of the next record it will handle. */
+    public record ConsumerPosition(String groupId, String topic, int partition, long nextOffset) {}
+
     private record Endpoint(String groupId, Object bean, Method method) {}
+
+    private record GroupTopic(String groupId, String topic) {}
 }
