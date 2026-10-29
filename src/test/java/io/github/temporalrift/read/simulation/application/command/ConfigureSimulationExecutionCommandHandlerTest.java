@@ -83,7 +83,9 @@ class ConfigureSimulationExecutionCommandHandlerTest {
                 .given(eventFence)
                 .capture();
 
-        assertThatThrownBy(() -> handler().handle(CONTEXT)).isInstanceOf(IllegalStateException.class);
+        var handler = handler();
+
+        assertThatThrownBy(() -> handler.handle(CONTEXT)).isInstanceOf(IllegalStateException.class);
 
         verify(executions, never()).insertIfAbsent(any());
     }

@@ -51,7 +51,9 @@
         <sonar.organization>temporal-rift</sonar.organization>
         <sonar.projectKey>temporal-rift_read-service</sonar.projectKey>
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
-        <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml
+        <!-- Unit tests and the integration tests (PostgreSQL and Kafka adapters) report separately. -->
+        <sonar.coverage.jacoco.xmlReportPaths>
+            ${project.build.directory}/site/jacoco/jacoco.xml,${project.build.directory}/site/jacoco-it/jacoco.xml
         </sonar.coverage.jacoco.xmlReportPaths>
         <sonar.exclusions>**/generated-sources/**/*</sonar.exclusions>
         <sonar.coverage.exclusions>**/generated-sources/**/*</sonar.coverage.exclusions>

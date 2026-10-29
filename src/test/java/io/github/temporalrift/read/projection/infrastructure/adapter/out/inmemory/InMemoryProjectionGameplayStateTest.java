@@ -29,7 +29,7 @@ class InMemoryProjectionGameplayStateTest {
                         .filter(table -> !table.equals("processed_events") && !table.startsWith("simulation_"))
                         .toList();
 
-                assertThat(InMemoryProjectionGameplayState.TABLES).containsExactlyInAnyOrderElementsOf(tables);
+                assertThat(tables).containsExactlyInAnyOrderElementsOf(InMemoryProjectionGameplayState.TABLES);
             }
         }
     }

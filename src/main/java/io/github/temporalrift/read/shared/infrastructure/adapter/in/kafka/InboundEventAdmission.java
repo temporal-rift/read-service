@@ -5,6 +5,8 @@ import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Component;
@@ -16,15 +18,22 @@ import io.github.temporalrift.read.shared.ProcessedEventPort;
 /**
  * Admission prologue of every read-service Kafka consumer: a record is handled only when it is well formed, inside
  * this deployment's {@link InboundScope}, and newly claimed for the consumer. A record outside the scope is consumed
- * without a claim, so it leaves no state behind.
+ * without a claim, so it leaves no state behind. A deployment that defines no scope, as an ordinary one, admits
+ * every record.
  */
 @Component
 public class InboundEventAdmission {
 
     private static final Logger log = LoggerFactory.getLogger(InboundEventAdmission.class);
+    private static final InboundScope UNBOUNDED = inbound -> true;
 
     private final InboundScope scope;
     private final ProcessedEventPort processedEvents;
+
+    @Autowired
+    InboundEventAdmission(ObjectProvider<InboundScope> scope, ProcessedEventPort processedEvents) {
+        this(scope.getIfAvailable(() -> UNBOUNDED), processedEvents);
+    }
 
     public InboundEventAdmission(InboundScope scope, ProcessedEventPort processedEvents) {
         this.scope = scope;
