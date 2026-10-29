@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
+import io.github.temporalrift.read.shared.GameplayState;
 import io.github.temporalrift.read.shared.ProcessedEventPort;
 
 public abstract class ProcessedEventContract extends PortContract {
@@ -41,6 +42,22 @@ public abstract class ProcessedEventContract extends PortContract {
                 }))
                 .isInstanceOf(IllegalStateException.class);
 
+        assertThat(inTransaction(() -> port().claim(eventId, "consumer"))).isTrue();
+    }
+
+    @Test
+    void discardingEveryClaimLetsAnEventBeClaimedAgain() {
+        var claims = (GameplayState) port();
+        var eventId = UUID.randomUUID();
+        inTransaction(() -> port().claim(eventId, "consumer"));
+        assertThat(inTransaction(claims::isEmpty)).isFalse();
+
+        inTransaction(() -> {
+            claims.discardAll();
+            return null;
+        });
+
+        assertThat(inTransaction(claims::isEmpty)).isTrue();
         assertThat(inTransaction(() -> port().claim(eventId, "consumer"))).isTrue();
     }
 }

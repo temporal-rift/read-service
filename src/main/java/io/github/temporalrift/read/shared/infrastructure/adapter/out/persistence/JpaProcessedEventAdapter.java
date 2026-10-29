@@ -8,11 +8,12 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import io.github.temporalrift.read.shared.GameplayState;
 import io.github.temporalrift.read.shared.ProcessedEventPort;
 
 @Repository
 @Profile("!in-memory")
-class JpaProcessedEventAdapter implements ProcessedEventPort {
+class JpaProcessedEventAdapter implements ProcessedEventPort, GameplayState {
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -30,5 +31,19 @@ class JpaProcessedEventAdapter implements ProcessedEventPort {
                 .setParameter("consumer", consumer)
                 .executeUpdate();
         return rowsInserted == 1;
+    }
+
+    @Override
+    @Transactional
+    public boolean isEmpty() {
+        return !Boolean.TRUE.equals(entityManager
+                .createNativeQuery("SELECT EXISTS (SELECT 1 FROM processed_events)", Boolean.class)
+                .getSingleResult());
+    }
+
+    @Override
+    @Transactional
+    public void discardAll() {
+        entityManager.createNativeQuery("DELETE FROM processed_events").executeUpdate();
     }
 }

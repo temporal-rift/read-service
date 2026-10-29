@@ -4,9 +4,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -96,6 +98,24 @@ public final class Table<P, V> {
         removeIf(partition, value -> true);
     }
 
+    /** Whether no partition holds a row, as the current transaction sees the table. */
+    public boolean isEmpty() {
+        return database.inTransaction(tx -> partitions(tx).stream()
+                .allMatch(partition -> visibleRows(tx, partition).isEmpty()));
+    }
+
+    /** Removes every row of every partition. */
+    public void clear() {
+        database.inTransaction(tx -> {
+            partitions(tx)
+                    .forEach(partition -> visibleRows(tx, partition).stream()
+                            .map(Entry::key)
+                            .toList()
+                            .forEach(key -> removeIn(tx, partition, key)));
+            return null;
+        });
+    }
+
     /** Holds an exclusive lock on the row identity, present or not, until the transaction ends. */
     public void lock(P partition, RowKey key) {
         database.locks().acquire(database.requireTransaction(), new LockId(name, partition, key));
@@ -158,6 +178,16 @@ public final class Table<P, V> {
             }
         });
         return rows;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Set<P> partitions(TransactionState tx) {
+        var partitions = new LinkedHashSet<P>(database.read(() -> List.copyOf(committed.keySet())));
+        var pending = tx.allPending().get(this);
+        if (pending != null) {
+            pending.keySet().forEach(partition -> partitions.add((P) partition));
+        }
+        return partitions;
     }
 
     private Optional<Long> committedVersion(TransactionState tx, P partition, RowKey key) {
