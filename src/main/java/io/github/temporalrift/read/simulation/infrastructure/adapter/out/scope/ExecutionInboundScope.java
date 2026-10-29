@@ -10,7 +10,7 @@ import io.github.temporalrift.read.simulation.domain.port.out.ExecutionRepositor
 
 /**
  * Admits only records of the game the open context hosts. read-service learns that game from its records, so the
- * first admitted record of a context binds it. Records already in their source when a context closed stay fenced, and
+ * first admitted record of a context binds it. Records already in their source when the context opened stay fenced, and
  * games of closed contexts never bind a later one, so a closed game's late records never reach the next game.
  *
  * <p>The scope is read with a lock held until the handler's transaction ends. A close takes the same lock exclusively,

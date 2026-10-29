@@ -15,6 +15,7 @@ import io.github.temporalrift.read.simulation.domain.execution.ExecutionCheckpoi
 import io.github.temporalrift.read.simulation.domain.execution.ExecutionContext;
 import io.github.temporalrift.read.simulation.domain.execution.ExecutionContextConflictException;
 import io.github.temporalrift.read.simulation.domain.execution.ExecutionStateNotCleanException;
+import io.github.temporalrift.read.simulation.domain.port.out.EventFence;
 import io.github.temporalrift.read.simulation.domain.port.out.ExecutionRepository;
 
 /** read-service uses no rules, so a context is only checked for its shape and for the state it would open over. */
@@ -24,6 +25,7 @@ class ConfigureSimulationExecutionCommandHandler implements ConfigureSimulationE
 
     private final ExecutionRepository executions;
     private final List<GameplayState> gameplay;
+    private final EventFence eventFence;
     private final ExecutionCheckpointAssembler assembler;
     private final SimulationControlLock controlLock;
     private final TransactionTemplate transaction;
@@ -31,20 +33,30 @@ class ConfigureSimulationExecutionCommandHandler implements ConfigureSimulationE
     ConfigureSimulationExecutionCommandHandler(
             ExecutionRepository executions,
             List<GameplayState> gameplay,
+            EventFence eventFence,
             ExecutionCheckpointAssembler assembler,
             SimulationControlLock controlLock,
             TransactionTemplate transaction) {
         this.executions = executions;
         this.gameplay = gameplay;
+        this.eventFence = eventFence;
         this.assembler = assembler;
         this.controlLock = controlLock;
         this.transaction = transaction;
     }
 
+    /**
+     * A context opens before its game plays, so every record already in a source when it opens belongs to an earlier
+     * context or to none: the fence is captured first, and a failed capture opens nothing. This covers a replay of a
+     * closed case, whose records carry the same game, and a backlog left before the first context of a deployment.
+     */
     @Override
     public ExecutionCheckpoint handle(ExecutionContext context) {
         controlLock.lock();
         try {
+            if (executions.find().isEmpty()) {
+                eventFence.capture();
+            }
             return assembler.assemble(Objects.requireNonNull(transaction.execute(status -> register(context))));
         } finally {
             controlLock.unlock();
@@ -61,7 +73,7 @@ class ConfigureSimulationExecutionCommandHandler implements ConfigureSimulationE
         }
         var created = Execution.configure(context);
         if (executions.insertIfAbsent(created)) {
-            // A replay hosts the game of the case's earlier play again; the close fence keeps that play's records out.
+            // A replay hosts the game of the case's earlier play again; the fence keeps that play's records out.
             executions.forgetClosedGames(context.caseKey());
             return created;
         }

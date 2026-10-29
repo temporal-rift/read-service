@@ -27,9 +27,9 @@ import org.springframework.stereotype.Component;
 import io.github.temporalrift.read.simulation.domain.port.out.EventFence;
 
 /**
- * The close fence of a real simulation lane: the broker's end offset of every partition of both source topics at the
- * last close. A record below that offset was already in the log before the context closed, so it belongs to the
- * closed context even if no consumer group had reached it yet.
+ * The source fence of a real simulation lane: the broker's end offset of every partition of both source topics when
+ * the open context opened. A record below that offset was already in the log before the context opened, so it belongs
+ * to an earlier context or to none, even if no consumer group had reached it yet.
  */
 @Component
 @Profile("!in-memory")
@@ -99,9 +99,9 @@ class KafkaEventFenceAdapter implements EventFence {
             fence.set(load());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("Interrupted while recording the event close fence", e);
+            throw new IllegalStateException("Interrupted while recording the event fence", e);
         } catch (ExecutionException | TimeoutException e) {
-            throw new IllegalStateException("Could not record the event close fence", e);
+            throw new IllegalStateException("Could not record the event fence", e);
         }
     }
 
@@ -129,7 +129,7 @@ class KafkaEventFenceAdapter implements EventFence {
         return Map.copyOf(loaded);
     }
 
-    // The broker connection is opened on first use and shared, so each close does not reconnect.
+    // The broker connection is opened on first use and shared, so each open does not reconnect.
     private synchronized Admin client() {
         if (admin == null) {
             admin = adminFactory.get();

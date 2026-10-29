@@ -135,6 +135,30 @@ class SimulationExecutionIT extends SimulationExecutionContract {
                 .isEqualTo(Phase.LOBBY);
     }
 
+    @Test
+    void aBacklogLeftWhileNoContextWasOpenNeitherActsNorBindsTheNextContext() throws Exception {
+        var stray = new Game();
+        listeners.getListenerContainers().forEach(MessageListenerContainer::stop);
+        var backlog = publish(stray.started);
+
+        configure(UUID.randomUUID()).andExpect(status().isOk());
+        listeners.getListenerContainers().forEach(MessageListenerContainer::start);
+        awaitHandled(stray.started.topic(), backlog);
+
+        checkpoint()
+                .andExpect(jsonPath("$.state").value("READY"))
+                .andExpect(jsonPath("$.gameId").value(nullValue()));
+        assertThat(bean(GameProjectionRepository.class).findByGameId(stray.gameId))
+                .isEmpty();
+
+        var game = new Game();
+        deliver(game.started);
+
+        checkpoint()
+                .andExpect(jsonPath("$.state").value("ACTIVE"))
+                .andExpect(jsonPath("$.gameId").value(game.gameId.toString()));
+    }
+
     private RecordMetadata publish(Fact fact) {
         var producerRecord = new ProducerRecord<Object, Object>(
                 fact.topic(), null, fact.gameId().toString(), fact.payload(objectMapper));
