@@ -23,7 +23,7 @@ import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.P
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolutionPhaseStartedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxResolvedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedPayload;
-import io.github.temporalrift.read.shared.ProcessedEventPort;
+import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.InboundEventAdmission;
 import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.MessageHeaders;
 
 /** Consumes {@code timeline.events} (resolution facts from timeline-service). */
@@ -61,17 +61,17 @@ class TimelineEventsKafkaConsumer {
             GeneratedChannelContract.CASCADE_CARRIED_FORWARD_EVENT_TYPE,
             GeneratedChannelContract.CHAIN_RE_ANCHORED_EVENT_TYPE);
 
-    private final ProcessedEventPort processedEvents;
+    private final InboundEventAdmission admission;
     private final ProjectionEventApplier applier;
     private final ObjectMapper objectMapper;
     private final KafkaSkipMetrics skipMetrics;
 
     TimelineEventsKafkaConsumer(
-            ProcessedEventPort processedEvents,
+            InboundEventAdmission admission,
             ProjectionEventApplier applier,
             ObjectMapper objectMapper,
             KafkaSkipMetrics skipMetrics) {
-        this.processedEvents = processedEvents;
+        this.admission = admission;
         this.applier = applier;
         this.objectMapper = objectMapper;
         this.skipMetrics = skipMetrics;
@@ -86,7 +86,7 @@ class TimelineEventsKafkaConsumer {
                         KNOWN_EVENT_TYPES,
                         UnsupportedEventGate.CURRENT_ENVELOPE_VERSION,
                         skipMetrics,
-                        processedEvents)
+                        admission)
                 .ifPresent(eventId -> dispatch(message));
     }
 

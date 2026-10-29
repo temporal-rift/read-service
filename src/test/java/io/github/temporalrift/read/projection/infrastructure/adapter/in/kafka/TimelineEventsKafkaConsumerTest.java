@@ -26,6 +26,7 @@ import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.P
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxDetectedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ProbabilityStateRevealedPayload;
 import io.github.temporalrift.read.shared.ProcessedEventPort;
+import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.InboundEventAdmission;
 
 @ExtendWith(MockitoExtension.class)
 class TimelineEventsKafkaConsumerTest {
@@ -47,7 +48,7 @@ class TimelineEventsKafkaConsumerTest {
         var eventId = UUID.randomUUID();
         given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(true);
 
-        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics)
+        new TimelineEventsKafkaConsumer(admission(), applier, objectMapper, skipMetrics)
                 .handle(KafkaTestMessages.withEventId(eventId));
 
         then(processedEvents).should().claim(eventId, "projection.timeline-events");
@@ -58,7 +59,7 @@ class TimelineEventsKafkaConsumerTest {
         var eventId = UUID.randomUUID();
         given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(true);
 
-        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics)
+        new TimelineEventsKafkaConsumer(admission(), applier, objectMapper, skipMetrics)
                 .handle(KafkaTestMessages.withEventId(eventId));
 
         verifyNoInteractions(applier);
@@ -78,7 +79,7 @@ class TimelineEventsKafkaConsumerTest {
         given(objectMapper.convertValue(payload, AdjustedBandsPublishedPayload.class))
                 .willReturn(payload);
 
-        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics).handle(message);
+        new TimelineEventsKafkaConsumer(admission(), applier, objectMapper, skipMetrics).handle(message);
 
         then(applier).should().applyAdjustedBandsPublished(payload);
     }
@@ -101,7 +102,7 @@ class TimelineEventsKafkaConsumerTest {
                 .build();
         given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(true);
 
-        new TimelineEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics).handle(message);
+        new TimelineEventsKafkaConsumer(admission(), applier, new ObjectMapper(), skipMetrics).handle(message);
 
         var captor = ArgumentCaptor.forClass(ParadoxDetectedPayload.class);
         then(applier).should().applyParadoxDetected(captor.capture());
@@ -127,7 +128,7 @@ class TimelineEventsKafkaConsumerTest {
                 .build();
         given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(true);
 
-        new TimelineEventsKafkaConsumer(processedEvents, applier, new ObjectMapper(), skipMetrics).handle(message);
+        new TimelineEventsKafkaConsumer(admission(), applier, new ObjectMapper(), skipMetrics).handle(message);
 
         var captor = ArgumentCaptor.forClass(ParadoxCascadedPayload.class);
         then(applier).should().applyParadoxCascaded(captor.capture());
@@ -140,7 +141,7 @@ class TimelineEventsKafkaConsumerTest {
         var eventId = UUID.randomUUID();
         given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(false);
 
-        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics)
+        new TimelineEventsKafkaConsumer(admission(), applier, objectMapper, skipMetrics)
                 .handle(KafkaTestMessages.withEventIdAndEventType(eventId, "AdjustedBandsPublished"));
 
         verifyNoInteractions(applier);
@@ -151,7 +152,7 @@ class TimelineEventsKafkaConsumerTest {
         var eventId = UUID.randomUUID();
         given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(true);
 
-        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics)
+        new TimelineEventsKafkaConsumer(admission(), applier, objectMapper, skipMetrics)
                 .handle(KafkaTestMessages.withEventIdAndEventType(eventId, "ChainLinkThreaded"));
 
         then(processedEvents).should().claim(eventId, "projection.timeline-events");
@@ -162,7 +163,7 @@ class TimelineEventsKafkaConsumerTest {
     void handle_unrecognizedEventType_doesNotClaimOrThrow() {
         var eventId = UUID.randomUUID();
 
-        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics)
+        new TimelineEventsKafkaConsumer(admission(), applier, objectMapper, skipMetrics)
                 .handle(KafkaTestMessages.withEventIdAndEventType(eventId, "SomeFutureEventType"));
 
         verifyNoInteractions(processedEvents, applier);
@@ -178,7 +179,7 @@ class TimelineEventsKafkaConsumerTest {
                 .setHeader("version", "2")
                 .build();
 
-        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics).handle(message);
+        new TimelineEventsKafkaConsumer(admission(), applier, objectMapper, skipMetrics).handle(message);
 
         verifyNoInteractions(processedEvents, applier);
         then(skipMetrics).should().recordUnsupportedVersion("projection.timeline-events");
@@ -198,7 +199,7 @@ class TimelineEventsKafkaConsumerTest {
         given(objectMapper.convertValue(payload, ProbabilityStateRevealedPayload.class))
                 .willReturn(payload);
 
-        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics).handle(message);
+        new TimelineEventsKafkaConsumer(admission(), applier, objectMapper, skipMetrics).handle(message);
 
         then(applier).should().applyProbabilityStateRevealed(payload);
     }
@@ -223,7 +224,7 @@ class TimelineEventsKafkaConsumerTest {
         given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(true);
         given(objectMapper.convertValue(payload, ChainLinkAddedPayload.class)).willReturn(payload);
 
-        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics).handle(message);
+        new TimelineEventsKafkaConsumer(admission(), applier, objectMapper, skipMetrics).handle(message);
 
         then(applier).should().applyChainLinkAdded(payload);
     }
@@ -240,7 +241,7 @@ class TimelineEventsKafkaConsumerTest {
         given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(true);
         given(objectMapper.convertValue(payload, ChainCompletedPayload.class)).willReturn(payload);
 
-        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics).handle(message);
+        new TimelineEventsKafkaConsumer(admission(), applier, objectMapper, skipMetrics).handle(message);
 
         then(applier).should().applyChainCompleted(payload);
     }
@@ -258,7 +259,7 @@ class TimelineEventsKafkaConsumerTest {
         given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(true);
         given(objectMapper.convertValue(payload, ChainBrokenPayload.class)).willReturn(payload);
 
-        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics).handle(message);
+        new TimelineEventsKafkaConsumer(admission(), applier, objectMapper, skipMetrics).handle(message);
 
         then(applier).should().applyChainBroken(payload);
     }
@@ -284,8 +285,12 @@ class TimelineEventsKafkaConsumerTest {
         given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(true);
         given(objectMapper.convertValue(payload, ChainReAnchoredPayload.class)).willReturn(payload);
 
-        new TimelineEventsKafkaConsumer(processedEvents, applier, objectMapper, skipMetrics).handle(message);
+        new TimelineEventsKafkaConsumer(admission(), applier, objectMapper, skipMetrics).handle(message);
 
         then(applier).should().applyChainReAnchored(payload);
+    }
+
+    private InboundEventAdmission admission() {
+        return new InboundEventAdmission(inbound -> true, processedEvents);
     }
 }

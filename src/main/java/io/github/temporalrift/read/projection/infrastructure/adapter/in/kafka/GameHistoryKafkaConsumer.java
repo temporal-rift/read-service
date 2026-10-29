@@ -16,8 +16,7 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Ev
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.HandSelectedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.OutcomeAppliedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
-import io.github.temporalrift.read.shared.ProcessedEventPort;
-import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.InboundEventClaim;
+import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.InboundEventAdmission;
 import io.github.temporalrift.read.shared.infrastructure.adapter.in.kafka.MessageHeaders;
 
 /**
@@ -40,17 +39,17 @@ class GameHistoryKafkaConsumer {
             io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.OUTCOME_APPLIED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.PARADOX_CASCADED_EVENT_TYPE);
 
-    private final ProcessedEventPort processedEvents;
+    private final InboundEventAdmission admission;
     private final GameHistoryEventApplier applier;
     private final ObjectMapper objectMapper;
     private final KafkaSkipMetrics skipMetrics;
 
     GameHistoryKafkaConsumer(
-            ProcessedEventPort processedEvents,
+            InboundEventAdmission admission,
             GameHistoryEventApplier applier,
             ObjectMapper objectMapper,
             KafkaSkipMetrics skipMetrics) {
-        this.processedEvents = processedEvents;
+        this.admission = admission;
         this.applier = applier;
         this.objectMapper = objectMapper;
         this.skipMetrics = skipMetrics;
@@ -65,8 +64,7 @@ class GameHistoryKafkaConsumer {
                         message, CONSUMER, UnsupportedEventGate.CURRENT_ENVELOPE_VERSION, skipMetrics)) {
             return;
         }
-        InboundEventClaim.accept(message, CONSUMER, processedEvents)
-                .ifPresent(ignored -> dispatchGameEvent(eventType, message));
+        admission.admit(message, CONSUMER).ifPresent(ignored -> dispatchGameEvent(eventType, message));
     }
 
     @KafkaListener(topics = "timeline.events", groupId = GROUP_ID)
@@ -78,8 +76,7 @@ class GameHistoryKafkaConsumer {
                         message, CONSUMER, UnsupportedEventGate.CURRENT_ENVELOPE_VERSION, skipMetrics)) {
             return;
         }
-        InboundEventClaim.accept(message, CONSUMER, processedEvents)
-                .ifPresent(ignored -> dispatchTimelineEvent(eventType, message));
+        admission.admit(message, CONSUMER).ifPresent(ignored -> dispatchTimelineEvent(eventType, message));
     }
 
     private String supportedEventType(Message<Object> message, Set<String> supportedTypes) {
