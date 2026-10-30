@@ -771,6 +771,110 @@ class PlayerGameStateIT {
     }
 
     @Test
+    void activeEvents_followTheDrawsRevealOrderThroughRedeliveryAndResolution() throws Exception {
+        var gameId = UUID.randomUUID();
+        var playerId = UUID.randomUUID();
+        var otherPlayerId = UUID.randomUUID();
+        var carried = UUID.randomUUID();
+        var first = UUID.randomUUID();
+        var third = UUID.randomUUID();
+
+        publish(
+                GAME_EVENTS_TOPIC,
+                "GameStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "winScoreThreshold",
+                        20,
+                        "lobbyId",
+                        UUID.randomUUID(),
+                        "players",
+                        roster(playerId, otherPlayerId),
+                        "totalFactions",
+                        3,
+                        "deckSize",
+                        30));
+        awaitPlayerGameStateRowExists(gameId, playerId);
+        publish(
+                GAME_EVENTS_TOPIC,
+                "EraStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "carryOverEventIds",
+                        List.of(),
+                        "playerIds",
+                        List.of(playerId, otherPlayerId)));
+        awaitEraAndPhase(gameId, 1, "ERA_START");
+        // Era 1 draws the event that later carries over; its EraEnded never arrives before era 2 is drawn, so the
+        // era-1 row is still stored, ahead of every era-2 row, when era 2 lists it in the middle.
+        var eraOneDraw = UUID.randomUUID();
+        publish(GAME_EVENTS_TOPIC, "EventsDrawn", gameId, eventsDrawn(gameId, 1, drawn(carried, "FRESH")), eraOneDraw)
+                .join();
+        awaitProcessed(eraOneDraw, "projection.game-events");
+
+        var eraTwo = eventsDrawn(gameId, 2, drawn(first, "FRESH"), drawn(carried, "CASCADED"), drawn(third, "FRESH"));
+        var eraTwoDraw = UUID.randomUUID();
+        publish(GAME_EVENTS_TOPIC, "EventsDrawn", gameId, eraTwo, eraTwoDraw).join();
+        awaitProcessed(eraTwoDraw, "projection.game-events");
+        assertActiveEvents(gameId, playerId, List.of(first, carried, third), List.of("FRESH", "CASCADED", "FRESH"));
+
+        var redelivery = UUID.randomUUID();
+        publish(GAME_EVENTS_TOPIC, "EventsDrawn", gameId, eraTwo, redelivery).join();
+        awaitProcessed(redelivery, "projection.game-events");
+        assertActiveEvents(gameId, playerId, List.of(first, carried, third), List.of("FRESH", "CASCADED", "FRESH"));
+
+        publish(
+                TIMELINE_EVENTS_TOPIC,
+                "OutcomeApplied",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        2,
+                        "eventId",
+                        carried,
+                        "winningOutcomeId",
+                        UUID.randomUUID(),
+                        "finalProbabilities",
+                        List.of()));
+        awaitActiveEventRemoved(gameId, carried);
+        assertActiveEvents(gameId, playerId, List.of(first, third), List.of("FRESH", "FRESH"));
+    }
+
+    private void assertActiveEvents(UUID gameId, UUID playerId, List<UUID> eventIds, List<String> carryOverStates)
+            throws Exception {
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(playerId)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.activeEvents[*].eventId")
+                        .value(contains(eventIds.stream().map(UUID::toString).toArray())))
+                .andExpect(jsonPath("$.activeEvents[*].carryOverState").value(contains(carryOverStates.toArray())));
+    }
+
+    private static Map<String, Object> eventsDrawn(UUID gameId, int eraNumber, Map<?, ?>... events) {
+        return Map.of("gameId", gameId, "eraNumber", eraNumber, "events", List.of(events));
+    }
+
+    private static Map<String, Object> drawn(UUID eventId, String carryOverState) {
+        return Map.of(
+                "eventId",
+                eventId,
+                "title",
+                "Event",
+                "carryOverState",
+                carryOverState,
+                "outcomes",
+                List.of(Map.of("outcomeId", UUID.randomUUID(), "description", "outcome", "initialProbability", 50)));
+    }
+
+    @Test
     void playerJammed_isVisibleOnlyToTheSuppressedPlayerAndClearsAfterTheNamedRoundOrEra() throws Exception {
         var gameId = UUID.randomUUID();
         var suppressedPlayer = UUID.randomUUID();

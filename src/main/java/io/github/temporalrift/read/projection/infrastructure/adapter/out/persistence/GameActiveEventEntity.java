@@ -1,5 +1,6 @@
 package io.github.temporalrift.read.projection.infrastructure.adapter.out.persistence;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,6 +31,9 @@ class GameActiveEventEntity {
     @Column(name = "event_id", nullable = false)
     private UUID eventId;
 
+    @Column(name = "reveal_index", nullable = false)
+    private int revealIndex;
+
     @Column(name = "title", nullable = false)
     private String title;
 
@@ -47,12 +51,14 @@ class GameActiveEventEntity {
             UUID id,
             UUID gameId,
             UUID eventId,
+            int revealIndex,
             String title,
             String carryOverState,
             List<GameActiveEventOutcomeValue> outcomes) {
         this.id = id;
         this.gameId = gameId;
         this.eventId = eventId;
+        this.revealIndex = revealIndex;
         this.title = title;
         this.carryOverState = carryOverState;
         this.outcomes = outcomes;
@@ -63,16 +69,31 @@ class GameActiveEventEntity {
                 id,
                 gameId,
                 domain.eventId(),
+                domain.revealIndex(),
                 domain.title(),
                 domain.carryOverState().name(),
-                domain.outcomes().stream()
-                        .map(GameActiveEventOutcomeValue::fromDomain)
-                        .toList());
+                outcomesOf(domain));
+    }
+
+    /** Takes the facts of the draw that lists this event now. */
+    void redraw(GameActiveEvent domain) {
+        revealIndex = domain.revealIndex();
+        title = domain.title();
+        carryOverState = domain.carryOverState().name();
+        outcomes.clear();
+        outcomes.addAll(outcomesOf(domain));
+    }
+
+    private static List<GameActiveEventOutcomeValue> outcomesOf(GameActiveEvent domain) {
+        return new ArrayList<>(domain.outcomes().stream()
+                .map(GameActiveEventOutcomeValue::fromDomain)
+                .toList());
     }
 
     GameActiveEvent toDomain() {
         return new GameActiveEvent(
                 eventId,
+                revealIndex,
                 title,
                 CarryOverState.valueOf(carryOverState),
                 outcomes.stream().map(GameActiveEventOutcomeValue::toDomain).toList());

@@ -24,18 +24,23 @@ class JpaGameActiveEventAdapter implements GameActiveEventRepository {
 
     @Override
     public List<GameActiveEvent> findByGameId(UUID gameId) {
-        return repository.findByGameId(gameId).stream()
+        return repository.findByGameIdOrderByRevealIndexAscEventIdAsc(gameId).stream()
                 .map(GameActiveEventEntity::toDomain)
                 .toList();
     }
 
     @Override
     public void save(UUID gameId, GameActiveEvent gameActiveEvent) {
-        // Active events are immutable once drawn in this slice (no probability updates here) — a duplicate
-        // EventsDrawn delivery (shouldn't happen given upstream idempotency, but defensively) is a no-op.
-        if (repository.findByGameIdAndEventId(gameId, gameActiveEvent.eventId()).isEmpty()) {
-            repository.save(GameActiveEventEntity.fromDomain(UUID.randomUUID(), gameId, gameActiveEvent));
-        }
+        // A row still held for the same event comes from an earlier draw: a carried event whose previous era was never
+        // cleared. The current draw's facts replace it; a redelivered draw writes the same values again.
+        var entity = repository
+                .findByGameIdAndEventId(gameId, gameActiveEvent.eventId())
+                .map(existing -> {
+                    existing.redraw(gameActiveEvent);
+                    return existing;
+                })
+                .orElseGet(() -> GameActiveEventEntity.fromDomain(UUID.randomUUID(), gameId, gameActiveEvent));
+        repository.save(entity);
     }
 
     @Override
