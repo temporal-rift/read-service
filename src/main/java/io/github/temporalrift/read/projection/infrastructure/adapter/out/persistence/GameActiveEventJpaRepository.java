@@ -9,7 +9,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 interface GameActiveEventJpaRepository extends JpaRepository<GameActiveEventEntity, UUID> {
 
-    List<GameActiveEventEntity> findByGameId(UUID gameId);
+    /** Reveal order; the event id only orders rows stored before reveal positions were recorded. */
+    List<GameActiveEventEntity> findByGameIdOrderByRevealIndexAscEventIdAsc(UUID gameId);
 
     Optional<GameActiveEventEntity> findByGameIdAndEventId(UUID gameId, UUID eventId);
 

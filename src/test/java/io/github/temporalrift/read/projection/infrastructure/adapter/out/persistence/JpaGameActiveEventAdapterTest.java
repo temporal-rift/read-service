@@ -40,6 +40,7 @@ class JpaGameActiveEventAdapterTest {
     void save_persistsEachOutcomeWithItsPrintedStartingWeight() {
         var event = new GameActiveEvent(
                 UUID.randomUUID(),
+                2,
                 "The Plague Ship in Harbor",
                 CarryOverState.CASCADED,
                 List.of(

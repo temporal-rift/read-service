@@ -403,6 +403,7 @@ class ProjectionRestMapperTest {
                 List.of(),
                 List.of(new GameActiveEvent(
                         eventId,
+                        0,
                         "The Plague Ship in Harbor",
                         CarryOverState.STALLED,
                         List.of(

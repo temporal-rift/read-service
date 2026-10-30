@@ -196,7 +196,9 @@ class ProjectionEventApplier {
                             List.of(),
                             existing.lastRoundSummary()));
         }
-        for (var event : payload.events()) {
+        // The payload lists the era's events in reveal order, carry-overs included; each keeps its payload position.
+        for (var revealIndex = 0; revealIndex < payload.events().size(); revealIndex++) {
+            var event = payload.events().get(revealIndex);
             if (stores.gameActiveEvents().isResolved(payload.gameId(), event.eventId())) {
                 continue;
             }
@@ -208,6 +210,7 @@ class ProjectionEventApplier {
                             payload.gameId(),
                             new GameActiveEvent(
                                     event.eventId(),
+                                    revealIndex,
                                     event.title(),
                                     CarryOverState.valueOf(
                                             event.carryOverState().name()),
@@ -317,8 +320,8 @@ class ProjectionEventApplier {
         stores.revealedHandCardIntel().deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
         stores.foresightPreviews().deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
         clearRecoverableEraState(payload.gameId(), payload.eraNumber());
-        // Defensive clear. Every drawn event currently gets an OutcomeApplied (no
-        // cascade/paradox handling exists yet), so this is normally a no-op.
+        // Resolved events are already gone; this removes the cascaded and stalled ones, which get no OutcomeApplied
+        // and are listed again by the next era's EventsDrawn.
         stores.gameActiveEvents().deleteByGameId(payload.gameId());
     }
 

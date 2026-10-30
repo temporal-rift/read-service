@@ -7,8 +7,10 @@ import io.github.temporalrift.read.projection.domain.model.GameActiveEvent;
 
 public interface GameActiveEventRepository {
 
+    /** The game's active events in reveal order. */
     List<GameActiveEvent> findByGameId(UUID gameId);
 
+    /** Records the event as drawn now, replacing the facts of a row the game still holds for the same event. */
     void save(UUID gameId, GameActiveEvent gameActiveEvent);
 
     void deleteByGameIdAndEventId(UUID gameId, UUID eventId);

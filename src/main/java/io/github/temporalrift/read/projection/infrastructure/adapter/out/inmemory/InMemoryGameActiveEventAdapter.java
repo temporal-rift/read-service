@@ -1,5 +1,6 @@
 package io.github.temporalrift.read.projection.infrastructure.adapter.out.inmemory;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -11,10 +12,15 @@ import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRep
 import io.github.temporalrift.read.shared.inmemory.InMemoryDatabase;
 import io.github.temporalrift.read.shared.inmemory.RowKey;
 import io.github.temporalrift.read.shared.inmemory.Table;
+import io.github.temporalrift.read.shared.inmemory.UuidOrder;
 
 @Repository
 @Profile("in-memory")
 class InMemoryGameActiveEventAdapter implements GameActiveEventRepository {
+
+    private static final Comparator<GameActiveEvent> REVEAL_ORDER = Comparator.comparingInt(
+                    GameActiveEvent::revealIndex)
+            .thenComparing(GameActiveEvent::eventId, UuidOrder.ASCENDING);
 
     private final Table<UUID, GameActiveEvent> activeEvents;
     private final Table<UUID, UUID> resolvedEvents;
@@ -26,12 +32,12 @@ class InMemoryGameActiveEventAdapter implements GameActiveEventRepository {
 
     @Override
     public List<GameActiveEvent> findByGameId(UUID gameId) {
-        return activeEvents.list(gameId);
+        return activeEvents.list(gameId).stream().sorted(REVEAL_ORDER).toList();
     }
 
     @Override
     public void save(UUID gameId, GameActiveEvent gameActiveEvent) {
-        activeEvents.putIfAbsent(gameId, RowKey.of(gameActiveEvent.eventId()), gameActiveEvent);
+        activeEvents.put(gameId, RowKey.of(gameActiveEvent.eventId()), gameActiveEvent);
     }
 
     @Override

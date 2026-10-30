@@ -2,6 +2,7 @@ package io.github.temporalrift.read.projection.infrastructure.adapter.in.kafka;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -9,6 +10,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 
 import java.time.Instant;
 import java.util.List;
@@ -540,6 +542,44 @@ class ProjectionEventApplierTest {
         assertThat(captor.getValue())
                 .extracting(GameActiveEvent::eventId, GameActiveEvent::carryOverState)
                 .containsExactly(eventId, CarryOverState.STALLED);
+    }
+
+    @Test
+    void applyEventsDrawn_givesEachEventItsPayloadPositionAsRevealIndex() {
+        var resolved = UUID.randomUUID();
+        var carried = UUID.randomUUID();
+        var fresh = UUID.randomUUID();
+        given(gameActiveEvents.isResolved(gameId, resolved)).willReturn(true);
+        var payload = new EventsDrawnPayload(
+                gameId,
+                2,
+                List.of(
+                        drawn(
+                                resolved,
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CarryOverState
+                                        .FRESH),
+                        drawn(
+                                carried,
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CarryOverState
+                                        .CASCADED),
+                        drawn(
+                                fresh,
+                                io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CarryOverState
+                                        .FRESH)));
+
+        applier.applyEventsDrawn(payload);
+
+        var captor = ArgumentCaptor.forClass(GameActiveEvent.class);
+        then(gameActiveEvents).should(times(2)).save(eq(gameId), captor.capture());
+        assertThat(captor.getAllValues())
+                .extracting(GameActiveEvent::eventId, GameActiveEvent::revealIndex, GameActiveEvent::carryOverState)
+                .containsExactly(tuple(carried, 1, CarryOverState.CASCADED), tuple(fresh, 2, CarryOverState.FRESH));
+    }
+
+    private static EventsDrawnFutureEvent drawn(
+            UUID eventId, io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CarryOverState state) {
+        return new EventsDrawnFutureEvent(
+                eventId, "Event", List.of(new EventsDrawnOutcome(UUID.randomUUID(), "desc", 50)), state);
     }
 
     @Test

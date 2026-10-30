@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+  <!-- Zero-based position of an active event in the EventsDrawn that drew it; active events are listed in this
+       order. Rows stored earlier take 0 and are ordered by event_id until the next draw replaces them. -->
+  <changeSet id="025-add-game-active-event-reveal-index" author="read-service">
+    <addColumn tableName="game_active_event">
+      <column name="reveal_index" type="INT" defaultValueNumeric="0">
+        <constraints nullable="false"/>
+      </column>
+    </addColumn>
+    <dropDefaultValue tableName="game_active_event" columnName="reveal_index"/>
+  </changeSet>
+
+</databaseChangeLog>

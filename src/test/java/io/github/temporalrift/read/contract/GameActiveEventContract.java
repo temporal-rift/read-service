@@ -18,7 +18,7 @@ public abstract class GameActiveEventContract extends PortContract {
 
     @Test
     void savedEventsAreListedForTheirGameOnly() {
-        var event = event("Drought");
+        var event = event(0, "Drought");
 
         inTransaction(() -> port().save(gameId, event));
 
@@ -27,20 +27,108 @@ public abstract class GameActiveEventContract extends PortContract {
     }
 
     @Test
-    void savingTheSameEventAgainKeepsTheFirstRecord() {
-        var first = event("First");
+    void eventsAreListedInRevealOrderWhateverOrderTheyWereSavedIn() {
+        var first = event(0, "First");
+        var second = event(1, "Second");
+        var third = event(2, "Third");
+
+        inTransaction(() -> {
+            port().save(gameId, third);
+            port().save(gameId, first);
+            port().save(gameId, second);
+        });
+
+        assertThat(inTransaction(() -> port().findByGameId(gameId))).containsExactly(first, second, third);
+    }
+
+    @Test
+    void revealOrderDoesNotDependOnWhatTheStoreHeldBefore() {
+        // Rows of another game come and go between this game's saves, freeing space a later row may take.
+        var first = event(0, "First");
+        var second = event(1, "Second");
+        var third = event(2, "Third");
+        inTransaction(() -> port().save(otherGameId, event(0, "Transient")));
+        inTransaction(() -> port().save(gameId, second));
+        inTransaction(() -> port().deleteByGameId(otherGameId));
+        inTransaction(() -> port().save(gameId, third));
+        inTransaction(() -> port().save(otherGameId, event(1, "Transient")));
+        inTransaction(() -> port().deleteByGameId(otherGameId));
         inTransaction(() -> port().save(gameId, first));
 
-        inTransaction(() -> port().save(
-                        gameId, new GameActiveEvent(first.eventId(), "Second", CarryOverState.CASCADED, List.of())));
+        assertThat(inTransaction(() -> port().findByGameId(gameId))).containsExactly(first, second, third);
+        assertThat(inTransaction(() -> port().findByGameId(otherGameId))).isEmpty();
+    }
 
-        assertThat(inTransaction(() -> port().findByGameId(gameId))).containsExactly(first);
+    @Test
+    void removingAnEventKeepsTheOthersInRevealOrder() {
+        var first = event(0, "First");
+        var second = event(1, "Second");
+        var third = event(2, "Third");
+        inTransaction(() -> {
+            port().save(gameId, first);
+            port().save(gameId, second);
+            port().save(gameId, third);
+        });
+
+        inTransaction(() -> port().deleteByGameIdAndEventId(gameId, second.eventId()));
+
+        assertThat(inTransaction(() -> port().findByGameId(gameId))).containsExactly(first, third);
+    }
+
+    @Test
+    void eventsSharingARevealIndexAreOrderedByEventId() {
+        var high = new GameActiveEvent(HIGH, 0, "High", CarryOverState.FRESH, List.of());
+        var low = new GameActiveEvent(LOW, 0, "Low", CarryOverState.FRESH, List.of());
+
+        inTransaction(() -> {
+            port().save(gameId, high);
+            port().save(gameId, low);
+        });
+
+        assertThat(inTransaction(() -> port().findByGameId(gameId))).containsExactly(low, high);
+    }
+
+    @Test
+    void aLaterDrawReplacesTheFactsOfAnEventTheGameStillHolds() {
+        var carried = event(0, "Drought");
+        var other = event(0, "Flood");
+        inTransaction(() -> port().save(gameId, carried));
+
+        var redrawn = new GameActiveEvent(
+                carried.eventId(),
+                1,
+                "Drought",
+                CarryOverState.CASCADED,
+                List.of(new EventOutcome(UUID.randomUUID(), "Rain", 70)));
+        inTransaction(() -> {
+            port().save(gameId, other);
+            port().save(gameId, redrawn);
+        });
+
+        assertThat(inTransaction(() -> port().findByGameId(gameId))).containsExactly(other, redrawn);
+    }
+
+    @Test
+    void savingTheSameDrawAgainChangesNothing() {
+        var first = event(0, "First");
+        var second = event(1, "Second");
+        inTransaction(() -> {
+            port().save(gameId, first);
+            port().save(gameId, second);
+        });
+
+        inTransaction(() -> {
+            port().save(gameId, first);
+            port().save(gameId, second);
+        });
+
+        assertThat(inTransaction(() -> port().findByGameId(gameId))).containsExactly(first, second);
     }
 
     @Test
     void eventsAreDeletedIndividuallyOrAllAtOnce() {
-        var kept = event("Kept");
-        var removed = event("Removed");
+        var kept = event(0, "Kept");
+        var removed = event(1, "Removed");
         inTransaction(() -> {
             port().save(gameId, kept);
             port().save(gameId, removed);
@@ -67,7 +155,7 @@ public abstract class GameActiveEventContract extends PortContract {
 
     @Test
     void clearingAGamesActiveEventsKeepsItsResolutionMarkers() {
-        var event = event("Resolved");
+        var event = event(0, "Resolved");
         inTransaction(() -> {
             port().save(gameId, event);
             port().markResolved(gameId, event.eventId());
@@ -79,9 +167,10 @@ public abstract class GameActiveEventContract extends PortContract {
                 .isTrue();
     }
 
-    private static GameActiveEvent event(String title) {
+    private static GameActiveEvent event(int revealIndex, String title) {
         return new GameActiveEvent(
                 UUID.randomUUID(),
+                revealIndex,
                 title,
                 CarryOverState.FRESH,
                 List.of(
