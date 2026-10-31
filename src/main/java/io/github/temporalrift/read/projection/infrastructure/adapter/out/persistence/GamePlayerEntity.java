@@ -40,35 +40,19 @@ class GamePlayerEntity {
 
     protected GamePlayerEntity() {}
 
-    GamePlayerEntity(
-            UUID id,
-            UUID gameId,
-            UUID playerId,
-            int score,
-            boolean isConnected,
-            String faction,
-            String playerName,
-            Integer seatIndex) {
+    private GamePlayerEntity(UUID id, UUID gameId, GamePlayer domain) {
         this.id = id;
         this.gameId = gameId;
-        this.playerId = playerId;
-        this.score = score;
-        this.isConnected = isConnected;
-        this.faction = faction;
-        this.playerName = playerName;
-        this.seatIndex = seatIndex;
+        this.playerId = domain.playerId();
+        this.score = domain.score();
+        this.isConnected = domain.isConnected();
+        this.faction = domain.faction();
+        this.playerName = domain.playerName();
+        this.seatIndex = domain.seatIndex();
     }
 
     static GamePlayerEntity fromDomain(UUID id, UUID gameId, GamePlayer domain) {
-        return new GamePlayerEntity(
-                id,
-                gameId,
-                domain.playerId(),
-                domain.score(),
-                domain.isConnected(),
-                domain.faction(),
-                domain.playerName(),
-                domain.seatIndex());
+        return new GamePlayerEntity(id, gameId, domain);
     }
 
     GamePlayer toDomain() {
