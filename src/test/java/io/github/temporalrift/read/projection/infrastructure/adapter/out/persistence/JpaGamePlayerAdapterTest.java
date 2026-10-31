@@ -63,7 +63,7 @@ class JpaGamePlayerAdapterTest {
     void findByGameId_returnsEveryPlayerWithTheirName() {
         var entity =
                 GamePlayerEntity.fromDomain(UUID.randomUUID(), gameId, new GamePlayer(playerId, 2, true, null, "Ben"));
-        given(repository.findByGameId(gameId)).willReturn(List.of(entity));
+        given(repository.findByGameIdInSeatOrder(gameId)).willReturn(List.of(entity));
 
         assertThat(adapter.findByGameId(gameId)).containsExactly(new GamePlayer(playerId, 2, true, null, "Ben"));
     }

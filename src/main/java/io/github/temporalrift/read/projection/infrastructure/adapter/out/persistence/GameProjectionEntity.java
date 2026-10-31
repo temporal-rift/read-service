@@ -36,6 +36,7 @@ class GameProjectionEntity {
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "game_projection_pending_paradox", joinColumns = @JoinColumn(name = "game_projection_id"))
     @Column(name = "paradox_id", nullable = false)
+    @OrderColumn(name = "paradox_position")
     private List<UUID> pendingParadoxIds;
 
     @ElementCollection(fetch = FetchType.EAGER)

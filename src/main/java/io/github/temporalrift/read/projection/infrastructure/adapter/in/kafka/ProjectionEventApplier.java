@@ -114,12 +114,15 @@ class ProjectionEventApplier {
         if (projection.winScoreThreshold() == null && payload.winScoreThreshold() >= 1) {
             stores.gameProjections().save(projection.withWinScoreThreshold(payload.winScoreThreshold()));
         }
-        for (var player : payload.players()) {
+        // The roster lists the players in seat order.
+        for (var seat = 0; seat < payload.players().size(); seat++) {
+            var player = payload.players().get(seat);
             stores.gamePlayers()
                     .save(
                             payload.gameId(),
                             findOrCreateGamePlayer(payload.gameId(), player.playerId())
-                                    .withPlayerName(player.playerName()));
+                                    .withPlayerName(player.playerName())
+                                    .withSeatIndex(seat));
             stores.playerGameStates().save(findOrCreatePlayerGameState(payload.gameId(), player.playerId()));
         }
     }

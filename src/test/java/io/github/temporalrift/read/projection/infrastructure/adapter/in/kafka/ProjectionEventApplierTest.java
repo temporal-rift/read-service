@@ -239,8 +239,8 @@ class ProjectionEventApplierTest {
                 20));
 
         then(gameProjections).should().save(new GameProjection(gameId, 0, Phase.LOBBY).withWinScoreThreshold(20));
-        then(gamePlayers).should().save(gameId, new GamePlayer(player1, 0, true, null, "Ada"));
-        then(gamePlayers).should().save(gameId, new GamePlayer(player2, 0, true, null, "Ben"));
+        then(gamePlayers).should().save(gameId, new GamePlayer(player1, 0, true, null, "Ada", 0));
+        then(gamePlayers).should().save(gameId, new GamePlayer(player2, 0, true, null, "Ben", 1));
         then(playerGameStates).should().save(new PlayerGameState(gameId, player1, null, List.of()));
         then(playerGameStates).should().save(new PlayerGameState(gameId, player2, null, List.of()));
     }
@@ -269,7 +269,7 @@ class ProjectionEventApplierTest {
                 gameId, UUID.randomUUID(), List.of(new GameStartedPlayer(playerId, "Ada")), 3, 30, 0));
 
         then(gameProjections).should(never()).save(any());
-        then(gamePlayers).should().save(gameId, new GamePlayer(playerId, 0, true, null, "Ada"));
+        then(gamePlayers).should().save(gameId, new GamePlayer(playerId, 0, true, null, "Ada", 0));
         then(playerGameStates).should().save(new PlayerGameState(gameId, playerId, null, List.of()));
     }
 
@@ -290,8 +290,8 @@ class ProjectionEventApplierTest {
                 30,
                 20));
 
-        then(gamePlayers).should().save(gameId, new GamePlayer(player1, 0, true, null, maxName));
-        then(gamePlayers).should().save(gameId, new GamePlayer(player2, 0, true, null, otherMaxName));
+        then(gamePlayers).should().save(gameId, new GamePlayer(player1, 0, true, null, maxName, 0));
+        then(gamePlayers).should().save(gameId, new GamePlayer(player2, 0, true, null, otherMaxName, 1));
     }
 
     @Test
@@ -313,7 +313,9 @@ class ProjectionEventApplierTest {
 
         then(gameProjections).should().save(existingProjection.withWinScoreThreshold(20));
         then(playerGameStates).should().save(existingPlayerState);
-        then(gamePlayers).should().save(gameId, existingPlayer.withPlayerName("Ada"));
+        then(gamePlayers)
+                .should()
+                .save(gameId, existingPlayer.withPlayerName("Ada").withSeatIndex(0));
     }
 
     @Test
@@ -353,7 +355,7 @@ class ProjectionEventApplierTest {
         applier.applyGameStarted(new GameStartedPayload(
                 gameId, UUID.randomUUID(), List.of(new GameStartedPlayer(playerId, "Ada")), 3, 30, 20));
 
-        then(gamePlayers).should().save(gameId, new GamePlayer(playerId, 0, false, null, "Ada"));
+        then(gamePlayers).should().save(gameId, new GamePlayer(playerId, 0, false, null, "Ada", 0));
     }
 
     @Test

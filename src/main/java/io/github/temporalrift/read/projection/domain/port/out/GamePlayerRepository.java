@@ -8,6 +8,7 @@ import io.github.temporalrift.read.projection.domain.model.GamePlayer;
 
 public interface GamePlayerRepository {
 
+    /** The game's players in seat order; players not yet seated by the roster come last. */
     List<GamePlayer> findByGameId(UUID gameId);
 
     Optional<GamePlayer> findByGameIdAndPlayerId(UUID gameId, UUID playerId);

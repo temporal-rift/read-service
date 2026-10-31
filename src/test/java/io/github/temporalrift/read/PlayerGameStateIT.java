@@ -604,6 +604,144 @@ class PlayerGameStateIT {
     }
 
     @Test
+    void playersPendingPlayersAndParadoxes_followSeatAndPhaseStartOrder() throws Exception {
+        var gameId = UUID.randomUUID();
+        var random = new java.util.Random();
+        // Ids that sort against the roster and phase order in every uuid order, so only the stored order can pass.
+        var cy = new UUID(-1L, random.nextLong());
+        var ada = new UUID(1L, random.nextLong());
+        var ben = new UUID(2L, random.nextLong());
+        var p2 = new UUID(-1L, random.nextLong());
+        var p1 = new UUID(1L, random.nextLong());
+        var p3 = new UUID(2L, random.nextLong());
+
+        // Ben's row exists before the roster, so it is stored first.
+        var disconnected = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "PlayerDisconnected",
+                        gameId,
+                        Map.of("gameId", gameId, "playerId", ben),
+                        disconnected)
+                .join();
+        awaitProcessed(disconnected, "projection.game-events");
+        publish(
+                GAME_EVENTS_TOPIC,
+                "GameStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "winScoreThreshold",
+                        20,
+                        "lobbyId",
+                        UUID.randomUUID(),
+                        "players",
+                        roster(cy, ada, ben),
+                        "totalFactions",
+                        3,
+                        "deckSize",
+                        30));
+        awaitPlayerGameStateRowExists(gameId, ben);
+        publish(
+                GAME_EVENTS_TOPIC,
+                "EraStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "carryOverEventIds",
+                        List.of(),
+                        "playerIds",
+                        List.of(cy, ada, ben)));
+        awaitEraAndPhase(gameId, 1, "ERA_START");
+
+        var roundStarted = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "ActionRoundStarted",
+                        gameId,
+                        Map.of(
+                                "gameId",
+                                gameId,
+                                "eraNumber",
+                                1,
+                                "roundNumber",
+                                1,
+                                "timerSeconds",
+                                60,
+                                "pendingPlayerIds",
+                                List.of(cy, ada, ben)),
+                        roundStarted)
+                .join();
+        awaitProcessed(roundStarted, "projection.game-events");
+        var passed = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "ActionRoundPassed",
+                        gameId,
+                        Map.of("gameId", gameId, "eraNumber", 1, "roundNumber", 1, "playerId", ada),
+                        passed)
+                .join();
+        awaitProcessed(passed, "projection.game-events");
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(ada)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.players[*].playerId")
+                        .value(contains(cy.toString(), ada.toString(), ben.toString())))
+                .andExpect(jsonPath("$.players[2].isConnected").value(false))
+                .andExpect(jsonPath("$.phaseContext.actionRoundProgress.pendingPlayerIds")
+                        .value(contains(cy.toString(), ben.toString())));
+
+        publish(GAME_EVENTS_TOPIC, "ResolutionStarted", gameId, Map.of("gameId", gameId, "eraNumber", 1));
+        awaitPhase(gameId, "RESOLUTION");
+        var affectedEventId = UUID.randomUUID();
+        var affectedOutcomeId = UUID.randomUUID();
+        publish(
+                TIMELINE_EVENTS_TOPIC,
+                "ParadoxDetected",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "paradoxes",
+                        List.of(
+                                detectedParadox(p1, "DEAD_HEAT", affectedEventId, affectedOutcomeId),
+                                detectedParadox(p2, "CHAIN_CONFLICT", affectedEventId, affectedOutcomeId),
+                                detectedParadox(p3, "DEAD_HEAT", affectedEventId, affectedOutcomeId))));
+        publish(
+                TIMELINE_EVENTS_TOPIC,
+                "ParadoxResolutionPhaseStarted",
+                gameId,
+                Map.of("gameId", gameId, "eraNumber", 1, "paradoxIds", List.of(p2, p1, p3), "timerSeconds", 60));
+        awaitPhase(gameId, "PARADOX_RESOLUTION");
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(ada)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.phaseContext.paradoxes[*].paradoxId")
+                        .value(contains(p2.toString(), p1.toString(), p3.toString())));
+
+        publish(
+                TIMELINE_EVENTS_TOPIC,
+                "ParadoxResolved",
+                gameId,
+                Map.of("gameId", gameId, "eraNumber", 1, "paradoxId", p1, "resolvedByPlayerIds", List.of(ada)));
+        awaitPendingParadoxCount(gameId, 2);
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(ada)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.phaseContext.paradoxes[*].paradoxId")
+                        .value(contains(p2.toString(), p3.toString())));
+    }
+
+    @Test
     void paradoxPhase_arrivingBeforeGameStarted_isAppliedWithoutRetryAndSurvivesGameStarted() throws Exception {
         var gameId = UUID.randomUUID();
         var playerId = UUID.randomUUID();
