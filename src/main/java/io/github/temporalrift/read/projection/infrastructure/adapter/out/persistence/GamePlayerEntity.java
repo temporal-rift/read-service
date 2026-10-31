@@ -35,10 +35,20 @@ class GamePlayerEntity {
     @Column(name = "player_name", length = 32)
     private String playerName;
 
+    @Column(name = "seat_index")
+    private Integer seatIndex;
+
     protected GamePlayerEntity() {}
 
     GamePlayerEntity(
-            UUID id, UUID gameId, UUID playerId, int score, boolean isConnected, String faction, String playerName) {
+            UUID id,
+            UUID gameId,
+            UUID playerId,
+            int score,
+            boolean isConnected,
+            String faction,
+            String playerName,
+            Integer seatIndex) {
         this.id = id;
         this.gameId = gameId;
         this.playerId = playerId;
@@ -46,6 +56,7 @@ class GamePlayerEntity {
         this.isConnected = isConnected;
         this.faction = faction;
         this.playerName = playerName;
+        this.seatIndex = seatIndex;
     }
 
     static GamePlayerEntity fromDomain(UUID id, UUID gameId, GamePlayer domain) {
@@ -56,11 +67,12 @@ class GamePlayerEntity {
                 domain.score(),
                 domain.isConnected(),
                 domain.faction(),
-                domain.playerName());
+                domain.playerName(),
+                domain.seatIndex());
     }
 
     GamePlayer toDomain() {
-        return new GamePlayer(playerId, score, isConnected, faction, playerName);
+        return new GamePlayer(playerId, score, isConnected, faction, playerName, seatIndex);
     }
 
     UUID getId() {
@@ -89,5 +101,9 @@ class GamePlayerEntity {
 
     void setFaction(String faction) {
         this.faction = faction;
+    }
+
+    void setSeatIndex(Integer seatIndex) {
+        this.seatIndex = seatIndex;
     }
 }

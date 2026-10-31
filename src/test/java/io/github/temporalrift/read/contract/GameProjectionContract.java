@@ -44,6 +44,25 @@ public abstract class GameProjectionContract extends PortContract {
     }
 
     @Test
+    void pendingParadoxesKeepTheirOrderAcrossSavesAndRemovals() {
+        var middle = UUID.randomUUID();
+        // HIGH sorts after LOW in every uuid order, so a store that sorted the ids would read them back reordered.
+        inTransaction(() ->
+                port().save(projection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(HIGH, middle, LOW), 20, null)));
+        assertThat(inTransaction(() -> port().findByGameId(gameId))
+                        .orElseThrow()
+                        .pendingParadoxIds())
+                .containsExactly(HIGH, middle, LOW);
+
+        inTransaction(() -> port().save(projection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(HIGH, LOW), 20, null)));
+
+        assertThat(inTransaction(() -> port().findByGameId(gameId))
+                        .orElseThrow()
+                        .pendingParadoxIds())
+                .containsExactly(HIGH, LOW);
+    }
+
+    @Test
     void everySaveAdvancesTheRevisionAndAMissingThresholdKeepsTheStoredOne() {
         inTransaction(() -> port().save(projection(gameId, 1, Phase.ERA_START, List.of(), 20, null)));
 

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+  <!-- A player's zero-based position in the GameStarted roster, which lists players in seat order; null until the
+       roster is applied. Players are listed by it. -->
+  <changeSet id="026-add-game-player-seat-index" author="read-service">
+    <addColumn tableName="game_player">
+      <column name="seat_index" type="INT"/>
+    </addColumn>
+  </changeSet>
+
+  <!-- The position of a pending paradox in the list the paradox-resolution phase started with. Rows stored earlier
+       lost that order, so they are numbered per game by paradox id. -->
+  <changeSet id="026-add-pending-paradox-position" author="read-service">
+    <addColumn tableName="game_projection_pending_paradox">
+      <column name="paradox_position" type="INT"/>
+    </addColumn>
+    <sql>
+      UPDATE game_projection_pending_paradox p
+      SET paradox_position = numbered.position
+      FROM (SELECT game_projection_id, paradox_id,
+                   ROW_NUMBER() OVER (PARTITION BY game_projection_id ORDER BY paradox_id) - 1 AS position
+            FROM game_projection_pending_paradox) numbered
+      WHERE p.game_projection_id = numbered.game_projection_id AND p.paradox_id = numbered.paradox_id
+    </sql>
+    <addNotNullConstraint tableName="game_projection_pending_paradox" columnName="paradox_position"
+        columnDataType="INT"/>
+  </changeSet>
+
+</databaseChangeLog>

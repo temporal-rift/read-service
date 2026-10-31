@@ -22,7 +22,7 @@ class JpaGamePlayerAdapter implements GamePlayerRepository {
 
     @Override
     public List<GamePlayer> findByGameId(UUID gameId) {
-        return repository.findByGameId(gameId).stream()
+        return repository.findByGameIdInSeatOrder(gameId).stream()
                 .map(GamePlayerEntity::toDomain)
                 .toList();
     }
@@ -41,6 +41,7 @@ class JpaGamePlayerAdapter implements GamePlayerRepository {
             entity.setConnected(gamePlayer.isConnected());
             entity.setFaction(gamePlayer.faction());
             entity.setPlayerName(gamePlayer.playerName());
+            entity.setSeatIndex(gamePlayer.seatIndex());
         } else {
             repository.save(GamePlayerEntity.fromDomain(UUID.randomUUID(), gameId, gamePlayer));
         }
