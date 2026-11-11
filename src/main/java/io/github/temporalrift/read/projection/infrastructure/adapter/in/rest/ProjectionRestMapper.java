@@ -459,11 +459,6 @@ final class ProjectionRestMapper {
         return phase == Phase.ACTION_ROUND_1 || phase == Phase.ACTION_ROUND_2 || phase == Phase.ACTION_ROUND_3;
     }
 
-    /**
-     * Each faction's fixed set of three special actions, empty before a faction is assigned. Static only —
-     * whether a special is currently usable (once-per-era budgets, timing windows, jam) is a game-service rule
-     * this projection does not represent.
-     */
     private static SpecialActionAvailability toSpecialActionAvailability(SpecialAvailability domain) {
         return new SpecialActionAvailability(SpecialAction.valueOf(domain.specialAction()), domain.available())
                 .unavailableReason(
@@ -472,6 +467,11 @@ final class ProjectionRestMapper {
                                 : SpecialActionUnavailableReason.valueOf(domain.unavailableReason()));
     }
 
+    /**
+     * Each faction's fixed set of three special actions, empty before a faction is assigned. Static only —
+     * whether a special is currently usable (once-per-era budgets, timing windows, jam) is a game-service rule
+     * this projection does not represent.
+     */
     private static List<SpecialAction> toSpecialActions(String faction) {
         return switch (faction) {
             case "ERASERS" -> List.of(SpecialAction.ANNIHILATE, SpecialAction.CORRUPT, SpecialAction.CASCADE);
