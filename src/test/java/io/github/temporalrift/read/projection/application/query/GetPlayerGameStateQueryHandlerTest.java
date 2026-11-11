@@ -116,6 +116,9 @@ class GetPlayerGameStateQueryHandlerTest {
     @Mock
     TerminalResultRepository terminalResults;
 
+    @Mock
+    io.github.temporalrift.read.projection.domain.port.out.SpecialAvailabilityRepository specialAvailabilities;
+
     private GetPlayerGameStateQueryHandler handler;
 
     private final UUID gameId = UUID.randomUUID();
@@ -141,7 +144,77 @@ class GetPlayerGameStateQueryHandlerTest {
                 declarationOffers,
                 resolutionCardOffers,
                 detectedParadoxes,
-                terminalResults));
+                terminalResults,
+                specialAvailabilities));
+    }
+
+    private static io.github.temporalrift.read.projection.domain.model.SpecialAvailabilityReport availability(
+            UUID gameId, UUID playerId, int eraNumber, int roundNumber) {
+        return new io.github.temporalrift.read.projection.domain.model.SpecialAvailabilityReport(
+                gameId,
+                playerId,
+                eraNumber,
+                roundNumber,
+                List.of(
+                        new io.github.temporalrift.read.projection.domain.model.SpecialAvailability(
+                                "ANNIHILATE", false, "NOT_ELIGIBLE_THIS_ROUND"),
+                        new io.github.temporalrift.read.projection.domain.model.SpecialAvailability(
+                                "CORRUPT", true, null),
+                        new io.github.temporalrift.read.projection.domain.model.SpecialAvailability(
+                                "CASCADE", true, null)));
+    }
+
+    private void givenParticipantInPhase(Phase phase, int eraNumber, Integer roundNumber) {
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, "ERASERS", List.of())));
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(
+                        gameId, eraNumber, phase, List.of(), null, roundNumber, null, null, 0, null)));
+        given(gamePlayers.findByGameId(gameId)).willReturn(List.of(new GamePlayer(playerId, 0, true, null)));
+    }
+
+    @Test
+    void get_actionRoundWithMatchingReport_returnsTheCallersSpecialsInFactOrder() {
+        givenParticipantInPhase(Phase.ACTION_ROUND_1, 1, 1);
+        var report = availability(gameId, playerId, 1, 1);
+        given(specialAvailabilities.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.of(report));
+
+        assertThat(handler.get(gameId, playerId).mySpecialAvailability()).isEqualTo(report.specials());
+    }
+
+    @Test
+    void get_outsideAnActionRound_omitsTheAvailability() {
+        givenParticipantInPhase(Phase.PARADOX_RESOLUTION, 1, 3);
+
+        assertThat(handler.get(gameId, playerId).mySpecialAvailability()).isNull();
+    }
+
+    @Test
+    void get_reportForAnotherRound_omitsTheAvailability() {
+        givenParticipantInPhase(Phase.ACTION_ROUND_2, 1, 2);
+        given(specialAvailabilities.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(availability(gameId, playerId, 1, 1)));
+
+        assertThat(handler.get(gameId, playerId).mySpecialAvailability()).isNull();
+    }
+
+    @Test
+    void get_reportForAnotherEra_omitsTheAvailability() {
+        givenParticipantInPhase(Phase.ACTION_ROUND_1, 2, 1);
+        given(specialAvailabilities.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(availability(gameId, playerId, 1, 1)));
+
+        assertThat(handler.get(gameId, playerId).mySpecialAvailability()).isNull();
+    }
+
+    @Test
+    void get_readsOnlyTheCallersReport() {
+        givenParticipantInPhase(Phase.ACTION_ROUND_1, 1, 1);
+
+        handler.get(gameId, playerId);
+
+        org.mockito.Mockito.verify(specialAvailabilities).findByGameIdAndPlayerId(gameId, playerId);
+        org.mockito.Mockito.verifyNoMoreInteractions(specialAvailabilities);
     }
 
     @Test

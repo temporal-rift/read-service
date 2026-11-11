@@ -43,7 +43,8 @@ class JpaProjectionGameplayState implements GameplayState {
             "resolution_card_offer",
             "revealed_hand_card_intel",
             "revealed_influence_intel",
-            "revealed_probability_intel");
+            "revealed_probability_intel",
+            "special_action_availability");
 
     // Child tables hold no row without their parent, so the parents are enough to tell whether anything is held.
     private static final String ANY_ROW = """
@@ -69,6 +70,7 @@ class JpaProjectionGameplayState implements GameplayState {
                 OR EXISTS (SELECT 1 FROM revealed_hand_card_intel)
                 OR EXISTS (SELECT 1 FROM revealed_influence_intel)
                 OR EXISTS (SELECT 1 FROM revealed_probability_intel)
+                OR EXISTS (SELECT 1 FROM special_action_availability)
             """;
 
     @PersistenceContext

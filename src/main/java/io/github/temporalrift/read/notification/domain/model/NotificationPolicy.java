@@ -38,6 +38,7 @@ public final class NotificationPolicy {
             "HandCardIntercepted",
             "ForesightRevealed",
             "PlayerJammed",
+            "SpecialActionAvailabilityReported",
             "ThreadRejected",
             "SpecialRejected",
             "ChainProtectionArmed",

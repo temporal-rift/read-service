@@ -1012,6 +1012,191 @@ class PlayerGameStateIT {
                 List.of(Map.of("outcomeId", UUID.randomUUID(), "description", "outcome", "initialProbability", 50)));
     }
 
+    private Map<String, Object> availabilityFact(UUID gameId, int eraNumber, int roundNumber, UUID playerId) {
+        return Map.of(
+                "gameId",
+                gameId,
+                "eraNumber",
+                eraNumber,
+                "roundNumber",
+                roundNumber,
+                "playerId",
+                playerId,
+                "specials",
+                List.of(
+                        Map.of(
+                                "specialAction",
+                                "ANNIHILATE",
+                                "available",
+                                false,
+                                "unavailableReason",
+                                "NOT_ELIGIBLE_THIS_ROUND"),
+                        Map.of("specialAction", "CORRUPT", "available", true),
+                        Map.of("specialAction", "CASCADE", "available", true)));
+    }
+
+    private String stateBody(UUID gameId, UUID viewer) throws Exception {
+        return mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(viewer)))))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+    }
+
+    @Test
+    void specialAvailability_isServedToTheCallerOnlyForTheCurrentRoundAndSurvivesRedelivery() throws Exception {
+        var gameId = UUID.randomUUID();
+        var player = UUID.randomUUID();
+        var other = UUID.randomUUID();
+        publish(
+                GAME_EVENTS_TOPIC,
+                "GameStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "winScoreThreshold",
+                        20,
+                        "lobbyId",
+                        UUID.randomUUID(),
+                        "players",
+                        roster(player, other),
+                        "totalFactions",
+                        3,
+                        "deckSize",
+                        30));
+        awaitPlayerGameStateRowExists(gameId, player);
+        publish(
+                GAME_EVENTS_TOPIC,
+                "EraStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "carryOverEventIds",
+                        List.of(),
+                        "playerIds",
+                        List.of(player, other)));
+        publish(
+                GAME_EVENTS_TOPIC,
+                "ActionRoundStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "roundNumber",
+                        1,
+                        "timerSeconds",
+                        60,
+                        "pendingPlayerIds",
+                        List.of(player, other)));
+        awaitPhase(gameId, "ACTION_ROUND_1");
+        assertThat(stateBody(gameId, player)).doesNotContain("mySpecialAvailability");
+
+        var round1Fact = UUID.randomUUID();
+        publish(
+                GAME_EVENTS_TOPIC,
+                "SpecialActionAvailabilityReported",
+                gameId,
+                availabilityFact(gameId, 1, 1, player),
+                round1Fact);
+        awaitProcessed(round1Fact, "projection.game-events");
+
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(player)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mySpecialAvailability.length()").value(3))
+                .andExpect(jsonPath("$.mySpecialAvailability[0].specialAction").value("ANNIHILATE"))
+                .andExpect(jsonPath("$.mySpecialAvailability[0].isAvailableThisRound")
+                        .value(false))
+                .andExpect(
+                        jsonPath("$.mySpecialAvailability[0].unavailableReason").value("NOT_ELIGIBLE_THIS_ROUND"))
+                .andExpect(jsonPath("$.mySpecialAvailability[1].specialAction").value("CORRUPT"))
+                .andExpect(jsonPath("$.mySpecialAvailability[2].specialAction").value("CASCADE"));
+        assertThat(stateBody(gameId, player)).contains("\"unavailableReason\":null");
+        assertThat(stateBody(gameId, other))
+                .doesNotContain("mySpecialAvailability")
+                .doesNotContain("ANNIHILATE");
+
+        // A redelivery of the same event id changes nothing, even when its content differs.
+        var sentinel = UUID.randomUUID();
+        publish(
+                GAME_EVENTS_TOPIC,
+                "SpecialActionAvailabilityReported",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "roundNumber",
+                        1,
+                        "playerId",
+                        player,
+                        "specials",
+                        List.of(
+                                Map.of("specialAction", "ANNIHILATE", "available", true),
+                                Map.of("specialAction", "CORRUPT", "available", true),
+                                Map.of("specialAction", "CASCADE", "available", true))),
+                round1Fact);
+        publish(
+                GAME_EVENTS_TOPIC,
+                "SpecialActionAvailabilityReported",
+                gameId,
+                availabilityFact(gameId, 1, 1, other),
+                sentinel);
+        awaitProcessed(sentinel, "projection.game-events");
+        mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                        .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(player)))))
+                .andExpect(jsonPath("$.mySpecialAvailability[0].isAvailableThisRound")
+                        .value(false));
+
+        // Round 2 opens: the round 1 fact no longer matches, so the field is absent until its own fact lands.
+        publish(
+                GAME_EVENTS_TOPIC,
+                "ActionRoundStarted",
+                gameId,
+                Map.of(
+                        "gameId",
+                        gameId,
+                        "eraNumber",
+                        1,
+                        "roundNumber",
+                        2,
+                        "timerSeconds",
+                        60,
+                        "pendingPlayerIds",
+                        List.of(player, other)));
+        awaitPhase(gameId, "ACTION_ROUND_2");
+        assertThat(stateBody(gameId, player)).doesNotContain("mySpecialAvailability");
+
+        var round2Fact = UUID.randomUUID();
+        publish(
+                GAME_EVENTS_TOPIC,
+                "SpecialActionAvailabilityReported",
+                gameId,
+                availabilityFact(gameId, 1, 2, player),
+                round2Fact);
+        awaitProcessed(round2Fact, "projection.game-events");
+        assertThat(stateBody(gameId, player)).contains("mySpecialAvailability");
+
+        // A late round 1 fact does not replace the round 2 fact.
+        var lateRound1 = UUID.randomUUID();
+        publish(
+                GAME_EVENTS_TOPIC,
+                "SpecialActionAvailabilityReported",
+                gameId,
+                availabilityFact(gameId, 1, 1, player),
+                lateRound1);
+        awaitProcessed(lateRound1, "projection.game-events");
+        assertThat(stateBody(gameId, player)).contains("mySpecialAvailability");
+    }
+
     @Test
     void playerJammed_isVisibleOnlyToTheSuppressedPlayerAndClearsAfterTheNamedRoundOrEra() throws Exception {
         var gameId = UUID.randomUUID();
