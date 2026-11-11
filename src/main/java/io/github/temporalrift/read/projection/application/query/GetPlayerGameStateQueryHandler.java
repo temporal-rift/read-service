@@ -26,6 +26,8 @@ import io.github.temporalrift.read.projection.domain.model.PlayerNotInGameExcept
 import io.github.temporalrift.read.projection.domain.model.PlayerSubmission;
 import io.github.temporalrift.read.projection.domain.model.ResolutionCardOffer;
 import io.github.temporalrift.read.projection.domain.model.RevealedIntelEntry;
+import io.github.temporalrift.read.projection.domain.model.SpecialAvailability;
+import io.github.temporalrift.read.projection.domain.model.SpecialAvailabilityReport;
 
 @Service
 class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
@@ -140,7 +142,18 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                         ? eligibleResolutionCards(gameId, playerId, gameProjection.eraNumber(), mySubmissions)
                                 .orElse(null)
                         : null,
-                gameProjection.winScoreThreshold());
+                gameProjection.winScoreThreshold(),
+                inActionRound ? currentRoundAvailability(gameProjection, playerId) : null);
+    }
+
+    /** Absent unless the caller's stored report is for exactly the round now open. */
+    private List<SpecialAvailability> currentRoundAvailability(GameProjection projection, UUID playerId) {
+        return stores.specialAvailabilities()
+                .findByGameIdAndPlayerId(projection.gameId(), playerId)
+                .filter(report -> projection.currentRoundNumber() != null
+                        && report.isFor(projection.eraNumber(), projection.currentRoundNumber()))
+                .map(SpecialAvailabilityReport::specials)
+                .orElse(null);
     }
 
     /** The event-backed window fact is removed when the declaration window closes. */

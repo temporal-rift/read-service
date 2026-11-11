@@ -23,6 +23,7 @@ import io.github.temporalrift.read.projection.domain.model.RevealedHandCardIntel
 import io.github.temporalrift.read.projection.domain.model.RevealedInfluenceIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedIntelEntry;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
+import io.github.temporalrift.read.projection.domain.model.SpecialAvailability;
 import io.github.temporalrift.read.projection.domain.model.TerminalResult;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActionFamily;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ActionSummary;
@@ -63,6 +64,8 @@ import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.RevealedProbabilityOutcome;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.RoundSummary;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.SpecialAction;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.SpecialActionAvailability;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.SpecialActionUnavailableReason;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.SubmissionChoice;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.SubmissionProgress;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.SubmissionTargets;
@@ -98,6 +101,13 @@ final class ProjectionRestMapper {
         response.setMyFaction(toFaction(result.myFaction()));
         response.setMySpecialActions(toSpecialActions(result.myFaction()));
         response.setMyJammedUntilRound(result.myJammedUntilRound());
+        // Null leaves the key out: the generated list defaults to empty, which would read as "none available".
+        response.setMySpecialAvailability(
+                result.mySpecialAvailability() == null
+                        ? null
+                        : result.mySpecialAvailability().stream()
+                                .map(ProjectionRestMapper::toSpecialActionAvailability)
+                                .toList());
         response.setMyForesightPreview(
                 result.myForesightPreview() == null ? null : toForesightPreview(result.myForesightPreview()));
         response.setPendingHandSelection(
@@ -454,6 +464,14 @@ final class ProjectionRestMapper {
      * whether a special is currently usable (once-per-era budgets, timing windows, jam) is a game-service rule
      * this projection does not represent.
      */
+    private static SpecialActionAvailability toSpecialActionAvailability(SpecialAvailability domain) {
+        return new SpecialActionAvailability(SpecialAction.valueOf(domain.specialAction()), domain.available())
+                .unavailableReason(
+                        domain.unavailableReason() == null
+                                ? null
+                                : SpecialActionUnavailableReason.valueOf(domain.unavailableReason()));
+    }
+
     private static List<SpecialAction> toSpecialActions(String faction) {
         return switch (faction) {
             case "ERASERS" -> List.of(SpecialAction.ANNIHILATE, SpecialAction.CORRUPT, SpecialAction.CASCADE);

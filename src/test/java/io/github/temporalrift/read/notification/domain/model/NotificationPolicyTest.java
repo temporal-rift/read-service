@@ -23,6 +23,8 @@ class NotificationPolicyTest {
         assertThat(policy.deliveryFor("HandSelected")).isEqualTo(NotificationPolicy.Delivery.TARGETED);
         assertThat(policy.deliveryFor("ProbabilityStateRevealed")).isEqualTo(NotificationPolicy.Delivery.TARGETED);
         assertThat(policy.deliveryFor("PlayerJammed")).isEqualTo(NotificationPolicy.Delivery.TARGETED);
+        assertThat(policy.deliveryFor("SpecialActionAvailabilityReported"))
+                .isEqualTo(NotificationPolicy.Delivery.TARGETED);
         assertThat(policy.deliveryFor("InfluenceTraced")).isEqualTo(NotificationPolicy.Delivery.TARGETED);
         assertThat(policy.deliveryFor("HandCardIntercepted")).isEqualTo(NotificationPolicy.Delivery.TARGETED);
         assertThat(policy.deliveryFor("ForesightRevealed")).isEqualTo(NotificationPolicy.Delivery.TARGETED);

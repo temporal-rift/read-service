@@ -43,4 +43,9 @@ abstract class PlayerScopedBaseEntity {
     int getEraNumber() {
         return eraNumber;
     }
+
+    /** For tables that keep one row per player and replace its era in place. */
+    void setEraNumber(int eraNumber) {
+        this.eraNumber = eraNumber;
+    }
 }

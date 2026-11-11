@@ -20,6 +20,7 @@ import io.github.temporalrift.read.projection.domain.model.PublicBand;
 import io.github.temporalrift.read.projection.domain.model.PublicDeclaration;
 import io.github.temporalrift.read.projection.domain.model.ResolutionCardOffer;
 import io.github.temporalrift.read.projection.domain.model.RevealedIntelEntry;
+import io.github.temporalrift.read.projection.domain.model.SpecialAvailability;
 import io.github.temporalrift.read.projection.domain.model.TerminalResult;
 
 public interface GetPlayerGameStateUseCase {
@@ -68,12 +69,89 @@ public interface GetPlayerGameStateUseCase {
             SubmissionProgress paradoxResolutionProgress,
             List<UUID> affectedEventIds,
             List<ResolutionCardOffer.Card> myEligibleResolutionCards,
-            Integer winScoreThreshold) {
+            Integer winScoreThreshold,
+            List<SpecialAvailability> mySpecialAvailability) {
 
         public record SubmissionProgress(int submittedCount, int totalPlayers, List<UUID> pendingPlayerIds) {
             public SubmissionProgress {
                 pendingPlayerIds = List.copyOf(pendingPlayerIds);
             }
+        }
+
+        /** A result without special availability: the field is absent ({@code null}), not empty. */
+        public Result(
+                UUID gameId,
+                int eraNumber,
+                Phase phase,
+                String myFaction,
+                List<HandCard> myHand,
+                PendingHandSelection pendingHandSelection,
+                List<RevealedIntelEntry> myRevealedIntel,
+                int myScore,
+                List<GamePlayer> players,
+                List<GameActiveEvent> activeEvents,
+                LastRoundSummary lastRoundSummary,
+                Integer myJammedUntilRound,
+                GameChain chain,
+                long revision,
+                Instant lastUpdatedAt,
+                Integer roundNumber,
+                Instant handSelectionExpiresAt,
+                Instant actionRoundExpiresAt,
+                Instant declarationExpiresAt,
+                Instant paradoxResolutionExpiresAt,
+                boolean declarationOpen,
+                List<DeclarationOffer.Mode> myEligibleDeclarationModes,
+                boolean paradoxOpen,
+                List<DetectedParadox> openParadoxes,
+                List<PublicBand> publicBands,
+                List<PublicDeclaration> declarations,
+                List<ExposeFact> exposeFacts,
+                List<PlayerSubmission> mySubmissions,
+                TerminalResult terminalResult,
+                ForesightPreview myForesightPreview,
+                SubmissionProgress actionRoundProgress,
+                SubmissionProgress paradoxResolutionProgress,
+                List<UUID> affectedEventIds,
+                List<ResolutionCardOffer.Card> myEligibleResolutionCards,
+                Integer winScoreThreshold) {
+            this(
+                    gameId,
+                    eraNumber,
+                    phase,
+                    myFaction,
+                    myHand,
+                    pendingHandSelection,
+                    myRevealedIntel,
+                    myScore,
+                    players,
+                    activeEvents,
+                    lastRoundSummary,
+                    myJammedUntilRound,
+                    chain,
+                    revision,
+                    lastUpdatedAt,
+                    roundNumber,
+                    handSelectionExpiresAt,
+                    actionRoundExpiresAt,
+                    declarationExpiresAt,
+                    paradoxResolutionExpiresAt,
+                    declarationOpen,
+                    myEligibleDeclarationModes,
+                    paradoxOpen,
+                    openParadoxes,
+                    publicBands,
+                    declarations,
+                    exposeFacts,
+                    mySubmissions,
+                    terminalResult,
+                    myForesightPreview,
+                    actionRoundProgress,
+                    paradoxResolutionProgress,
+                    affectedEventIds,
+                    myEligibleResolutionCards,
+                    winScoreThreshold,
+                    null);
         }
 
         public Result(

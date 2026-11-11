@@ -36,7 +36,8 @@ class InMemoryProjectionGameplayState implements GameplayState {
             "resolution_card_offer",
             "revealed_hand_card_intel",
             "revealed_influence_intel",
-            "revealed_probability_intel");
+            "revealed_probability_intel",
+            "special_action_availability");
 
     private final InMemoryDatabase database;
 

@@ -17,6 +17,7 @@ import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.Par
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ParadoxResolutionPassedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.PlayerJammedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.RoundSummaryPublishedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.SpecialActionAvailabilityReportedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.SpecialActionPlayedPayload;
 
 /**
@@ -46,6 +47,12 @@ class ActionEventDispatcher implements Consumer {
     @Override
     public void onActionRoundStarted(ActionRoundStartedPayload payload, EventHeaders headers) {
         applier.applyActionRoundStarted(payload, headers.occurredAt());
+    }
+
+    @Override
+    public void onSpecialActionAvailabilityReported(
+            SpecialActionAvailabilityReportedPayload payload, EventHeaders headers) {
+        applier.applySpecialActionAvailabilityReported(payload);
     }
 
     @Override

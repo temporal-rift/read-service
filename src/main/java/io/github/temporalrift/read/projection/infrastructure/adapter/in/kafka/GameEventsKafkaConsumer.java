@@ -60,6 +60,8 @@ class GameEventsKafkaConsumer {
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract
                     .DECLARATION_OPTIONS_OFFERED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ACTION_ROUND_STARTED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract
+                    .SPECIAL_ACTION_AVAILABILITY_REPORTED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CARD_PLAYED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ACTION_ROUND_PASSED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract
@@ -104,6 +106,8 @@ class GameEventsKafkaConsumer {
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract
                     .DECLARATION_OPTIONS_OFFERED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ACTION_ROUND_STARTED_EVENT_TYPE,
+            io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract
+                    .SPECIAL_ACTION_AVAILABILITY_REPORTED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.CARD_PLAYED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ACTION_ROUND_PASSED_EVENT_TYPE,
             io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract

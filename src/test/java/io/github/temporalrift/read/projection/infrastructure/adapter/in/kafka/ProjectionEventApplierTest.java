@@ -11,6 +11,8 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.time.Instant;
 import java.util.List;
@@ -41,8 +43,12 @@ import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.Inf
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.InterceptedHandCard;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ParadoxResolutionCardPlayedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.PlayerJammedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ReportedSpecialAvailability;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.RoundSummaryPublishedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.SpecialAction;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.SpecialActionAvailabilityReportedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.SpecialActionPlayedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.SpecialActionUnavailableReason;
 import io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.ScoreUpdate;
 import io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.ScoresUpdatedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.CardGrade;
@@ -120,6 +126,8 @@ import io.github.temporalrift.read.projection.domain.model.RevealedInfluenceInte
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
 import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
+import io.github.temporalrift.read.projection.domain.model.SpecialAvailability;
+import io.github.temporalrift.read.projection.domain.model.SpecialAvailabilityReport;
 import io.github.temporalrift.read.projection.domain.model.TerminalResult;
 import io.github.temporalrift.read.projection.domain.port.out.ExposeFactRepository;
 import io.github.temporalrift.read.projection.domain.port.out.ForesightPreviewRepository;
@@ -134,6 +142,7 @@ import io.github.temporalrift.read.projection.domain.port.out.PublicDeclarationR
 import io.github.temporalrift.read.projection.domain.port.out.RevealedHandCardIntelRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedInfluenceIntelRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedProbabilityIntelRepository;
+import io.github.temporalrift.read.projection.domain.port.out.SpecialAvailabilityRepository;
 import io.github.temporalrift.read.projection.domain.port.out.TerminalResultRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -193,6 +202,9 @@ class ProjectionEventApplierTest {
     @Mock
     TerminalResultRepository terminalResults;
 
+    @Mock
+    SpecialAvailabilityRepository specialAvailabilities;
+
     private ProjectionEventApplier applier;
 
     private final UUID gameId = UUID.randomUUID();
@@ -220,7 +232,92 @@ class ProjectionEventApplierTest {
                 declarationOffers,
                 resolutionCardOffers,
                 detectedParadoxes,
-                terminalResults));
+                terminalResults,
+                specialAvailabilities));
+    }
+
+    private SpecialActionAvailabilityReportedPayload availabilityFact(UUID playerId, int eraNumber, int roundNumber) {
+        return new SpecialActionAvailabilityReportedPayload(
+                gameId,
+                eraNumber,
+                roundNumber,
+                playerId,
+                List.of(
+                        new ReportedSpecialAvailability(
+                                SpecialAction.ANNIHILATE,
+                                false,
+                                SpecialActionUnavailableReason.NOT_ELIGIBLE_THIS_ROUND),
+                        new ReportedSpecialAvailability(SpecialAction.CORRUPT, true, null),
+                        new ReportedSpecialAvailability(SpecialAction.CASCADE, true, null)));
+    }
+
+    private SpecialAvailabilityReport storedAvailability(UUID playerId, int eraNumber, int roundNumber) {
+        return new SpecialAvailabilityReport(
+                gameId, playerId, eraNumber, roundNumber, List.of(new SpecialAvailability("CORRUPT", true, null)));
+    }
+
+    @Test
+    void applySpecialActionAvailabilityReported_storesTheFactInOrderWithoutAnyPlayerState() {
+        var playerId = UUID.randomUUID();
+        given(specialAvailabilities.findByGameIdAndPlayerId(gameId, playerId)).willReturn(Optional.empty());
+
+        applier.applySpecialActionAvailabilityReported(availabilityFact(playerId, 1, 1));
+
+        verify(specialAvailabilities)
+                .save(new SpecialAvailabilityReport(
+                        gameId,
+                        playerId,
+                        1,
+                        1,
+                        List.of(
+                                new SpecialAvailability("ANNIHILATE", false, "NOT_ELIGIBLE_THIS_ROUND"),
+                                new SpecialAvailability("CORRUPT", true, null),
+                                new SpecialAvailability("CASCADE", true, null))));
+        verifyNoInteractions(playerGameStates);
+    }
+
+    @Test
+    void applySpecialActionAvailabilityReported_laterRoundReplacesEarlier() {
+        var playerId = UUID.randomUUID();
+        given(specialAvailabilities.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(storedAvailability(playerId, 1, 1)));
+
+        applier.applySpecialActionAvailabilityReported(availabilityFact(playerId, 1, 2));
+
+        verify(specialAvailabilities).save(any(SpecialAvailabilityReport.class));
+    }
+
+    @Test
+    void applySpecialActionAvailabilityReported_lateEarlierRoundKeepsTheNewerFact() {
+        var playerId = UUID.randomUUID();
+        given(specialAvailabilities.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(storedAvailability(playerId, 1, 2)));
+
+        applier.applySpecialActionAvailabilityReported(availabilityFact(playerId, 1, 1));
+
+        verify(specialAvailabilities, never()).save(any());
+    }
+
+    @Test
+    void applySpecialActionAvailabilityReported_laterEraOutranksAHigherRoundOfAnEarlierEra() {
+        var playerId = UUID.randomUUID();
+        given(specialAvailabilities.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(storedAvailability(playerId, 1, 3)));
+
+        applier.applySpecialActionAvailabilityReported(availabilityFact(playerId, 2, 1));
+
+        verify(specialAvailabilities).save(any(SpecialAvailabilityReport.class));
+    }
+
+    @Test
+    void applySpecialActionAvailabilityReported_earlierEraNeverReplacesALaterEra() {
+        var playerId = UUID.randomUUID();
+        given(specialAvailabilities.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(storedAvailability(playerId, 2, 1)));
+
+        applier.applySpecialActionAvailabilityReported(availabilityFact(playerId, 1, 3));
+
+        verify(specialAvailabilities, never()).save(any());
     }
 
     @Test
@@ -976,6 +1073,7 @@ class ProjectionEventApplierTest {
         then(revealedInfluenceIntel).should().deleteByGameId(gameId);
         then(revealedHandCardIntel).should().deleteByGameId(gameId);
         then(gameChains).should().deleteByGameId(gameId);
+        then(specialAvailabilities).should().deleteByGameId(gameId);
         then(revealedProbabilityIntel).should(never()).deleteByGameIdAndEraNumber(any(), anyInt());
         then(revealedInfluenceIntel).should(never()).deleteByGameIdAndEraNumber(any(), anyInt());
         then(revealedHandCardIntel).should(never()).deleteByGameIdAndEraNumber(any(), anyInt());

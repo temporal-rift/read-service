@@ -19,6 +19,7 @@ import io.github.temporalrift.read.projection.domain.port.out.ResolutionCardOffe
 import io.github.temporalrift.read.projection.domain.port.out.RevealedHandCardIntelRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedInfluenceIntelRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedProbabilityIntelRepository;
+import io.github.temporalrift.read.projection.domain.port.out.SpecialAvailabilityRepository;
 import io.github.temporalrift.read.projection.domain.port.out.TerminalResultRepository;
 
 /**
@@ -45,4 +46,5 @@ public record ProjectionRepositories(
         DeclarationOfferRepository declarationOffers,
         ResolutionCardOfferRepository resolutionCardOffers,
         DetectedParadoxRepository detectedParadoxes,
-        TerminalResultRepository terminalResults) {}
+        TerminalResultRepository terminalResults,
+        SpecialAvailabilityRepository specialAvailabilities) {}

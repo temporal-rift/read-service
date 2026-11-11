@@ -24,6 +24,7 @@ import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.Par
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.ParadoxResolutionPassedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.PlayerJammedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.RoundSummaryPublishedPayload;
+import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.SpecialActionAvailabilityReportedPayload;
 import io.github.temporalrift.asyncapi.actionevents.GeneratedChannelContract.SpecialActionPlayedPayload;
 import io.github.temporalrift.asyncapi.scoringevents.GeneratedChannelContract.ScoresUpdatedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.EraEndedPayload;
@@ -86,6 +87,8 @@ import io.github.temporalrift.read.projection.domain.model.RevealedInfluenceInte
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
 import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
+import io.github.temporalrift.read.projection.domain.model.SpecialAvailability;
+import io.github.temporalrift.read.projection.domain.model.SpecialAvailabilityReport;
 import io.github.temporalrift.read.projection.domain.model.TerminalResult;
 
 /**
@@ -358,6 +361,7 @@ class ProjectionEventApplier {
         stores.revealedInfluenceIntel().deleteByGameId(payload.gameId());
         stores.revealedHandCardIntel().deleteByGameId(payload.gameId());
         stores.foresightPreviews().deleteByGameId(payload.gameId());
+        stores.specialAvailabilities().deleteByGameId(payload.gameId());
         stores.publicBands().deleteByGameId(payload.gameId());
         stores.publicDeclarations().deleteByGameId(payload.gameId());
         stores.exposeFacts().deleteByGameId(payload.gameId());
@@ -417,6 +421,35 @@ class ProjectionEventApplier {
                         null,
                         existing.revision(),
                         existing.lastUpdatedAt()));
+    }
+
+    // Keeps only the newest round per player, ordered by era then round: a late delivery of an earlier round
+    // must not replace a later one. Keyed by game and player alone, so it needs no existing player state and
+    // does not depend on arriving after GameStarted or ActionRoundStarted.
+    void applySpecialActionAvailabilityReported(SpecialActionAvailabilityReportedPayload payload) {
+        var report = new SpecialAvailabilityReport(
+                payload.gameId(),
+                payload.playerId(),
+                payload.eraNumber(),
+                payload.roundNumber(),
+                payload.specials().stream()
+                        .map(special -> new SpecialAvailability(
+                                special.specialAction().name(),
+                                special.available(),
+                                special.unavailableReason() == null
+                                        ? null
+                                        : special.unavailableReason().name()))
+                        .toList());
+        var stored = stores.specialAvailabilities().findByGameIdAndPlayerId(payload.gameId(), payload.playerId());
+        if (stored.isPresent() && report.isOlderThan(stored.get())) {
+            log.warn(
+                    "SpecialActionAvailabilityReported for past era {} round {} in game {} — skipping",
+                    payload.eraNumber(),
+                    payload.roundNumber(),
+                    payload.gameId());
+            return;
+        }
+        stores.specialAvailabilities().save(report);
     }
 
     void applyActionRoundStarted(ActionRoundStartedPayload payload, Instant occurredAt) {

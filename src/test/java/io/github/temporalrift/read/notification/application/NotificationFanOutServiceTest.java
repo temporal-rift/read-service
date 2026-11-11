@@ -107,6 +107,7 @@ class NotificationFanOutServiceTest {
                 "HandDealt",
                 "ProbabilityStateRevealed",
                 "PlayerJammed",
+                "SpecialActionAvailabilityReported",
                 "InfluenceTraced",
                 "HandCardIntercepted",
                 "ForesightRevealed"
