@@ -56,7 +56,7 @@ class GameActiveEventConcurrencyIT {
             var outcomeApplied =
                     executor.submit(() -> new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
                         applier.applyOutcomeApplied(
-                                new OutcomeAppliedPayload(gameId, 1, eventId, outcomeId, List.of()));
+                                new OutcomeAppliedPayload(gameId, 1, eventId, outcomeId, List.of(), List.of()));
                         // The method has atomically created and locked the previously absent per-game anchor.
                         // The transaction remains open until the competing EventsDrawn is waiting on it.
                         lockHeld.countDown();

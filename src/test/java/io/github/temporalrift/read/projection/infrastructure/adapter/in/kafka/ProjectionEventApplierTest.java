@@ -1578,7 +1578,8 @@ class ProjectionEventApplierTest {
     void applyOutcomeApplied_removesEventFromActiveEvents() {
         var eventId = UUID.randomUUID();
 
-        applier.applyOutcomeApplied(new OutcomeAppliedPayload(gameId, 1, eventId, UUID.randomUUID(), List.of()));
+        applier.applyOutcomeApplied(
+                new OutcomeAppliedPayload(gameId, 1, eventId, UUID.randomUUID(), List.of(), List.of()));
 
         then(gameActiveEvents).should().markResolved(gameId, eventId);
         then(gameActiveEvents).should().deleteByGameIdAndEventId(gameId, eventId);
@@ -1589,7 +1590,8 @@ class ProjectionEventApplierTest {
         var eventId = UUID.randomUUID();
 
         // Cross-topic reordering: timeline.events' OutcomeApplied is processed first.
-        applier.applyOutcomeApplied(new OutcomeAppliedPayload(gameId, 1, eventId, UUID.randomUUID(), List.of()));
+        applier.applyOutcomeApplied(
+                new OutcomeAppliedPayload(gameId, 1, eventId, UUID.randomUUID(), List.of(), List.of()));
         given(gameActiveEvents.isResolved(gameId, eventId)).willReturn(true);
 
         // The late game.events' EventsDrawn for the same event arrives afterward.
