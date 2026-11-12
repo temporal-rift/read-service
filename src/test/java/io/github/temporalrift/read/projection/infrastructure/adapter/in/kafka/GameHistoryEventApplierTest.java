@@ -124,7 +124,7 @@ class GameHistoryEventApplierTest {
     }
 
     private OutcomeAppliedPayload outcomeApplied() {
-        return new OutcomeAppliedPayload(gameId, 1, eventId, outcomeId, List.of());
+        return new OutcomeAppliedPayload(gameId, 1, eventId, outcomeId, List.of(), List.of());
     }
 
     private ParadoxCascadedPayload paradoxCascaded() {

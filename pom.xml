@@ -63,7 +63,7 @@
         <session-event.version>7.2.0</session-event.version>
         <action-event.version>9.5.0</action-event.version>
         <scoring-event.version>3.0.0</scoring-event.version>
-        <timeline-event.version>7.1.0</timeline-event.version>
+        <timeline-event.version>7.4.0</timeline-event.version>
         <simulation-control-api.version>2.1.0</simulation-control-api.version>
     </properties>
 
