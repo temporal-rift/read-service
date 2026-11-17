@@ -14,8 +14,12 @@ import org.junit.jupiter.params.provider.EnumSource;
  */
 class ParadoxTypeContractTest {
 
+    /** {@code UNKNOWN} is the decoder's fallback for an unrecognized wire value, not a published paradox type. */
     @ParameterizedTest
-    @EnumSource(io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxType.class)
+    @EnumSource(
+            value = io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxType.class,
+            mode = EnumSource.Mode.EXCLUDE,
+            names = "UNKNOWN")
     void everyPublishedParadoxTypeIsProjected(
             io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxType published) {
         assertThat(ParadoxType.valueOf(published.name()).name()).isEqualTo(published.name());
