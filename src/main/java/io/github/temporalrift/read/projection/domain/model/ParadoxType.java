@@ -4,5 +4,6 @@ package io.github.temporalrift.read.projection.domain.model;
 public enum ParadoxType {
     DEAD_HEAT,
     IMPOSSIBLE_ERASURE,
-    CHAIN_CONFLICT
+    CHAIN_CONFLICT,
+    FATE_CONTRADICTION
 }
