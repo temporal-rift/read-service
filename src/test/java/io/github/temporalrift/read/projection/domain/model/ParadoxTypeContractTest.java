@@ -1,0 +1,37 @@
+package io.github.temporalrift.read.projection.domain.model;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.Arrays;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+
+/**
+ * The projection's paradox types are mapped by name from the timeline event contract and to the REST contract, so the
+ * three enums must hold exactly the same values.
+ */
+class ParadoxTypeContractTest {
+
+    @ParameterizedTest
+    @EnumSource(io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxType.class)
+    void everyPublishedParadoxTypeIsProjected(
+            io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxType published) {
+        assertThat(ParadoxType.valueOf(published.name()).name()).isEqualTo(published.name());
+    }
+
+    @ParameterizedTest
+    @EnumSource(ParadoxType.class)
+    void everyProjectedParadoxTypeIsServed(ParadoxType projected) {
+        assertThat(io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ParadoxType.fromValue(
+                                projected.name())
+                        .getValue())
+                .isEqualTo(projected.name());
+    }
+
+    @Test
+    void fateContradictionIsAmongTheProjectedTypes() {
+        assertThat(Arrays.stream(ParadoxType.values()).map(Enum::name)).contains("FATE_CONTRADICTION");
+    }
+}
