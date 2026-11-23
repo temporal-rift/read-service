@@ -1187,6 +1187,21 @@ class ProjectionEventApplierTest {
     }
 
     @Test
+    void applyChainLinkInvalidated_forAnEarlierLink_keepsTheCurrentPendingLink() {
+        var chainId = UUID.randomUUID();
+        var current = new GameChain.PendingLink(UUID.randomUUID(), UUID.randomUUID());
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
+        given(gameChains.findByGameId(gameId))
+                .willReturn(Optional.of(new GameChain(gameId, chainId, ChainStatus.ACTIVE, 2, current)));
+
+        applier.applyChainLinkInvalidated(new ChainLinkInvalidatedPayload(
+                gameId, 3, chainId, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 2, null));
+
+        then(gameChains).should(never()).save(any(), any());
+    }
+
+    @Test
     void applyChainReAnchored_movesThePendingLinkToTheNewOutcome() {
         var chainId = UUID.randomUUID();
         var newEvent = UUID.randomUUID();

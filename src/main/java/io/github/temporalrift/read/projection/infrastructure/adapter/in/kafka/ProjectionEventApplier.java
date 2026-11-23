@@ -1079,14 +1079,17 @@ class ProjectionEventApplier {
                                 .withPendingLink(new GameChain.PendingLink(payload.eventId(), payload.outcomeId())));
     }
 
-    // The link cleared without confirming: length and status stay as they are.
+    // The link cleared without confirming: length and status stay as they are. It clears only the link it names, so
+    // a late invalidation of an earlier link never removes the pending link a later Thread set.
     void applyChainLinkInvalidated(ChainLinkInvalidatedPayload payload) {
         if (lockGame(payload.gameId()).phase() == Phase.GAME_ENDED) {
             log.warn("ChainLinkInvalidated for ended game {} — skipping", payload.gameId());
             return;
         }
         var existing = stores.gameChains().findByGameId(payload.gameId());
-        if (!isSameChain(existing, payload.chainId()) || isStaleChainMessage(existing, payload.chainId())) {
+        if (!isSameChain(existing, payload.chainId())
+                || isStaleChainMessage(existing, payload.chainId())
+                || !namesPendingLink(existing.get(), payload)) {
             return;
         }
         stores.gameChains().save(payload.gameId(), existing.get().withPendingLink(null));
@@ -1107,6 +1110,13 @@ class ProjectionEventApplier {
                         payload.gameId(),
                         new GameChain(
                                 payload.gameId(), payload.chainId(), ChainStatus.BROKEN, payload.chainLengthAtBreak()));
+    }
+
+    private static boolean namesPendingLink(GameChain chain, ChainLinkInvalidatedPayload payload) {
+        var pending = chain.pendingLink();
+        return pending != null
+                && pending.eventId().equals(payload.invalidatedEventId())
+                && pending.outcomeId().equals(payload.invalidatedOutcomeId());
     }
 
     private boolean isSameChain(Optional<GameChain> existing, UUID chainId) {
