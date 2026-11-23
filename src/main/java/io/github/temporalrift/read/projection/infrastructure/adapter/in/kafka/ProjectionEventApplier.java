@@ -1063,9 +1063,16 @@ class ProjectionEventApplier {
     // The pending link is a public fact, but the projection shows a chain only from its first confirmed link, so a
     // Thread for a game with no tracked chain, another chain, or a resolved chain changes nothing. Redelivery stores
     // the same link.
+    // A Thread of an earlier era than the game's current one is a record replayed late (for instance from the
+    // dead-letter topic): its link was settled with that era, so it is not stored.
     void applyChainLinkThreaded(ChainLinkThreadedPayload payload) {
-        if (lockGame(payload.gameId()).phase() == Phase.GAME_ENDED) {
+        var game = lockGame(payload.gameId());
+        if (game.phase() == Phase.GAME_ENDED) {
             log.warn("ChainLinkThreaded for ended game {} — skipping", payload.gameId());
+            return;
+        }
+        if (payload.eraNumber() < game.eraNumber()) {
+            log.warn("ChainLinkThreaded for past era {} in game {} — skipping", payload.eraNumber(), payload.gameId());
             return;
         }
         var existing = stores.gameChains().findByGameId(payload.gameId());

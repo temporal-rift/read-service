@@ -1158,6 +1158,18 @@ class ProjectionEventApplierTest {
     }
 
     @Test
+    void applyChainLinkThreaded_forAPastEra_isSkipped() {
+        var chainId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 4, Phase.ACTION_ROUND_1)));
+
+        applier.applyChainLinkThreaded(new ChainLinkThreadedPayload(
+                gameId, 3, chainId, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()));
+
+        then(gameChains).should(never()).save(any(), any());
+    }
+
+    @Test
     void applyChainLinkThreaded_forAResolvedChain_changesNothing() {
         var chainId = UUID.randomUUID();
         given(gameProjections.findByGameIdForUpdate(gameId))
