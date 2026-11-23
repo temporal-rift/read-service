@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+  <!-- The outcome the Weaver's latest Thread names and the chain has not yet confirmed; both null when none. -->
+  <changeSet id="028-add-game-chain-pending-link" author="read-service">
+    <addColumn tableName="game_chain_projection">
+      <column name="pending_event_id" type="UUID"/>
+      <column name="pending_outcome_id" type="UUID"/>
+    </addColumn>
+  </changeSet>
+
+</databaseChangeLog>
