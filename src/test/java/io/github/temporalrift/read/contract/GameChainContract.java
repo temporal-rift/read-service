@@ -32,6 +32,21 @@ public abstract class GameChainContract extends PortContract {
     }
 
     @Test
+    void aPendingLinkIsStoredAndClearedByTheNextSave() {
+        var chainId = UUID.randomUUID();
+        var link = new GameChain.PendingLink(UUID.randomUUID(), UUID.randomUUID());
+        inTransaction(() -> port().save(gameId, new GameChain(gameId, chainId, ChainStatus.ACTIVE, 2, link)));
+
+        assertThat(inTransaction(() -> port().findByGameId(gameId)))
+                .contains(new GameChain(gameId, chainId, ChainStatus.ACTIVE, 2, link));
+
+        inTransaction(() -> port().save(gameId, new GameChain(gameId, chainId, ChainStatus.ACTIVE, 3)));
+
+        assertThat(inTransaction(() -> port().findByGameId(gameId)))
+                .contains(new GameChain(gameId, chainId, ChainStatus.ACTIVE, 3));
+    }
+
+    @Test
     void aDeletedChainIsGone() {
         inTransaction(() -> port().save(gameId, new GameChain(gameId, UUID.randomUUID(), ChainStatus.BROKEN, 2)));
 

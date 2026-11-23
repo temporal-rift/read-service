@@ -21,6 +21,8 @@ import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.A
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainBrokenPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainCompletedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainLinkAddedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainLinkInvalidatedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainLinkThreadedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainReAnchoredPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxDetectedPayload;
@@ -148,18 +150,6 @@ class TimelineEventsKafkaConsumerTest {
     }
 
     @Test
-    void handle_chainLinkThreaded_isKnownButNotDispatched() {
-        var eventId = UUID.randomUUID();
-        given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(true);
-
-        new TimelineEventsKafkaConsumer(admission(), applier, objectMapper, skipMetrics)
-                .handle(KafkaTestMessages.withEventIdAndEventType(eventId, "ChainLinkThreaded"));
-
-        then(processedEvents).should().claim(eventId, "projection.timeline-events");
-        verifyNoInteractions(applier);
-    }
-
-    @Test
     void handle_unrecognizedEventType_doesNotClaimOrThrow() {
         var eventId = UUID.randomUUID();
 
@@ -202,6 +192,51 @@ class TimelineEventsKafkaConsumerTest {
         new TimelineEventsKafkaConsumer(admission(), applier, objectMapper, skipMetrics).handle(message);
 
         then(applier).should().applyProbabilityStateRevealed(payload);
+    }
+
+    @Test
+    void handle_chainLinkThreaded_dispatchesTheGeneratedPayload() {
+        var eventId = UUID.randomUUID();
+        var payload = new ChainLinkThreadedPayload(
+                UUID.randomUUID(), 2, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+        var message = MessageBuilder.withPayload((Object) payload)
+                .setHeader("eventId", eventId.toString())
+                .setHeader("eventType", "ChainLinkThreaded")
+                .setHeader("version", "1")
+                .build();
+        given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(true);
+        given(objectMapper.convertValue(payload, ChainLinkThreadedPayload.class))
+                .willReturn(payload);
+
+        new TimelineEventsKafkaConsumer(admission(), applier, objectMapper, skipMetrics).handle(message);
+
+        then(applier).should().applyChainLinkThreaded(payload);
+    }
+
+    @Test
+    void handle_chainLinkInvalidated_dispatchesTheGeneratedPayload() {
+        var eventId = UUID.randomUUID();
+        var payload = new ChainLinkInvalidatedPayload(
+                UUID.randomUUID(),
+                2,
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                2,
+                null);
+        var message = MessageBuilder.withPayload((Object) payload)
+                .setHeader("eventId", eventId.toString())
+                .setHeader("eventType", "ChainLinkInvalidated")
+                .setHeader("version", "1")
+                .build();
+        given(processedEvents.claim(eventId, "projection.timeline-events")).willReturn(true);
+        given(objectMapper.convertValue(payload, ChainLinkInvalidatedPayload.class))
+                .willReturn(payload);
+
+        new TimelineEventsKafkaConsumer(admission(), applier, objectMapper, skipMetrics).handle(message);
+
+        then(applier).should().applyChainLinkInvalidated(payload);
     }
 
     @Test

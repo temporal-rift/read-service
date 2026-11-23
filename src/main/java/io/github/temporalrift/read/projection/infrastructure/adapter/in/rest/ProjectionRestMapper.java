@@ -51,6 +51,7 @@ import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.MySubmission;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.OpenParadox;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.ParadoxType;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PendingChainLink;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PendingHandSelection;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PhaseContext;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerGameStateResponse;
@@ -345,7 +346,12 @@ final class ProjectionRestMapper {
     }
 
     private static ChainState toChainState(GameChain domain) {
-        return new ChainState(ChainState.StatusEnum.valueOf(domain.status().name()), domain.length());
+        var state = new ChainState(ChainState.StatusEnum.valueOf(domain.status().name()), domain.length());
+        if (domain.pendingLink() != null) {
+            state.setPendingLink(new PendingChainLink(
+                    domain.pendingLink().eventId(), domain.pendingLink().outcomeId()));
+        }
+        return state;
     }
 
     private static RoundSummary toRoundSummary(LastRoundSummary summary) {

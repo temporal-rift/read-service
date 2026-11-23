@@ -388,6 +388,53 @@ class ProjectionRestMapperTest {
     }
 
     @Test
+    void toResponse_mapsThePendingChainLinkWhenThereIsOne() {
+        var chainId = UUID.randomUUID();
+        var link = new GameChain.PendingLink(UUID.randomUUID(), UUID.randomUUID());
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID,
+                2,
+                Phase.ACTION_ROUND_2,
+                "ERASERS",
+                List.of(),
+                null,
+                List.of(),
+                0,
+                List.of(),
+                List.of(),
+                null,
+                null,
+                new GameChain(GAME_ID, chainId, ChainStatus.ACTIVE, 2, link));
+
+        var response = toResponse(result);
+
+        assertThat(response.getChain().getPendingLink()).satisfies(pending -> {
+            assertThat(pending.getEventId()).isEqualTo(link.eventId());
+            assertThat(pending.getOutcomeId()).isEqualTo(link.outcomeId());
+        });
+    }
+
+    @Test
+    void toResponse_aChainWithoutAPendingLinkOmitsIt() {
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID,
+                2,
+                Phase.ACTION_ROUND_2,
+                "ERASERS",
+                List.of(),
+                null,
+                List.of(),
+                0,
+                List.of(),
+                List.of(),
+                null,
+                null,
+                new GameChain(GAME_ID, UUID.randomUUID(), ChainStatus.ACTIVE, 2));
+
+        assertThat(toResponse(result).getChain().getPendingLink()).isNull();
+    }
+
+    @Test
     void toResponse_mapsActiveEventOutcomesWithTheirPrintedStartingWeights() {
         var eventId = UUID.randomUUID();
         var outcomeIds = List.of(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());

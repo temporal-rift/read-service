@@ -27,21 +27,30 @@ class GameChainEntity {
     @Column(name = "length", nullable = false)
     private int length;
 
+    @Column(name = "pending_event_id")
+    private UUID pendingEventId;
+
+    @Column(name = "pending_outcome_id")
+    private UUID pendingOutcomeId;
+
     protected GameChainEntity() {}
 
-    GameChainEntity(UUID gameId, UUID chainId, ChainStatus status, int length) {
+    GameChainEntity(UUID gameId, UUID chainId, ChainStatus status, int length, GameChain.PendingLink pendingLink) {
         this.gameId = gameId;
         this.chainId = chainId;
         this.status = status.name();
         this.length = length;
+        setPendingLink(pendingLink);
     }
 
     static GameChainEntity fromDomain(GameChain domain) {
-        return new GameChainEntity(domain.gameId(), domain.chainId(), domain.status(), domain.length());
+        return new GameChainEntity(
+                domain.gameId(), domain.chainId(), domain.status(), domain.length(), domain.pendingLink());
     }
 
     GameChain toDomain() {
-        return new GameChain(gameId, chainId, ChainStatus.valueOf(status), length);
+        var pending = pendingEventId == null ? null : new GameChain.PendingLink(pendingEventId, pendingOutcomeId);
+        return new GameChain(gameId, chainId, ChainStatus.valueOf(status), length, pending);
     }
 
     void setChainId(UUID chainId) {
@@ -54,5 +63,10 @@ class GameChainEntity {
 
     void setLength(int length) {
         this.length = length;
+    }
+
+    void setPendingLink(GameChain.PendingLink pendingLink) {
+        this.pendingEventId = pendingLink == null ? null : pendingLink.eventId();
+        this.pendingOutcomeId = pendingLink == null ? null : pendingLink.outcomeId();
     }
 }

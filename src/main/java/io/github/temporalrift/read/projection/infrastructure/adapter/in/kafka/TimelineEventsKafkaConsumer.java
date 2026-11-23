@@ -16,6 +16,8 @@ import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.A
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainBrokenPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainCompletedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainLinkAddedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainLinkInvalidatedPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainLinkThreadedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainReAnchoredPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.OutcomeAppliedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ParadoxCascadedPayload;
@@ -108,6 +110,9 @@ class TimelineEventsKafkaConsumer {
             case "AdjustedBandsPublished" ->
                 applier.applyAdjustedBandsPublished(read(message, AdjustedBandsPublishedPayload.class));
             case "ChainLinkAdded" -> applier.applyChainLinkAdded(read(message, ChainLinkAddedPayload.class));
+            case "ChainLinkThreaded" -> applier.applyChainLinkThreaded(read(message, ChainLinkThreadedPayload.class));
+            case "ChainLinkInvalidated" ->
+                applier.applyChainLinkInvalidated(read(message, ChainLinkInvalidatedPayload.class));
             case "ChainCompleted" -> applier.applyChainCompleted(read(message, ChainCompletedPayload.class));
             case "ChainBroken" -> applier.applyChainBroken(read(message, ChainBrokenPayload.class));
             case "ChainReAnchored" -> applier.applyChainReAnchored(read(message, ChainReAnchoredPayload.class));
