@@ -1354,23 +1354,26 @@ class ProjectionEventApplierTest {
     @Test
     void applyChainReAnchored_activeChain_keepsLengthAndStaysActive() {
         var chainId = UUID.randomUUID();
+        var newEvent = UUID.randomUUID();
+        var newOutcome = UUID.randomUUID();
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
         given(gameChains.findByGameId(gameId))
                 .willReturn(Optional.of(new GameChain(gameId, chainId, ChainStatus.ACTIVE, 2)));
 
         applier.applyChainReAnchored(new ChainReAnchoredPayload(
-                gameId,
-                1,
-                chainId,
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                2));
+                gameId, 1, chainId, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), newEvent, newOutcome, 2));
 
-        then(gameChains).should().save(gameId, new GameChain(gameId, chainId, ChainStatus.ACTIVE, 2));
+        then(gameChains)
+                .should()
+                .save(
+                        gameId,
+                        new GameChain(
+                                gameId,
+                                chainId,
+                                ChainStatus.ACTIVE,
+                                2,
+                                new GameChain.PendingLink(newEvent, newOutcome)));
     }
 
     @Test
