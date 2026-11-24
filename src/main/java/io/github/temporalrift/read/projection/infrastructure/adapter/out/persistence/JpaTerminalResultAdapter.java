@@ -38,7 +38,8 @@ class JpaTerminalResultAdapter implements TerminalResultRepository {
                                         winner.getPlayerId(),
                                         winner.getFaction(),
                                         winner.getWinType(),
-                                        splitWinConditions(winner.getWinConditions())))
+                                        splitWinConditions(winner.getWinConditions())
+                                                .orElse(null)))
                                 .toList(),
                         finalScores.findByGameIdOrderByPlayerIdAsc(gameId).stream()
                                 .map(score -> new TerminalResult.TerminalScore(
@@ -102,10 +103,10 @@ class JpaTerminalResultAdapter implements TerminalResultRepository {
         return String.join(",", winConditions);
     }
 
-    private static List<String> splitWinConditions(String stored) {
+    private static Optional<List<String>> splitWinConditions(String stored) {
         if (stored == null || stored.isBlank()) {
-            return null;
+            return Optional.empty();
         }
-        return List.of(stored.split(","));
+        return Optional.of(List.of(stored.split(",")));
     }
 }

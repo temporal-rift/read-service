@@ -1005,24 +1005,25 @@ class ProjectionEventApplier {
                                 payload.winnerId(),
                                 payload.faction().name(),
                                 payload.winType(),
-                                resolveWinConditions(payload))));
+                                resolveWinConditions(payload).orElse(null))));
         touchRevision(payload.gameId());
     }
 
-    private static List<String> resolveWinConditions(WinConditionMetPayload payload) {
+    /** Empty when the winner met no normal-victory condition (last-player-standing and special endings). */
+    private static Optional<List<String>> resolveWinConditions(WinConditionMetPayload payload) {
         if (payload.winConditions() != null && !payload.winConditions().isEmpty()) {
             var conditions = payload.winConditions().stream()
                     .filter(condition -> condition != WinCondition.UNKNOWN)
                     .map(Enum::name)
                     .toList();
             if (!conditions.isEmpty()) {
-                return conditions;
+                return Optional.of(conditions);
             }
         }
         if ("SCORE_THRESHOLD".equals(payload.winType()) || "FACTION_OBJECTIVE".equals(payload.winType())) {
-            return List.of(payload.winType());
+            return Optional.of(List.of(payload.winType()));
         }
-        return null;
+        return Optional.empty();
     }
 
     void applyTimelineCollapsed(TimelineCollapsedPayload payload) {

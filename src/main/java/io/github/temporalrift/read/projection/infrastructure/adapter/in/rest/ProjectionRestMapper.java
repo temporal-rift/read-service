@@ -4,6 +4,8 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import io.github.temporalrift.read.projection.application.port.in.GetGameHistoryUseCase;
 import io.github.temporalrift.read.projection.application.port.in.GetPlayerGameStateUseCase;
@@ -319,7 +321,8 @@ final class ProjectionRestMapper {
                             var gameWinner = new GameWinner(winner.playerId())
                                     .faction(toFaction(winner.faction()))
                                     .winType(winType);
-                            gameWinner.setWinConditions(toWinConditions(winType, winner.winConditions()));
+                            gameWinner.setWinConditions(toWinConditions(winType, winner.winConditions())
+                                    .orElse(null));
                             return gameWinner;
                         })
                         .toList(),
@@ -348,23 +351,24 @@ final class ProjectionRestMapper {
         }
     }
 
-    private static java.util.Set<WinCondition> toWinConditions(
+    /** Empty unless the win type is a normal victory with a stored non-empty list. */
+    private static Optional<Set<WinCondition>> toWinConditions(
             GameWinner.WinTypeEnum winType, List<String> winConditions) {
         if (winType != GameWinner.WinTypeEnum.SCORE_THRESHOLD && winType != GameWinner.WinTypeEnum.FACTION_OBJECTIVE) {
-            return null;
+            return Optional.empty();
         }
         if (winConditions == null || winConditions.isEmpty()) {
-            return null;
+            return Optional.empty();
         }
         var mapped = new LinkedHashSet<WinCondition>();
         for (var condition : winConditions) {
             try {
                 mapped.add(WinCondition.fromValue(condition));
             } catch (IllegalArgumentException _) {
-                return null;
+                return Optional.empty();
             }
         }
-        return mapped.isEmpty() ? null : mapped;
+        return mapped.isEmpty() ? Optional.empty() : Optional.of(mapped);
     }
 
     private static OffsetDateTime toOffsetDateTime(java.time.Instant instant) {
