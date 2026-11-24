@@ -1568,6 +1568,32 @@ class ProjectionEventApplierTest {
     }
 
     @Test
+    void applyChainReAnchored_shorterThanTrackedLength_leavesChainUnchanged() {
+        var chainId = UUID.randomUUID();
+        var firstEventId = UUID.randomUUID();
+        var secondEventId = UUID.randomUUID();
+        var pending = new GameChain.PendingLink(UUID.randomUUID(), UUID.randomUUID());
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
+        given(gameChains.findByGameId(gameId))
+                .willReturn(Optional.of(new GameChain(
+                        gameId, chainId, ChainStatus.ACTIVE, 2, pending, List.of(firstEventId, secondEventId))));
+
+        applier.applyChainReAnchored(new ChainReAnchoredPayload(
+                gameId,
+                1,
+                chainId,
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                1));
+
+        then(gameChains).should(never()).save(any(), any());
+    }
+
+    @Test
     void applyChainLinkInvalidated_keepsTheConfirmedLinkEventsOfTheHeldLinks() {
         var chainId = UUID.randomUUID();
         var firstEventId = UUID.randomUUID();

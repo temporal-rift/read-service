@@ -1092,10 +1092,13 @@ class ProjectionEventApplier {
                                         .toList()));
     }
 
-    // REWEAVE only moves the pending link, so chainLength stays equal to the tracked value rather than exceeding
-    // it — the growth-only staleness guard applyChainLinkAdded uses does not apply here; re-saving the same
-    // (chainId, ACTIVE, chainLength) shape on redelivery is already idempotent. Confirmed link events stay
-    // exactly the tracked ones, truncated to the payload length.
+    // REWEAVE only moves the pending link, so a live chainLength always equals the tracked value rather than
+    // exceeding it — the growth-only staleness guard applyChainLinkAdded uses does not apply here; re-saving the
+    // same (chainId, ACTIVE, chainLength) shape on redelivery is already idempotent. A re-anchor never changes
+    // confirmed length by construction, so a payload naming a different length for the tracked ACTIVE chain is
+    // necessarily stale (for instance a dead-letter replay from before the chain grew): it must neither regress
+    // the length, nor truncate the confirmed link events, nor overwrite a newer pending link. Confirmed link
+    // events stay exactly the tracked ones, truncated to the payload length.
     void applyChainReAnchored(ChainReAnchoredPayload payload) {
         if (lockGame(payload.gameId()).phase() == Phase.GAME_ENDED) {
             log.warn("ChainReAnchored for ended game {} — skipping", payload.gameId());
@@ -1105,6 +1108,16 @@ class ProjectionEventApplier {
         if (isStaleChainMessage(existing, payload.chainId())) {
             log.warn(
                     "ChainReAnchored for resolved chain {} in game {} — skipping", payload.chainId(), payload.gameId());
+            return;
+        }
+        if (isSameChain(existing, payload.chainId())
+                && payload.chainLength() != existing.get().length()) {
+            log.warn(
+                    "ChainReAnchored length {} does not match tracked length {} for chain {} in game {} — skipping",
+                    payload.chainLength(),
+                    existing.get().length(),
+                    payload.chainId(),
+                    payload.gameId());
             return;
         }
         var confirmed = existing.isPresent() && isSameChain(existing, payload.chainId())
