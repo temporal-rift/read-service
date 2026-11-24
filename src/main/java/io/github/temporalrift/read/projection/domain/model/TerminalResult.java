@@ -12,10 +12,18 @@ public record TerminalResult(
         finalScores = List.copyOf(finalScores);
     }
 
-    public record TerminalWinner(UUID playerId, String faction, String winType) {
+    public record TerminalWinner(UUID playerId, String faction, String winType, List<String> winConditions) {
 
         public TerminalWinner(UUID playerId, String faction) {
-            this(playerId, faction, null);
+            this(playerId, faction, null, null);
+        }
+
+        public TerminalWinner(UUID playerId, String faction, String winType) {
+            this(playerId, faction, winType, null);
+        }
+
+        public TerminalWinner {
+            winConditions = winConditions == null ? null : List.copyOf(winConditions);
         }
     }
 

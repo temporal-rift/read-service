@@ -625,8 +625,69 @@ class RecoverableParticipantViewIT {
                     .andExpect(jsonPath("$.result.endReason").value("WIN_CONDITION_MET"))
                     .andExpect(jsonPath("$.result.winners[0].playerId").value(winner.toString()))
                     .andExpect(jsonPath("$.result.winners[0].winType").value("SCORE_THRESHOLD"))
+                    .andExpect(jsonPath("$.result.winners[0].winConditions[0]").value("SCORE_THRESHOLD"))
+                    .andExpect(jsonPath("$.result.winners[0].winConditions", hasSize(1)))
                     .andExpect(jsonPath("$.result.finalScores", hasSize(2)))
                     .andExpect(jsonPath("$.result.revealBoundary").value("FACTIONS_AND_SCORES_PUBLIC"));
+        }
+    }
+
+    @Test
+    void terminalResult_doubleConditionWinnerSeenIdenticallyAfterRedelivery() throws Exception {
+        var gameId = UUID.randomUUID();
+        var winner = UUID.randomUUID();
+        var loser = UUID.randomUUID();
+        startGame(gameId, winner, loser);
+
+        var payload = Map.of(
+                "gameId",
+                gameId,
+                "winnerId",
+                winner,
+                "faction",
+                "PROPHETS",
+                "finalScore",
+                24,
+                "winType",
+                "SCORE_THRESHOLD",
+                "winConditions",
+                List.of("SCORE_THRESHOLD", "FACTION_OBJECTIVE"));
+        publish(GAME_EVENTS_TOPIC, "WinConditionMet", gameId, payload, UUID.randomUUID())
+                .join();
+        awaitPhase(gameId, "ERA_START");
+        // Redeliver the same fact with a new envelope id; the stored list must not duplicate.
+        var redeliveryId = UUID.randomUUID();
+        publish(GAME_EVENTS_TOPIC, "WinConditionMet", gameId, payload, redeliveryId)
+                .join();
+        awaitProcessed(redeliveryId, "projection.game-events");
+
+        var endedId = UUID.randomUUID();
+        publish(
+                        GAME_EVENTS_TOPIC,
+                        "GameEnded",
+                        gameId,
+                        Map.of(
+                                "gameId",
+                                gameId,
+                                "endReason",
+                                "WIN_CONDITION_MET",
+                                "finalScores",
+                                List.of(
+                                        Map.of("playerId", winner, "faction", "PROPHETS", "score", 24),
+                                        Map.of("playerId", loser, "faction", "WEAVERS", "score", 8))),
+                        endedId)
+                .join();
+        awaitProcessed(endedId, "projection.game-events");
+        awaitPhase(gameId, "GAME_ENDED");
+
+        for (var viewer : List.of(winner, loser)) {
+            mockMvc.perform(get("/api/v1/games/{gameId}/state", gameId)
+                            .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(viewer)))))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.result.winners[0].winType").value("SCORE_THRESHOLD"))
+                    .andExpect(jsonPath("$.result.winners[0].winConditions", hasSize(2)))
+                    .andExpect(jsonPath("$.result.winners[0].winConditions[0]").value("SCORE_THRESHOLD"))
+                    .andExpect(jsonPath("$.result.winners[0].winConditions[1]").value("FACTION_OBJECTIVE"));
         }
     }
 

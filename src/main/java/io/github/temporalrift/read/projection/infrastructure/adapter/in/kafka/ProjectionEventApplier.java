@@ -44,6 +44,7 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Pl
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.ResolutionStartedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.TimelineCollapsedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.TimelineStabilizedPayload;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.WinCondition;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.WinConditionMetPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.AdjustedBandsPublishedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainBrokenPayload;
@@ -1001,8 +1002,28 @@ class ProjectionEventApplier {
                 .addWinners(
                         payload.gameId(),
                         List.of(new TerminalResult.TerminalWinner(
-                                payload.winnerId(), payload.faction().name(), payload.winType())));
+                                payload.winnerId(),
+                                payload.faction().name(),
+                                payload.winType(),
+                                resolveWinConditions(payload).orElse(null))));
         touchRevision(payload.gameId());
+    }
+
+    /** Empty when the winner met no normal-victory condition (last-player-standing and special endings). */
+    private static Optional<List<String>> resolveWinConditions(WinConditionMetPayload payload) {
+        if (payload.winConditions() != null && !payload.winConditions().isEmpty()) {
+            var conditions = payload.winConditions().stream()
+                    .filter(condition -> condition != WinCondition.UNKNOWN)
+                    .map(Enum::name)
+                    .toList();
+            if (!conditions.isEmpty()) {
+                return Optional.of(conditions);
+            }
+        }
+        if ("SCORE_THRESHOLD".equals(payload.winType()) || "FACTION_OBJECTIVE".equals(payload.winType())) {
+            return Optional.of(List.of(payload.winType()));
+        }
+        return Optional.empty();
     }
 
     void applyTimelineCollapsed(TimelineCollapsedPayload payload) {

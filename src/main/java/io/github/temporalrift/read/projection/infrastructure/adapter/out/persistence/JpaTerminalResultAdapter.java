@@ -35,7 +35,11 @@ class JpaTerminalResultAdapter implements TerminalResultRepository {
                         header.getEndReason(),
                         winners.findByGameIdOrderByPlayerIdAsc(gameId).stream()
                                 .map(winner -> new TerminalResult.TerminalWinner(
-                                        winner.getPlayerId(), winner.getFaction(), winner.getWinType()))
+                                        winner.getPlayerId(),
+                                        winner.getFaction(),
+                                        winner.getWinType(),
+                                        splitWinConditions(winner.getWinConditions())
+                                                .orElse(null)))
                                 .toList(),
                         finalScores.findByGameIdOrderByPlayerIdAsc(gameId).stream()
                                 .map(score -> new TerminalResult.TerminalScore(
@@ -52,9 +56,15 @@ class JpaTerminalResultAdapter implements TerminalResultRepository {
                             existing -> {
                                 existing.setFaction(winner.faction());
                                 existing.setWinType(winner.winType());
+                                existing.setWinConditions(joinWinConditions(winner.winConditions()));
                             },
                             () -> winners.save(new TerminalWinnerEntity(
-                                    UUID.randomUUID(), gameId, winner.playerId(), winner.faction(), winner.winType())));
+                                    UUID.randomUUID(),
+                                    gameId,
+                                    winner.playerId(),
+                                    winner.faction(),
+                                    winner.winType(),
+                                    joinWinConditions(winner.winConditions()))));
         }
     }
 
@@ -84,5 +94,19 @@ class JpaTerminalResultAdapter implements TerminalResultRepository {
 
     private TerminalResultEntity ensureHeader(UUID gameId) {
         return results.findById(gameId).orElseGet(() -> results.save(new TerminalResultEntity(gameId)));
+    }
+
+    private static String joinWinConditions(List<String> winConditions) {
+        if (winConditions == null || winConditions.isEmpty()) {
+            return null;
+        }
+        return String.join(",", winConditions);
+    }
+
+    private static Optional<List<String>> splitWinConditions(String stored) {
+        if (stored == null || stored.isBlank()) {
+            return Optional.empty();
+        }
+        return Optional.of(List.of(stored.split(",")));
     }
 }
