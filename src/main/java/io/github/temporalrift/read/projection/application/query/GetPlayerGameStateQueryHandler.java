@@ -138,6 +138,7 @@ class GetPlayerGameStateQueryHandler implements GetPlayerGameStateUseCase {
                                 players)
                         : null,
                 paradoxOpen ? gameProjection.affectedEventIds() : List.of(),
+                gameProjection.cascadedEventIds(),
                 paradoxOpen
                         ? eligibleResolutionCards(gameId, playerId, gameProjection.eraNumber(), mySubmissions)
                                 .orElse(null)

@@ -245,6 +245,42 @@ class GetPlayerGameStateQueryHandlerTest {
     }
 
     @Test
+    void get_participantIncludesTheGameWideCascadedEvents() {
+        var firstEventId = UUID.randomUUID();
+        var secondEventId = UUID.randomUUID();
+        given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
+                .willReturn(Optional.of(new PlayerGameState(gameId, playerId, null, List.of())));
+        given(gameProjections.findByGameId(gameId))
+                .willReturn(Optional.of(new GameProjection(
+                        gameId,
+                        2,
+                        Phase.ACTION_ROUND_1,
+                        List.of(),
+                        null,
+                        null,
+                        null,
+                        null,
+                        0,
+                        null,
+                        List.of(),
+                        List.of(firstEventId, secondEventId))));
+        given(gamePlayers.findByGameId(gameId)).willReturn(List.of());
+        given(gameActiveEvents.findByGameId(gameId)).willReturn(List.of());
+        given(revealedProbabilityIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(List.of());
+        given(revealedInfluenceIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(List.of());
+        given(revealedHandCardIntel.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 2))
+                .willReturn(List.of());
+        given(gameChains.findByGameId(gameId)).willReturn(Optional.empty());
+
+        var result = handler.get(gameId, playerId);
+
+        assertThat(result.chain()).isNull();
+        assertThat(result.cascadedEventIds()).containsExactly(firstEventId, secondEventId);
+    }
+
+    @Test
     void get_participantIncludesTheGameWideChainState() {
         var chainId = UUID.randomUUID();
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
@@ -558,7 +594,8 @@ class GetPlayerGameStateQueryHandlerTest {
                         Instant.EPOCH.plusSeconds(60),
                         0,
                         null,
-                        List.of(affected))));
+                        List.of(affected),
+                        List.of())));
         given(gamePlayers.findByGameId(gameId)).willReturn(List.of(new GamePlayer(playerId, 0, true, null)));
         given(playerSubmissions.findSubmittedPlayerIds(
                         gameId, 1, PlayerSubmission.SubmissionWindow.PARADOX_RESOLUTION, null))

@@ -790,6 +790,21 @@ class ProjectionEventApplierTest {
     }
 
     @Test
+    void applyEraEnded_preservesCascadedEventsAcrossEras() {
+        var cascaded = UUID.randomUUID();
+        var existing = new GameProjection(
+                gameId, 1, Phase.RESOLUTION, List.of(), null, null, null, null, 0, null, List.of(), List.of(cascaded));
+        given(gameProjections.findByGameIdForUpdate(gameId)).willReturn(Optional.of(existing));
+
+        applier.applyEraEnded(new EraEndedPayload(gameId, 1, 0, 2));
+
+        var captor = ArgumentCaptor.forClass(GameProjection.class);
+        then(gameProjections).should().save(captor.capture());
+        assertThat(captor.getValue().phase()).isEqualTo(Phase.ERA_END);
+        assertThat(captor.getValue().cascadedEventIds()).containsExactly(cascaded);
+    }
+
+    @Test
     void applyEraEnded_redeliveredForAnAlreadySupersededEra_isSkipped() {
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 2, Phase.ACTION_ROUND_1)));
@@ -1082,6 +1097,21 @@ class ProjectionEventApplierTest {
     }
 
     @Test
+    void applyGameEnded_preservesCascadedEventsAsATerminalGameFact() {
+        var cascaded = UUID.randomUUID();
+        var existing = new GameProjection(
+                gameId, 3, Phase.RESOLUTION, List.of(), null, null, null, null, 0, null, List.of(), List.of(cascaded));
+        given(gameProjections.findByGameIdForUpdate(gameId)).willReturn(Optional.of(existing));
+
+        applier.applyGameEnded(new GameEndedPayload(gameId, "WIN_CONDITION_MET", List.of()));
+
+        var captor = ArgumentCaptor.forClass(GameProjection.class);
+        then(gameProjections).should().save(captor.capture());
+        assertThat(captor.getValue().phase()).isEqualTo(Phase.GAME_ENDED);
+        assertThat(captor.getValue().cascadedEventIds()).containsExactly(cascaded);
+    }
+
+    @Test
     void applyGameEnded_alreadyApplied_isSkipped() {
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 3, Phase.GAME_ENDED)));
@@ -1100,28 +1130,54 @@ class ProjectionEventApplierTest {
     void applyChainLinkAdded_noExistingChain_startsANewActiveChain() {
         var chainId = UUID.randomUUID();
         var playerId = UUID.randomUUID();
+        var linkedEventId = UUID.randomUUID();
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
         given(gameChains.findByGameId(gameId)).willReturn(Optional.empty());
 
         applier.applyChainLinkAdded(
-                new ChainLinkAddedPayload(gameId, chainId, playerId, UUID.randomUUID(), UUID.randomUUID(), 1, null, 1));
+                new ChainLinkAddedPayload(gameId, chainId, playerId, linkedEventId, UUID.randomUUID(), 1, null, 1));
 
-        then(gameChains).should().save(gameId, new GameChain(gameId, chainId, ChainStatus.ACTIVE, 1));
+        then(gameChains)
+                .should()
+                .save(gameId, new GameChain(gameId, chainId, ChainStatus.ACTIVE, 1, List.of(linkedEventId)));
     }
 
     @Test
     void applyChainLinkAdded_growsAnExistingActiveChain() {
         var chainId = UUID.randomUUID();
+        var firstEventId = UUID.randomUUID();
+        var secondEventId = UUID.randomUUID();
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
         given(gameChains.findByGameId(gameId))
-                .willReturn(Optional.of(new GameChain(gameId, chainId, ChainStatus.ACTIVE, 1)));
+                .willReturn(Optional.of(new GameChain(gameId, chainId, ChainStatus.ACTIVE, 1, List.of(firstEventId))));
 
         applier.applyChainLinkAdded(new ChainLinkAddedPayload(
-                gameId, chainId, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 2, UUID.randomUUID(), 1));
+                gameId, chainId, UUID.randomUUID(), secondEventId, UUID.randomUUID(), 2, firstEventId, 1));
 
-        then(gameChains).should().save(gameId, new GameChain(gameId, chainId, ChainStatus.ACTIVE, 2));
+        then(gameChains)
+                .should()
+                .save(
+                        gameId,
+                        new GameChain(gameId, chainId, ChainStatus.ACTIVE, 2, List.of(firstEventId, secondEventId)));
+    }
+
+    @Test
+    void applyChainLinkAdded_redeliveredForTheSameEvent_changesNothing() {
+        var chainId = UUID.randomUUID();
+        var firstEventId = UUID.randomUUID();
+        var secondEventId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
+        given(gameChains.findByGameId(gameId))
+                .willReturn(Optional.of(
+                        new GameChain(gameId, chainId, ChainStatus.ACTIVE, 2, List.of(firstEventId, secondEventId))));
+
+        applier.applyChainLinkAdded(new ChainLinkAddedPayload(
+                gameId, chainId, UUID.randomUUID(), secondEventId, UUID.randomUUID(), 2, firstEventId, 1));
+
+        then(gameChains).should(never()).save(any(), any());
     }
 
     @Test
@@ -1270,15 +1326,19 @@ class ProjectionEventApplierTest {
     void applyChainLinkAdded_forADifferentChainId_replacesTheResolvedChain() {
         var oldChainId = UUID.randomUUID();
         var newChainId = UUID.randomUUID();
+        var linkedEventId = UUID.randomUUID();
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
         given(gameChains.findByGameId(gameId))
-                .willReturn(Optional.of(new GameChain(gameId, oldChainId, ChainStatus.COMPLETED, 3)));
+                .willReturn(Optional.of(new GameChain(
+                        gameId, oldChainId, ChainStatus.COMPLETED, 3, List.of(UUID.randomUUID(), UUID.randomUUID()))));
 
         applier.applyChainLinkAdded(new ChainLinkAddedPayload(
-                gameId, newChainId, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 1, null, 1));
+                gameId, newChainId, UUID.randomUUID(), linkedEventId, UUID.randomUUID(), 1, null, 1));
 
-        then(gameChains).should().save(gameId, new GameChain(gameId, newChainId, ChainStatus.ACTIVE, 1));
+        then(gameChains)
+                .should()
+                .save(gameId, new GameChain(gameId, newChainId, ChainStatus.ACTIVE, 1, List.of(linkedEventId)));
     }
 
     @Test
@@ -1297,10 +1357,13 @@ class ProjectionEventApplierTest {
     @Test
     void applyChainCompleted_setsCompletedStatusWithLinkCount() {
         var chainId = UUID.randomUUID();
+        var firstEventId = UUID.randomUUID();
+        var secondEventId = UUID.randomUUID();
+        var thirdEventId = UUID.randomUUID();
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
         given(gameChains.findByGameId(gameId))
-                .willReturn(Optional.of(new GameChain(gameId, chainId, ChainStatus.ACTIVE, 3)));
+                .willReturn(Optional.of(new GameChain(gameId, chainId, ChainStatus.ACTIVE, 2)));
 
         applier.applyChainCompleted(new ChainCompletedPayload(
                 gameId,
@@ -1308,11 +1371,20 @@ class ProjectionEventApplierTest {
                 chainId,
                 UUID.randomUUID(),
                 List.of(
-                        new ChainCompletedChainLink(UUID.randomUUID(), UUID.randomUUID(), 1),
-                        new ChainCompletedChainLink(UUID.randomUUID(), UUID.randomUUID(), 1),
-                        new ChainCompletedChainLink(UUID.randomUUID(), UUID.randomUUID(), 1))));
+                        new ChainCompletedChainLink(firstEventId, UUID.randomUUID(), 1),
+                        new ChainCompletedChainLink(secondEventId, UUID.randomUUID(), 1),
+                        new ChainCompletedChainLink(thirdEventId, UUID.randomUUID(), 1))));
 
-        then(gameChains).should().save(gameId, new GameChain(gameId, chainId, ChainStatus.COMPLETED, 3));
+        then(gameChains)
+                .should()
+                .save(
+                        gameId,
+                        new GameChain(
+                                gameId,
+                                chainId,
+                                ChainStatus.COMPLETED,
+                                3,
+                                List.of(firstEventId, secondEventId, thirdEventId)));
     }
 
     @Test
@@ -1351,6 +1423,26 @@ class ProjectionEventApplierTest {
         applier.applyChainBroken(new ChainBrokenPayload(gameId, 1, chainId, UUID.randomUUID(), UUID.randomUUID(), 2));
 
         then(gameChains).should().save(gameId, new GameChain(gameId, chainId, ChainStatus.BROKEN, 2));
+    }
+
+    @Test
+    void applyChainBroken_keepsTheConfirmedLinkEventsOfTheHeldLinks() {
+        var chainId = UUID.randomUUID();
+        var firstEventId = UUID.randomUUID();
+        var secondEventId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
+        given(gameChains.findByGameId(gameId))
+                .willReturn(Optional.of(
+                        new GameChain(gameId, chainId, ChainStatus.ACTIVE, 2, List.of(firstEventId, secondEventId))));
+
+        applier.applyChainBroken(new ChainBrokenPayload(gameId, 1, chainId, UUID.randomUUID(), UUID.randomUUID(), 2));
+
+        then(gameChains)
+                .should()
+                .save(
+                        gameId,
+                        new GameChain(gameId, chainId, ChainStatus.BROKEN, 2, List.of(firstEventId, secondEventId)));
     }
 
     @Test
@@ -1444,6 +1536,57 @@ class ProjectionEventApplierTest {
 
         then(gameChains).should(never()).findByGameId(any());
         then(gameChains).should(never()).save(any(), any());
+    }
+
+    @Test
+    void applyChainReAnchored_keepsTheConfirmedLinkEventsOfTheHeldLinks() {
+        var chainId = UUID.randomUUID();
+        var firstEventId = UUID.randomUUID();
+        var secondEventId = UUID.randomUUID();
+        var newEvent = UUID.randomUUID();
+        var newOutcome = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
+        given(gameChains.findByGameId(gameId))
+                .willReturn(Optional.of(
+                        new GameChain(gameId, chainId, ChainStatus.ACTIVE, 2, List.of(firstEventId, secondEventId))));
+
+        applier.applyChainReAnchored(new ChainReAnchoredPayload(
+                gameId, 1, chainId, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), newEvent, newOutcome, 2));
+
+        then(gameChains)
+                .should()
+                .save(
+                        gameId,
+                        new GameChain(
+                                gameId,
+                                chainId,
+                                ChainStatus.ACTIVE,
+                                2,
+                                new GameChain.PendingLink(newEvent, newOutcome),
+                                List.of(firstEventId, secondEventId)));
+    }
+
+    @Test
+    void applyChainLinkInvalidated_keepsTheConfirmedLinkEventsOfTheHeldLinks() {
+        var chainId = UUID.randomUUID();
+        var firstEventId = UUID.randomUUID();
+        var secondEventId = UUID.randomUUID();
+        var link = new GameChain.PendingLink(UUID.randomUUID(), UUID.randomUUID());
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
+        given(gameChains.findByGameId(gameId))
+                .willReturn(Optional.of(new GameChain(
+                        gameId, chainId, ChainStatus.ACTIVE, 2, link, List.of(firstEventId, secondEventId))));
+
+        applier.applyChainLinkInvalidated(new ChainLinkInvalidatedPayload(
+                gameId, 3, chainId, UUID.randomUUID(), link.eventId(), link.outcomeId(), 2, null));
+
+        then(gameChains)
+                .should()
+                .save(
+                        gameId,
+                        new GameChain(gameId, chainId, ChainStatus.ACTIVE, 2, List.of(firstEventId, secondEventId)));
     }
 
     @Test
@@ -1811,27 +1954,56 @@ class ProjectionEventApplierTest {
     @Test
     void applyParadoxCascaded_lastPending_closesPhaseBackToResolution() {
         var paradoxId = UUID.randomUUID();
+        var cascaded = UUID.randomUUID();
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradoxId))));
 
-        applier.applyParadoxCascaded(
-                new ParadoxCascadedPayload(gameId, 1, paradoxId, null, UUID.randomUUID(), List.of(), null));
+        applier.applyParadoxCascaded(new ParadoxCascadedPayload(gameId, 1, paradoxId, null, cascaded, List.of(), null));
 
-        then(gameProjections).should().save(new GameProjection(gameId, 1, Phase.RESOLUTION, List.of()));
+        then(gameProjections)
+                .should()
+                .save(new GameProjection(
+                        gameId,
+                        1,
+                        Phase.RESOLUTION,
+                        List.of(),
+                        null,
+                        null,
+                        null,
+                        null,
+                        0,
+                        null,
+                        List.of(),
+                        List.of(cascaded)));
     }
 
     @Test
     void applyParadoxCascaded_multipleFindingsOnOneEvent_closesAllAtOnce() {
         var firstId = UUID.randomUUID();
         var secondId = UUID.randomUUID();
+        var cascaded = UUID.randomUUID();
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(
                         new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(firstId, secondId))));
 
-        applier.applyParadoxCascaded(new ParadoxCascadedPayload(
-                gameId, 1, firstId, List.of(firstId, secondId), UUID.randomUUID(), List.of(), null));
+        applier.applyParadoxCascaded(
+                new ParadoxCascadedPayload(gameId, 1, firstId, List.of(firstId, secondId), cascaded, List.of(), null));
 
-        then(gameProjections).should().save(new GameProjection(gameId, 1, Phase.RESOLUTION, List.of()));
+        then(gameProjections)
+                .should()
+                .save(new GameProjection(
+                        gameId,
+                        1,
+                        Phase.RESOLUTION,
+                        List.of(),
+                        null,
+                        null,
+                        null,
+                        null,
+                        0,
+                        null,
+                        List.of(),
+                        List.of(cascaded)));
     }
 
     @Test
@@ -1839,16 +2011,145 @@ class ProjectionEventApplierTest {
         var firstEventId = UUID.randomUUID();
         var secondEventId = UUID.randomUUID();
         var newlyDetectedId = UUID.randomUUID();
+        var cascaded = UUID.randomUUID();
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(
                         new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(firstEventId, secondEventId))));
 
         applier.applyParadoxCascaded(new ParadoxCascadedPayload(
-                gameId, 1, firstEventId, List.of(firstEventId, newlyDetectedId), UUID.randomUUID(), List.of(), null));
+                gameId, 1, firstEventId, List.of(firstEventId, newlyDetectedId), cascaded, List.of(), null));
 
         then(gameProjections)
                 .should()
-                .save(new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(secondEventId)));
+                .save(new GameProjection(
+                        gameId,
+                        1,
+                        Phase.PARADOX_RESOLUTION,
+                        List.of(secondEventId),
+                        null,
+                        null,
+                        null,
+                        null,
+                        0,
+                        null,
+                        List.of(),
+                        List.of(cascaded)));
+    }
+
+    @Test
+    void applyParadoxCascaded_appendsToExistingCascadedEventsInFirstCascadeOrder() {
+        var paradoxId = UUID.randomUUID();
+        var firstCascaded = UUID.randomUUID();
+        var secondCascaded = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(
+                        gameId,
+                        1,
+                        Phase.PARADOX_RESOLUTION,
+                        List.of(paradoxId),
+                        null,
+                        null,
+                        null,
+                        null,
+                        0,
+                        null,
+                        List.of(),
+                        List.of(firstCascaded))));
+
+        applier.applyParadoxCascaded(
+                new ParadoxCascadedPayload(gameId, 1, paradoxId, null, secondCascaded, List.of(), null));
+
+        then(gameProjections)
+                .should()
+                .save(new GameProjection(
+                        gameId,
+                        1,
+                        Phase.RESOLUTION,
+                        List.of(),
+                        null,
+                        null,
+                        null,
+                        null,
+                        0,
+                        null,
+                        List.of(),
+                        List.of(firstCascaded, secondCascaded)));
+    }
+
+    @Test
+    void applyParadoxCascaded_redeliveredForTheSameEvent_leavesTheRecordedOrderUnchanged() {
+        var paradoxId = UUID.randomUUID();
+        var cascaded = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(
+                        gameId,
+                        1,
+                        Phase.PARADOX_RESOLUTION,
+                        List.of(paradoxId),
+                        null,
+                        null,
+                        null,
+                        null,
+                        0,
+                        null,
+                        List.of(),
+                        List.of(cascaded))));
+
+        applier.applyParadoxCascaded(new ParadoxCascadedPayload(gameId, 1, paradoxId, null, cascaded, List.of(), null));
+
+        then(gameProjections)
+                .should()
+                .save(new GameProjection(
+                        gameId,
+                        1,
+                        Phase.RESOLUTION,
+                        List.of(),
+                        null,
+                        null,
+                        null,
+                        null,
+                        0,
+                        null,
+                        List.of(),
+                        List.of(cascaded)));
+    }
+
+    @Test
+    void applyParadoxResolved_doesNotRecordACascade() {
+        var paradoxId = UUID.randomUUID();
+        var cascaded = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(
+                        gameId,
+                        1,
+                        Phase.PARADOX_RESOLUTION,
+                        List.of(paradoxId),
+                        null,
+                        null,
+                        null,
+                        null,
+                        0,
+                        null,
+                        List.of(),
+                        List.of(cascaded))));
+
+        applier.applyParadoxResolved(new ParadoxResolvedPayload(gameId, 1, paradoxId, List.of(UUID.randomUUID())));
+
+        then(gameProjections)
+                .should()
+                .save(new GameProjection(
+                        gameId,
+                        1,
+                        Phase.RESOLUTION,
+                        List.of(),
+                        null,
+                        null,
+                        null,
+                        null,
+                        0,
+                        null,
+                        List.of(),
+                        List.of(cascaded)));
     }
 
     @Test
@@ -1867,6 +2168,7 @@ class ProjectionEventApplierTest {
     void applyParadoxResolved_mixedWithCascade_closesOnceBothTerminal() {
         var paradox1 = UUID.randomUUID();
         var paradox2 = UUID.randomUUID();
+        var cascaded = UUID.randomUUID();
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(
                         new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradox1, paradox2))));
@@ -1876,10 +2178,23 @@ class ProjectionEventApplierTest {
         given(gameProjections.findByGameIdForUpdate(gameId))
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.PARADOX_RESOLUTION, List.of(paradox2))));
 
-        applier.applyParadoxCascaded(
-                new ParadoxCascadedPayload(gameId, 1, paradox2, null, UUID.randomUUID(), List.of(), null));
+        applier.applyParadoxCascaded(new ParadoxCascadedPayload(gameId, 1, paradox2, null, cascaded, List.of(), null));
 
-        then(gameProjections).should().save(new GameProjection(gameId, 1, Phase.RESOLUTION, List.of()));
+        then(gameProjections)
+                .should()
+                .save(new GameProjection(
+                        gameId,
+                        1,
+                        Phase.RESOLUTION,
+                        List.of(),
+                        null,
+                        null,
+                        null,
+                        null,
+                        0,
+                        null,
+                        List.of(),
+                        List.of(cascaded)));
     }
 
     @Test

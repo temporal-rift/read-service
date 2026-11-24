@@ -63,6 +63,36 @@ public abstract class GameProjectionContract extends PortContract {
     }
 
     @Test
+    void cascadedEventsKeepTheirFirstCascadeOrderAcrossSaves() {
+        // HIGH sorts after LOW in every uuid order, so a store that sorted the ids would read them back reordered.
+        inTransaction(() -> port().save(new GameProjection(
+                gameId,
+                1,
+                Phase.RESOLUTION,
+                List.of(),
+                null,
+                null,
+                null,
+                null,
+                0,
+                null,
+                List.of(),
+                List.of(HIGH, LOW))));
+        assertThat(inTransaction(() -> port().findByGameId(gameId))
+                        .orElseThrow()
+                        .cascadedEventIds())
+                .containsExactly(HIGH, LOW);
+
+        inTransaction(() -> port().save(new GameProjection(
+                gameId, 2, Phase.RESOLUTION, List.of(), null, null, null, null, 1, null, List.of(), List.of(HIGH))));
+
+        assertThat(inTransaction(() -> port().findByGameId(gameId))
+                        .orElseThrow()
+                        .cascadedEventIds())
+                .containsExactly(HIGH);
+    }
+
+    @Test
     void everySaveAdvancesTheRevisionAndAMissingThresholdKeepsTheStoredOne() {
         inTransaction(() -> port().save(projection(gameId, 1, Phase.ERA_START, List.of(), 20, null)));
 
@@ -140,7 +170,19 @@ public abstract class GameProjectionContract extends PortContract {
     private static GameProjection projection(
             UUID gameId, int era, Phase phase, List<UUID> paradoxes, Integer threshold, Instant expiresAt) {
         return new GameProjection(
-                gameId, era, phase, paradoxes, null, 1, expiresAt, null, 0, Instant.now(), List.of(), threshold);
+                gameId,
+                era,
+                phase,
+                paradoxes,
+                null,
+                1,
+                expiresAt,
+                null,
+                0,
+                Instant.now(),
+                List.of(),
+                List.of(),
+                threshold);
     }
 
     private static void await(CountDownLatch latch) {

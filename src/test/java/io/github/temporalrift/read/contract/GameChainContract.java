@@ -2,6 +2,7 @@ package io.github.temporalrift.read.contract;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -44,6 +45,30 @@ public abstract class GameChainContract extends PortContract {
 
         assertThat(inTransaction(() -> port().findByGameId(gameId)))
                 .contains(new GameChain(gameId, chainId, ChainStatus.ACTIVE, 3));
+    }
+
+    @Test
+    void confirmedLinkEventsAreStoredInLinkOrderAndReplacedByTheNextSave() {
+        var chainId = UUID.randomUUID();
+        // HIGH sorts after LOW in every uuid order, so a store that sorted the ids would read them back reordered.
+        inTransaction(
+                () -> port().save(gameId, new GameChain(gameId, chainId, ChainStatus.ACTIVE, 2, List.of(HIGH, LOW))));
+
+        assertThat(inTransaction(() -> port().findByGameId(gameId)))
+                .contains(new GameChain(gameId, chainId, ChainStatus.ACTIVE, 2, List.of(HIGH, LOW)));
+
+        inTransaction(() -> port().save(
+                        gameId,
+                        new GameChain(
+                                gameId,
+                                chainId,
+                                ChainStatus.COMPLETED,
+                                3,
+                                new GameChain.PendingLink(UUID.randomUUID(), UUID.randomUUID()),
+                                List.of(HIGH))));
+
+        var stored = inTransaction(() -> port().findByGameId(gameId)).orElseThrow();
+        assertThat(stored.confirmedEventIds()).containsExactly(HIGH);
     }
 
     @Test

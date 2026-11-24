@@ -54,6 +54,7 @@ class JpaGameProjectionAdapterTest {
                 9,
                 Instant.EPOCH,
                 List.of(affected),
+                List.of(),
                 20);
         given(repository.findById(gameId)).willReturn(Optional.empty());
 
@@ -76,7 +77,18 @@ class JpaGameProjectionAdapterTest {
         var oldEvent = UUID.randomUUID();
         var newEvent = UUID.randomUUID();
         var existing = GameProjectionEntity.fromDomain(new GameProjection(
-                gameId, 2, Phase.ACTION_ROUND_3, List.of(), null, 3, null, null, 4, Instant.EPOCH, List.of(oldEvent)));
+                gameId,
+                2,
+                Phase.ACTION_ROUND_3,
+                List.of(),
+                null,
+                3,
+                null,
+                null,
+                4,
+                Instant.EPOCH,
+                List.of(oldEvent),
+                List.of()));
         given(repository.findById(gameId)).willReturn(Optional.of(existing));
 
         adapter.save(new GameProjection(
@@ -90,7 +102,8 @@ class JpaGameProjectionAdapterTest {
                 Instant.EPOCH.plusSeconds(30),
                 4,
                 Instant.EPOCH,
-                List.of(newEvent)));
+                List.of(newEvent),
+                List.of()));
 
         assertThat(existing.toDomain().affectedEventIds()).containsExactly(newEvent);
         assertThat(existing.toDomain().revision()).isEqualTo(5);

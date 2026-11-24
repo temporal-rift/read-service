@@ -1,6 +1,7 @@
 package io.github.temporalrift.read.projection.infrastructure.adapter.in.kafka;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -46,6 +47,7 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Ti
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.WinConditionMetPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.AdjustedBandsPublishedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainBrokenPayload;
+import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainCompletedChainLink;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainCompletedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainLinkAddedPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.ChainLinkInvalidatedPayload;
@@ -186,7 +188,14 @@ class ProjectionEventApplier {
                         payload.eraNumber(),
                         Phase.ERA_START,
                         List.of(),
-                        existing.lastRoundSummary()));
+                        existing.lastRoundSummary(),
+                        null,
+                        null,
+                        null,
+                        existing.revision(),
+                        existing.lastUpdatedAt(),
+                        List.of(),
+                        existing.cascadedEventIds()));
     }
 
     void applyEventsDrawn(EventsDrawnPayload payload) {
@@ -202,7 +211,14 @@ class ProjectionEventApplier {
                             payload.eraNumber(),
                             Phase.ERA_START,
                             List.of(),
-                            existing.lastRoundSummary()));
+                            existing.lastRoundSummary(),
+                            null,
+                            null,
+                            null,
+                            existing.revision(),
+                            existing.lastUpdatedAt(),
+                            List.of(),
+                            existing.cascadedEventIds()));
         }
         // The payload lists the era's events in reveal order, carry-overs included; each keeps its payload position.
         for (var revealIndex = 0; revealIndex < payload.events().size(); revealIndex++) {
@@ -322,7 +338,18 @@ class ProjectionEventApplier {
         }
         stores.gameProjections()
                 .save(new GameProjection(
-                        payload.gameId(), payload.eraNumber(), Phase.ERA_END, List.of(), existing.lastRoundSummary()));
+                        payload.gameId(),
+                        payload.eraNumber(),
+                        Phase.ERA_END,
+                        List.of(),
+                        existing.lastRoundSummary(),
+                        null,
+                        null,
+                        null,
+                        existing.revision(),
+                        existing.lastUpdatedAt(),
+                        List.of(),
+                        existing.cascadedEventIds()));
         stores.revealedProbabilityIntel().deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
         stores.revealedInfluenceIntel().deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
         stores.revealedHandCardIntel().deleteByGameIdAndEraNumber(payload.gameId(), payload.eraNumber());
@@ -356,9 +383,21 @@ class ProjectionEventApplier {
             return;
         }
         var eraNumber = existing.eraNumber();
+        var cascadedEventIds = existing.cascadedEventIds();
         stores.gameProjections()
                 .save(new GameProjection(
-                        payload.gameId(), eraNumber, Phase.GAME_ENDED, List.of(), existing.lastRoundSummary()));
+                        payload.gameId(),
+                        eraNumber,
+                        Phase.GAME_ENDED,
+                        List.of(),
+                        existing.lastRoundSummary(),
+                        null,
+                        null,
+                        null,
+                        existing.revision(),
+                        existing.lastUpdatedAt(),
+                        List.of(),
+                        cascadedEventIds));
         stores.revealedProbabilityIntel().deleteByGameId(payload.gameId());
         stores.revealedInfluenceIntel().deleteByGameId(payload.gameId());
         stores.revealedHandCardIntel().deleteByGameId(payload.gameId());
@@ -422,7 +461,9 @@ class ProjectionEventApplier {
                         null,
                         null,
                         existing.revision(),
-                        existing.lastUpdatedAt()));
+                        existing.lastUpdatedAt(),
+                        List.of(),
+                        existing.cascadedEventIds()));
     }
 
     // Keeps only the newest round per player, ordered by era then round: a late delivery of an earlier round
@@ -487,7 +528,9 @@ class ProjectionEventApplier {
                         expiresAt,
                         null,
                         existing.revision(),
-                        existing.lastUpdatedAt()));
+                        existing.lastUpdatedAt(),
+                        List.of(),
+                        existing.cascadedEventIds()));
     }
 
     void applyDeclarationWindowOpened(DeclarationWindowOpenedPayload payload) {
@@ -731,7 +774,8 @@ class ProjectionEventApplier {
                         existing.paradoxResolutionExpiresAt(),
                         existing.revision(),
                         existing.lastUpdatedAt(),
-                        existing.affectedEventIds()));
+                        existing.affectedEventIds(),
+                        existing.cascadedEventIds()));
     }
 
     void applyScoresUpdated(ScoresUpdatedPayload payload) {
@@ -1009,10 +1053,20 @@ class ProjectionEventApplier {
                     payload.gameId());
             return;
         }
+        // The pending link just confirmed into the chain, so it clears; its event joins the confirmed
+        // link events unless a redelivery already recorded it.
+        var confirmed = existing.isPresent() && isSameChain(existing, payload.chainId())
+                ? confirmedPlus(existing.get().confirmedEventIds(), payload.linkedEventId())
+                : List.of(payload.linkedEventId());
         stores.gameChains()
                 .save(
                         payload.gameId(),
-                        new GameChain(payload.gameId(), payload.chainId(), ChainStatus.ACTIVE, payload.chainLength()));
+                        new GameChain(
+                                payload.gameId(),
+                                payload.chainId(),
+                                ChainStatus.ACTIVE,
+                                payload.chainLength(),
+                                confirmed));
     }
 
     void applyChainCompleted(ChainCompletedPayload payload) {
@@ -1032,12 +1086,16 @@ class ProjectionEventApplier {
                                 payload.gameId(),
                                 payload.chainId(),
                                 ChainStatus.COMPLETED,
-                                payload.links().size()));
+                                payload.links().size(),
+                                payload.links().stream()
+                                        .map(ChainCompletedChainLink::eventId)
+                                        .toList()));
     }
 
     // REWEAVE only moves the pending link, so chainLength stays equal to the tracked value rather than exceeding
     // it — the growth-only staleness guard applyChainLinkAdded uses does not apply here; re-saving the same
-    // (chainId, ACTIVE, chainLength) shape on redelivery is already idempotent.
+    // (chainId, ACTIVE, chainLength) shape on redelivery is already idempotent. Confirmed link events stay
+    // exactly the tracked ones, truncated to the payload length.
     void applyChainReAnchored(ChainReAnchoredPayload payload) {
         if (lockGame(payload.gameId()).phase() == Phase.GAME_ENDED) {
             log.warn("ChainReAnchored for ended game {} — skipping", payload.gameId());
@@ -1049,6 +1107,9 @@ class ProjectionEventApplier {
                     "ChainReAnchored for resolved chain {} in game {} — skipping", payload.chainId(), payload.gameId());
             return;
         }
+        var confirmed = existing.isPresent() && isSameChain(existing, payload.chainId())
+                ? confirmedKept(existing.get().confirmedEventIds(), payload.chainLength())
+                : List.<UUID>of();
         stores.gameChains()
                 .save(
                         payload.gameId(),
@@ -1057,7 +1118,8 @@ class ProjectionEventApplier {
                                 payload.chainId(),
                                 ChainStatus.ACTIVE,
                                 payload.chainLength(),
-                                new GameChain.PendingLink(payload.linkedEventId(), payload.linkedOutcomeId())));
+                                new GameChain.PendingLink(payload.linkedEventId(), payload.linkedOutcomeId()),
+                                confirmed));
     }
 
     // The pending link is a public fact, but the projection shows a chain only from its first confirmed link, so a
@@ -1086,8 +1148,9 @@ class ProjectionEventApplier {
                                 .withPendingLink(new GameChain.PendingLink(payload.eventId(), payload.outcomeId())));
     }
 
-    // The link cleared without confirming: length and status stay as they are. It clears only the link it names, so
-    // a late invalidation of an earlier link never removes the pending link a later Thread set.
+    // The link cleared without confirming: length, status and confirmed link events stay as they are. It
+    // clears only the link it names, so a late invalidation of an earlier link never removes the pending
+    // link a later Thread set.
     void applyChainLinkInvalidated(ChainLinkInvalidatedPayload payload) {
         if (lockGame(payload.gameId()).phase() == Phase.GAME_ENDED) {
             log.warn("ChainLinkInvalidated for ended game {} — skipping", payload.gameId());
@@ -1099,7 +1162,17 @@ class ProjectionEventApplier {
                 || !namesPendingLink(existing.get(), payload)) {
             return;
         }
-        stores.gameChains().save(payload.gameId(), existing.get().withPendingLink(null));
+        var tracked = existing.get();
+        stores.gameChains()
+                .save(
+                        payload.gameId(),
+                        new GameChain(
+                                payload.gameId(),
+                                payload.chainId(),
+                                tracked.status(),
+                                tracked.length(),
+                                null,
+                                confirmedKept(tracked.confirmedEventIds(), payload.chainLength())));
     }
 
     void applyChainBroken(ChainBrokenPayload payload) {
@@ -1112,11 +1185,35 @@ class ProjectionEventApplier {
             log.warn("ChainBroken for resolved chain {} in game {} — skipping", payload.chainId(), payload.gameId());
             return;
         }
+        var confirmed = existing.isPresent() && isSameChain(existing, payload.chainId())
+                ? confirmedKept(existing.get().confirmedEventIds(), payload.chainLengthAtBreak())
+                : List.<UUID>of();
         stores.gameChains()
                 .save(
                         payload.gameId(),
                         new GameChain(
-                                payload.gameId(), payload.chainId(), ChainStatus.BROKEN, payload.chainLengthAtBreak()));
+                                payload.gameId(),
+                                payload.chainId(),
+                                ChainStatus.BROKEN,
+                                payload.chainLengthAtBreak(),
+                                confirmed));
+    }
+
+    /** Appends {@code linkedEventId} to the confirmed link events unless it is already there. */
+    private static List<UUID> confirmedPlus(List<UUID> confirmedEventIds, UUID linkedEventId) {
+        if (confirmedEventIds.contains(linkedEventId)) {
+            return confirmedEventIds;
+        }
+        var grown = new ArrayList<>(confirmedEventIds);
+        grown.add(linkedEventId);
+        return List.copyOf(grown);
+    }
+
+    /** Keeps exactly the confirmed link events the chain still holds, truncating to {@code length}. */
+    private static List<UUID> confirmedKept(List<UUID> confirmedEventIds, int length) {
+        return confirmedEventIds.size() <= length
+                ? confirmedEventIds
+                : List.copyOf(confirmedEventIds.subList(0, length));
     }
 
     private static boolean namesPendingLink(GameChain chain, ChainLinkInvalidatedPayload payload) {
@@ -1177,19 +1274,20 @@ class ProjectionEventApplier {
                         expiresAt,
                         existing.revision(),
                         existing.lastUpdatedAt(),
-                        payload.affectedEventIds() == null ? List.of() : payload.affectedEventIds()));
+                        payload.affectedEventIds() == null ? List.of() : payload.affectedEventIds(),
+                        existing.cascadedEventIds()));
     }
 
     void applyParadoxResolved(ParadoxResolvedPayload payload) {
-        closeParadoxIds(payload.gameId(), payload.eraNumber(), List.of(payload.paradoxId()));
+        closeParadoxIds(payload.gameId(), payload.eraNumber(), List.of(payload.paradoxId()), null);
     }
 
     void applyParadoxCascaded(ParadoxCascadedPayload payload) {
         var paradoxIds = payload.paradoxIds() == null ? List.of(payload.paradoxId()) : payload.paradoxIds();
-        closeParadoxIds(payload.gameId(), payload.eraNumber(), paradoxIds);
+        closeParadoxIds(payload.gameId(), payload.eraNumber(), paradoxIds, payload.affectedEventId());
     }
 
-    private void closeParadoxIds(UUID gameId, int eraNumber, List<UUID> paradoxIds) {
+    private void closeParadoxIds(UUID gameId, int eraNumber, List<UUID> paradoxIds, UUID cascadedEventId) {
         var existing = lockGame(gameId);
         if (isSupersededOrGameEnded(eraNumber, existing)) {
             log.warn("Paradox resolution for past/ended era {} in game {} — skipping", eraNumber, gameId);
@@ -1218,7 +1316,18 @@ class ProjectionEventApplier {
                         paradoxExpiresAt,
                         existing.revision(),
                         existing.lastUpdatedAt(),
-                        stillPending.isEmpty() ? List.of() : existing.affectedEventIds()));
+                        stillPending.isEmpty() ? List.of() : existing.affectedEventIds(),
+                        cascadedPlus(existing.cascadedEventIds(), cascadedEventId)));
+    }
+
+    /** Appends the cascaded event unless none cascaded here or it is already recorded. */
+    private static List<UUID> cascadedPlus(List<UUID> cascadedEventIds, UUID cascadedEventId) {
+        if (cascadedEventId == null || cascadedEventIds.contains(cascadedEventId)) {
+            return cascadedEventIds;
+        }
+        var grown = new ArrayList<>(cascadedEventIds);
+        grown.add(cascadedEventId);
+        return List.copyOf(grown);
     }
 
     private GameProjection lockGame(UUID gameId) {

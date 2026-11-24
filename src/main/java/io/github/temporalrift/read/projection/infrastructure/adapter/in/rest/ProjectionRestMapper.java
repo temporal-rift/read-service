@@ -116,6 +116,7 @@ final class ProjectionRestMapper {
         response.setLastRoundSummary(
                 result.lastRoundSummary() == null ? null : toRoundSummary(result.lastRoundSummary()));
         response.setChain(result.chain() == null ? null : toChainState(result.chain()));
+        response.setCascadedEventIds(new LinkedHashSet<>(result.cascadedEventIds()));
         response.setRevision((int) result.revision());
         response.setLastUpdatedAt(toOffsetDateTime(result.lastUpdatedAt()));
         response.setRoundNumber(result.roundNumber());
@@ -351,6 +352,7 @@ final class ProjectionRestMapper {
             state.setPendingLink(new PendingChainLink(
                     domain.pendingLink().eventId(), domain.pendingLink().outcomeId()));
         }
+        state.setConfirmedEventIds(new LinkedHashSet<>(domain.confirmedEventIds()));
         return state;
     }
 

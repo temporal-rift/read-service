@@ -435,6 +435,81 @@ class ProjectionRestMapperTest {
     }
 
     @Test
+    void toResponse_mapsConfirmedChainLinkEventsInLinkOrder() {
+        var firstEventId = UUID.randomUUID();
+        var secondEventId = UUID.randomUUID();
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID,
+                2,
+                Phase.ACTION_ROUND_2,
+                "ERASERS",
+                List.of(),
+                null,
+                List.of(),
+                0,
+                List.of(),
+                List.of(),
+                null,
+                null,
+                new GameChain(GAME_ID, UUID.randomUUID(), ChainStatus.ACTIVE, 2, List.of(firstEventId, secondEventId)));
+
+        assertThat(toResponse(result).getChain().getConfirmedEventIds()).containsExactly(firstEventId, secondEventId);
+    }
+
+    @Test
+    void toResponse_mapsCascadedEventsInFirstCascadeOrder() {
+        var firstEventId = UUID.randomUUID();
+        var secondEventId = UUID.randomUUID();
+        var result = new GetPlayerGameStateUseCase.Result(
+                GAME_ID,
+                2,
+                Phase.ACTION_ROUND_2,
+                "ERASERS",
+                List.of(),
+                null,
+                List.of(),
+                0,
+                List.of(),
+                List.of(),
+                null,
+                null,
+                null,
+                7,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                false,
+                null,
+                false,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                null,
+                null,
+                null,
+                null,
+                List.of(),
+                List.of(firstEventId, secondEventId),
+                null,
+                null);
+
+        assertThat(toResponse(result).getCascadedEventIds()).containsExactly(firstEventId, secondEventId);
+    }
+
+    @Test
+    void toResponse_aGameWithoutCascadesReportsAnEmptyCascadedEventList() {
+        var response = toResponse(resultWithHand(Phase.ACTION_ROUND_2, 2, List.of()));
+
+        assertThat(response.getChain()).isNull();
+        assertThat(response.getCascadedEventIds()).isEmpty();
+    }
+
+    @Test
     void toResponse_mapsActiveEventOutcomesWithTheirPrintedStartingWeights() {
         var eventId = UUID.randomUUID();
         var outcomeIds = List.of(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
@@ -577,6 +652,7 @@ class ProjectionRestMapperTest {
                 null,
                 null,
                 null,
+                List.of(),
                 List.of(),
                 null,
                 null);
