@@ -68,6 +68,7 @@ public interface GetPlayerGameStateUseCase {
             SubmissionProgress actionRoundProgress,
             SubmissionProgress paradoxResolutionProgress,
             List<UUID> affectedEventIds,
+            List<UUID> cascadedEventIds,
             List<ResolutionCardOffer.Card> myEligibleResolutionCards,
             Integer winScoreThreshold,
             List<SpecialAvailability> mySpecialAvailability) {
@@ -113,6 +114,7 @@ public interface GetPlayerGameStateUseCase {
                 SubmissionProgress actionRoundProgress,
                 SubmissionProgress paradoxResolutionProgress,
                 List<UUID> affectedEventIds,
+                List<UUID> cascadedEventIds,
                 List<ResolutionCardOffer.Card> myEligibleResolutionCards,
                 Integer winScoreThreshold) {
             this(
@@ -149,6 +151,7 @@ public interface GetPlayerGameStateUseCase {
                     actionRoundProgress,
                     paradoxResolutionProgress,
                     affectedEventIds,
+                    cascadedEventIds,
                     myEligibleResolutionCards,
                     winScoreThreshold,
                     null);
@@ -216,6 +219,7 @@ public interface GetPlayerGameStateUseCase {
                     myForesightPreview,
                     null,
                     null,
+                    List.of(),
                     List.of(),
                     null,
                     null);
@@ -296,6 +300,7 @@ public interface GetPlayerGameStateUseCase {
                     null,
                     null,
                     List.of(),
+                    List.of(),
                     null,
                     null);
         }
@@ -345,6 +350,7 @@ public interface GetPlayerGameStateUseCase {
                     null,
                     null,
                     null,
+                    List.of(),
                     List.of(),
                     null,
                     winScoreThreshold);

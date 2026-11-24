@@ -16,7 +16,9 @@ import io.github.temporalrift.read.shared.GameplayState;
 class JpaProjectionGameplayState implements GameplayState {
 
     static final List<String> TABLES = List.of(
+            "game_chain_confirmed_event",
             "game_projection_affected_event",
+            "game_projection_cascaded_event",
             "game_projection_last_round_summary_action",
             "game_projection_pending_paradox",
             "game_active_event_outcome",

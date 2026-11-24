@@ -7,6 +7,9 @@ import java.util.UUID;
 /**
  * Game-scoped, shared-across-players state. {@code pendingParadoxIds} is the set of
  * paradoxes still open in the game's current {@code PARADOX_RESOLUTION} phase, if any — empty otherwise.
+ * {@code cascadedEventIds} is every distinct event that has cascaded in the game so far, in the order each first
+ * cascaded — empty while none has. Unlike {@code affectedEventIds}, it is never cleared: it survives era
+ * transitions, paradox-phase closure, and {@code GameEnded}.
  *
  * <p>{@code revision} is a monotonic freshness marker for one game's projection only — it never promises
  * global or cross-topic event order. {@code currentRoundNumber} names the open action round, or the round
@@ -24,24 +27,39 @@ public record GameProjection(
         long revision,
         Instant lastUpdatedAt,
         List<UUID> affectedEventIds,
+        List<UUID> cascadedEventIds,
         Integer winScoreThreshold) {
 
     public GameProjection {
         pendingParadoxIds = List.copyOf(pendingParadoxIds);
         affectedEventIds = List.copyOf(affectedEventIds);
+        cascadedEventIds = cascadedEventIds == null ? List.of() : List.copyOf(cascadedEventIds);
     }
 
     public GameProjection(UUID gameId, int eraNumber, Phase phase) {
-        this(gameId, eraNumber, phase, List.of(), null, null, null, null, 0, null, List.of(), null);
+        this(gameId, eraNumber, phase, List.of(), null, null, null, null, 0, null, List.of(), List.of(), null);
     }
 
     public GameProjection(UUID gameId, int eraNumber, Phase phase, List<UUID> pendingParadoxIds) {
-        this(gameId, eraNumber, phase, pendingParadoxIds, null, null, null, null, 0, null, List.of(), null);
+        this(gameId, eraNumber, phase, pendingParadoxIds, null, null, null, null, 0, null, List.of(), List.of(), null);
     }
 
     public GameProjection(
             UUID gameId, int eraNumber, Phase phase, List<UUID> pendingParadoxIds, LastRoundSummary lastRoundSummary) {
-        this(gameId, eraNumber, phase, pendingParadoxIds, lastRoundSummary, null, null, null, 0, null, List.of(), null);
+        this(
+                gameId,
+                eraNumber,
+                phase,
+                pendingParadoxIds,
+                lastRoundSummary,
+                null,
+                null,
+                null,
+                0,
+                null,
+                List.of(),
+                List.of(),
+                null);
     }
 
     public GameProjection(
@@ -67,6 +85,7 @@ public record GameProjection(
                 revision,
                 lastUpdatedAt,
                 List.of(),
+                List.of(),
                 null);
     }
 
@@ -81,7 +100,8 @@ public record GameProjection(
             Instant paradoxResolutionExpiresAt,
             long revision,
             Instant lastUpdatedAt,
-            List<UUID> affectedEventIds) {
+            List<UUID> affectedEventIds,
+            List<UUID> cascadedEventIds) {
         this(
                 gameId,
                 eraNumber,
@@ -94,6 +114,7 @@ public record GameProjection(
                 revision,
                 lastUpdatedAt,
                 affectedEventIds,
+                cascadedEventIds,
                 null);
     }
 
@@ -113,6 +134,7 @@ public record GameProjection(
                 revision,
                 lastUpdatedAt,
                 affectedEventIds,
+                cascadedEventIds,
                 threshold);
     }
 }

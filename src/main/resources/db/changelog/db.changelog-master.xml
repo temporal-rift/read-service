@@ -39,6 +39,7 @@
     <include file="db/changelog/projection/025-add-game-active-event-reveal-index.xml"/>
     <include file="db/changelog/projection/026-order-players-and-paradoxes.xml"/>
     <include file="db/changelog/projection/027-create-special-action-availability.xml"/>
+    <include file="db/changelog/projection/028-chain-confirmed-and-cascaded-events.xml"/>
     <include file="db/changelog/projection/028-add-game-chain-pending-link.xml"/>
 
     <!-- Simulation: execution context of an isolated simulation deployment -->

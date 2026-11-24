@@ -44,6 +44,12 @@ class GameProjectionEntity {
     @Column(name = "event_id", nullable = false)
     private Set<UUID> affectedEventIds;
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "game_projection_cascaded_event", joinColumns = @JoinColumn(name = "game_projection_id"))
+    @Column(name = "event_id", nullable = false)
+    @OrderColumn(name = "event_position")
+    private List<UUID> cascadedEventIds;
+
     @Column(name = "last_round_summary_round_number")
     private Integer lastRoundSummaryRoundNumber;
 
@@ -82,6 +88,7 @@ class GameProjectionEntity {
         entity.setPhase(domain.phase());
         entity.setPendingParadoxIds(domain.pendingParadoxIds());
         entity.setAffectedEventIds(domain.affectedEventIds());
+        entity.setCascadedEventIds(domain.cascadedEventIds());
         entity.setLastRoundSummary(domain.lastRoundSummary());
         entity.setCurrentRoundNumber(domain.currentRoundNumber());
         entity.setActionRoundExpiresAt(domain.actionRoundExpiresAt());
@@ -112,6 +119,7 @@ class GameProjectionEntity {
                 revision,
                 lastUpdatedAt,
                 List.copyOf(affectedEventIds),
+                cascadedEventIds == null ? List.of() : List.copyOf(cascadedEventIds),
                 winScoreThreshold);
     }
 
@@ -137,6 +145,10 @@ class GameProjectionEntity {
 
     void setAffectedEventIds(List<UUID> affectedEventIds) {
         this.affectedEventIds = Set.copyOf(affectedEventIds);
+    }
+
+    void setCascadedEventIds(List<UUID> cascadedEventIds) {
+        this.cascadedEventIds = List.copyOf(cascadedEventIds);
     }
 
     void setCurrentRoundNumber(Integer currentRoundNumber) {

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+  <!-- The event of every confirmed link of the chain, in link order, without repeats. -->
+  <changeSet id="028-chain-confirmed-and-cascaded-events" author="read-service">
+    <createTable tableName="game_chain_confirmed_event">
+      <column name="game_chain_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="event_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="event_position" type="INT">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
+    <addForeignKeyConstraint
+        baseTableName="game_chain_confirmed_event"
+        baseColumnNames="game_chain_id"
+        referencedTableName="game_chain_projection"
+        referencedColumnNames="game_id"
+        constraintName="fk_game_chain_confirmed_event_game_chain"
+        onDelete="CASCADE"/>
+
+    <!-- Every distinct event that has cascaded in the game, in first-cascade order. -->
+    <createTable tableName="game_projection_cascaded_event">
+      <column name="game_projection_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="event_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="event_position" type="INT">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
+    <addForeignKeyConstraint
+        baseTableName="game_projection_cascaded_event"
+        baseColumnNames="game_projection_id"
+        referencedTableName="game_projection"
+        referencedColumnNames="game_id"
+        constraintName="fk_game_projection_cascaded_event_game_projection"
+        onDelete="CASCADE"/>
+  </changeSet>
+
+</databaseChangeLog>

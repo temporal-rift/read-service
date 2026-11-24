@@ -33,6 +33,7 @@ class JpaGameChainAdapter implements GameChainRepository {
             entity.setStatus(chain.status());
             entity.setLength(chain.length());
             entity.setPendingLink(chain.pendingLink());
+            entity.setConfirmedEventIds(chain.confirmedEventIds());
         } else {
             repository.save(GameChainEntity.fromDomain(chain));
         }

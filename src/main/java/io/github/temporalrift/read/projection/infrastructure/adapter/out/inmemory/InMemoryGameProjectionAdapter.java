@@ -50,7 +50,8 @@ class InMemoryGameProjectionAdapter implements GameProjectionRepository {
     }
 
     private static GameProjection anchor(UUID gameId) {
-        return new GameProjection(gameId, 0, Phase.LOBBY, List.of(), null, null, null, null, 0, null, List.of(), null);
+        return new GameProjection(
+                gameId, 0, Phase.LOBBY, List.of(), null, null, null, null, 0, null, List.of(), List.of(), null);
     }
 
     // The threshold is set once by GameStarted: a later save without one keeps it.
@@ -73,6 +74,7 @@ class InMemoryGameProjectionAdapter implements GameProjectionRepository {
                 revision,
                 Instant.now(),
                 incoming.affectedEventIds(),
+                incoming.cascadedEventIds(),
                 threshold);
     }
 }
