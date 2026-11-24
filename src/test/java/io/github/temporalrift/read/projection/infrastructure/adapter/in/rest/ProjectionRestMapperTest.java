@@ -54,6 +54,7 @@ import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.GameWinner;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerGameStateResponse;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.PlayerInGame;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.WinCondition;
 
 class ProjectionRestMapperTest {
 
@@ -841,6 +842,7 @@ class ProjectionRestMapperTest {
                 assertThat(winner.getPlayerId()).isEqualTo(winnerId);
                 assertThat(winner.getFaction().name()).isEqualTo("WEAVERS");
                 assertThat(winner.getWinType()).isNull();
+                assertThat(winner.getWinConditions()).isNull();
             });
             assertThat(terminal.getFinalScores()).singleElement().satisfies(score -> {
                 assertThat(score.getPlayerId()).isEqualTo(winnerId);
@@ -941,10 +943,58 @@ class ProjectionRestMapperTest {
                 List.of(new TerminalResult.TerminalWinner(winnerId, "ERASERS", "LAST_PLAYER_STANDING")),
                 List.of(new TerminalResult.TerminalScore(winnerId, "ERASERS", 7)))));
 
-        assertThat(response.getResult().getWinners())
-                .singleElement()
-                .extracting(GameWinner::getWinType)
-                .isEqualTo(GameWinner.WinTypeEnum.LAST_PLAYER_STANDING);
+        assertThat(response.getResult().getWinners()).singleElement().satisfies(winner -> {
+            assertThat(winner.getWinType()).isEqualTo(GameWinner.WinTypeEnum.LAST_PLAYER_STANDING);
+            assertThat(winner.getWinConditions()).isNull();
+        });
+    }
+
+    @Test
+    void toResponse_doubleConditionWinner_servesBothConditionsInOrder() {
+        var winnerId = UUID.randomUUID();
+        var response = toResponse(resultWithTerminal(new TerminalResult(
+                GAME_ID,
+                "WIN_CONDITION_MET",
+                List.of(new TerminalResult.TerminalWinner(
+                        winnerId, "PROPHETS", "SCORE_THRESHOLD", List.of("SCORE_THRESHOLD", "FACTION_OBJECTIVE"))),
+                List.of())));
+
+        assertThat(response.getResult().getWinners()).singleElement().satisfies(winner -> {
+            assertThat(winner.getWinType()).isEqualTo(GameWinner.WinTypeEnum.SCORE_THRESHOLD);
+            assertThat(winner.getWinConditions())
+                    .containsExactly(WinCondition.SCORE_THRESHOLD, WinCondition.FACTION_OBJECTIVE);
+        });
+    }
+
+    @Test
+    void toResponse_objectiveWinner_servesSingleCondition() {
+        var winnerId = UUID.randomUUID();
+        var response = toResponse(resultWithTerminal(new TerminalResult(
+                GAME_ID,
+                "WIN_CONDITION_MET",
+                List.of(new TerminalResult.TerminalWinner(
+                        winnerId, "ACTIVISTS", "FACTION_OBJECTIVE", List.of("FACTION_OBJECTIVE"))),
+                List.of())));
+
+        assertThat(response.getResult().getWinners()).singleElement().satisfies(winner -> {
+            assertThat(winner.getWinType()).isEqualTo(GameWinner.WinTypeEnum.FACTION_OBJECTIVE);
+            assertThat(winner.getWinConditions()).containsExactly(WinCondition.FACTION_OBJECTIVE);
+        });
+    }
+
+    @Test
+    void toResponse_stabilizedWinner_carriesNoConditions() {
+        var winnerId = UUID.randomUUID();
+        var response = toResponse(resultWithTerminal(new TerminalResult(
+                GAME_ID,
+                "TIMELINE_STABILIZED",
+                List.of(new TerminalResult.TerminalWinner(winnerId, "WEAVERS")),
+                List.of())));
+
+        assertThat(response.getResult().getWinners()).singleElement().satisfies(winner -> {
+            assertThat(winner.getWinType()).isNull();
+            assertThat(winner.getWinConditions()).isNull();
+        });
     }
 
     @Test

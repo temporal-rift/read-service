@@ -78,6 +78,7 @@ import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.Re
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.TimelineCollapsedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.TimelineStabilizedPayload;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.TimelineStabilizedPlayerFactionResult;
+import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.WinCondition;
 import io.github.temporalrift.asyncapi.sessionevents.GeneratedChannelContract.WinConditionMetPayload;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.AdjustedBandsPublishedEventBandState;
 import io.github.temporalrift.asyncapi.timelineevents.GeneratedChannelContract.AdjustedBandsPublishedOutcomeBandState;
@@ -2874,14 +2875,101 @@ class ProjectionEventApplierTest {
                 .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
 
         applier.applyWinConditionMet(
-                new WinConditionMetPayload(gameId, winnerId, Faction.PROPHETS, 20, "SCORE_THRESHOLD"));
+                new WinConditionMetPayload(gameId, winnerId, Faction.PROPHETS, 20, "SCORE_THRESHOLD", null));
 
         then(terminalResults)
                 .should()
                 .addWinners(
                         eq(gameId),
-                        eq(List.of(new TerminalResult.TerminalWinner(winnerId, "PROPHETS", "SCORE_THRESHOLD"))));
+                        eq(List.of(new TerminalResult.TerminalWinner(
+                                winnerId, "PROPHETS", "SCORE_THRESHOLD", List.of("SCORE_THRESHOLD")))));
         then(gameProjections).should().save(any(GameProjection.class));
+    }
+
+    @Test
+    void applyWinConditionMet_doubleCondition_preservesPublishedOrder() {
+        var winnerId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
+
+        applier.applyWinConditionMet(new WinConditionMetPayload(
+                gameId,
+                winnerId,
+                Faction.PROPHETS,
+                24,
+                "SCORE_THRESHOLD",
+                List.of(WinCondition.SCORE_THRESHOLD, WinCondition.FACTION_OBJECTIVE)));
+
+        then(terminalResults)
+                .should()
+                .addWinners(
+                        eq(gameId),
+                        eq(List.of(new TerminalResult.TerminalWinner(
+                                winnerId,
+                                "PROPHETS",
+                                "SCORE_THRESHOLD",
+                                List.of("SCORE_THRESHOLD", "FACTION_OBJECTIVE")))));
+    }
+
+    @Test
+    void applyWinConditionMet_objectiveOnlyWithoutList_fallsBackToWinType() {
+        var winnerId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
+
+        applier.applyWinConditionMet(
+                new WinConditionMetPayload(gameId, winnerId, Faction.ACTIVISTS, 18, "FACTION_OBJECTIVE", null));
+
+        then(terminalResults)
+                .should()
+                .addWinners(
+                        eq(gameId),
+                        eq(List.of(new TerminalResult.TerminalWinner(
+                                winnerId, "ACTIVISTS", "FACTION_OBJECTIVE", List.of("FACTION_OBJECTIVE")))));
+    }
+
+    @Test
+    void applyWinConditionMet_lastPlayerStanding_carriesNoList() {
+        var winnerId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
+
+        applier.applyWinConditionMet(
+                new WinConditionMetPayload(gameId, winnerId, Faction.WEAVERS, 9, "LAST_PLAYER_STANDING", null));
+
+        then(terminalResults)
+                .should()
+                .addWinners(
+                        eq(gameId),
+                        eq(List.of(
+                                new TerminalResult.TerminalWinner(winnerId, "WEAVERS", "LAST_PLAYER_STANDING", null))));
+    }
+
+    @Test
+    void applyWinConditionMet_redelivery_keepsSingleOrderedList() {
+        var winnerId = UUID.randomUUID();
+        given(gameProjections.findByGameIdForUpdate(gameId))
+                .willReturn(Optional.of(new GameProjection(gameId, 1, Phase.ACTION_ROUND_1)));
+        var payload = new WinConditionMetPayload(
+                gameId,
+                winnerId,
+                Faction.PROPHETS,
+                24,
+                "SCORE_THRESHOLD",
+                List.of(WinCondition.SCORE_THRESHOLD, WinCondition.FACTION_OBJECTIVE));
+
+        applier.applyWinConditionMet(payload);
+        applier.applyWinConditionMet(payload);
+
+        then(terminalResults)
+                .should(times(2))
+                .addWinners(
+                        eq(gameId),
+                        eq(List.of(new TerminalResult.TerminalWinner(
+                                winnerId,
+                                "PROPHETS",
+                                "SCORE_THRESHOLD",
+                                List.of("SCORE_THRESHOLD", "FACTION_OBJECTIVE")))));
     }
 
     @Test

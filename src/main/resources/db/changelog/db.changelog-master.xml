@@ -41,6 +41,7 @@
     <include file="db/changelog/projection/027-create-special-action-availability.xml"/>
     <include file="db/changelog/projection/028-chain-confirmed-and-cascaded-events.xml"/>
     <include file="db/changelog/projection/028-add-game-chain-pending-link.xml"/>
+    <include file="db/changelog/projection/029-add-win-conditions-to-terminal-winner.xml"/>
 
     <!-- Simulation: execution context of an isolated simulation deployment -->
     <include file="db/changelog/simulation/001-create-simulation-execution.xml"/>

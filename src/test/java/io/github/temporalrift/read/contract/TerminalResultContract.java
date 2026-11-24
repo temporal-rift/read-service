@@ -87,4 +87,26 @@ public abstract class TerminalResultContract extends PortContract {
         assertThat(inTransaction(() -> port().findByGameId(gameId))).isEmpty();
         assertThat(inTransaction(() -> port().findByGameId(otherGameId))).isPresent();
     }
+
+    @Test
+    void winnerConditionsRoundTripInPublishedOrder() {
+        var winner =
+                new TerminalWinner(LOW, "PROPHETS", "SCORE_THRESHOLD", List.of("SCORE_THRESHOLD", "FACTION_OBJECTIVE"));
+
+        inTransaction(() -> port().addWinners(gameId, List.of(winner)));
+
+        assertThat(inTransaction(() -> port().findByGameId(gameId)))
+                .contains(new TerminalResult(gameId, null, List.of(winner), List.of()));
+    }
+
+    @Test
+    void repeatingAWinnerReplacesItsConditionsWithoutDuplicates() {
+        var payload =
+                new TerminalWinner(LOW, "PROPHETS", "SCORE_THRESHOLD", List.of("SCORE_THRESHOLD", "FACTION_OBJECTIVE"));
+        inTransaction(() -> port().addWinners(gameId, List.of(payload)));
+        inTransaction(() -> port().addWinners(gameId, List.of(payload)));
+
+        assertThat(inTransaction(() -> port().findByGameId(gameId)))
+                .contains(new TerminalResult(gameId, null, List.of(payload), List.of()));
+    }
 }

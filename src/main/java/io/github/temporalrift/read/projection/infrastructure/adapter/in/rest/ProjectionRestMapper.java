@@ -72,6 +72,7 @@ import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.SubmissionTargets;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.SubmissionWindow;
 import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.SubmittedCard;
+import io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.WinCondition;
 
 /** Maps projection query results to generated response DTOs. */
 final class ProjectionRestMapper {
@@ -313,9 +314,14 @@ final class ProjectionRestMapper {
         return new GameResult(
                 endReason,
                 domain.winners().stream()
-                        .map(winner -> new GameWinner(winner.playerId())
-                                .faction(toFaction(winner.faction()))
-                                .winType(toWinType(winner.winType())))
+                        .map(winner -> {
+                            var winType = toWinType(winner.winType());
+                            var gameWinner = new GameWinner(winner.playerId())
+                                    .faction(toFaction(winner.faction()))
+                                    .winType(winType);
+                            gameWinner.setWinConditions(toWinConditions(winType, winner.winConditions()));
+                            return gameWinner;
+                        })
                         .toList(),
                 domain.finalScores().stream()
                         .map(score -> new FinalScore(score.playerId(), score.score()))
@@ -340,6 +346,25 @@ final class ProjectionRestMapper {
         } catch (IllegalArgumentException _) {
             return null;
         }
+    }
+
+    private static java.util.Set<WinCondition> toWinConditions(
+            GameWinner.WinTypeEnum winType, List<String> winConditions) {
+        if (winType != GameWinner.WinTypeEnum.SCORE_THRESHOLD && winType != GameWinner.WinTypeEnum.FACTION_OBJECTIVE) {
+            return null;
+        }
+        if (winConditions == null || winConditions.isEmpty()) {
+            return null;
+        }
+        var mapped = new LinkedHashSet<WinCondition>();
+        for (var condition : winConditions) {
+            try {
+                mapped.add(WinCondition.fromValue(condition));
+            } catch (IllegalArgumentException _) {
+                return null;
+            }
+        }
+        return mapped.isEmpty() ? null : mapped;
     }
 
     private static OffsetDateTime toOffsetDateTime(java.time.Instant instant) {
