@@ -109,4 +109,17 @@ public abstract class TerminalResultContract extends PortContract {
         assertThat(inTransaction(() -> port().findByGameId(gameId)))
                 .contains(new TerminalResult(gameId, null, List.of(payload), List.of()));
     }
+
+    @Test
+    void repeatingAWinnerWithFewerConditionsReplacesTheStoredList() {
+        inTransaction(() -> port().addWinners(
+                        gameId,
+                        List.of(new TerminalWinner(
+                                LOW, "PROPHETS", "SCORE_THRESHOLD", List.of("SCORE_THRESHOLD", "FACTION_OBJECTIVE")))));
+        var replacement = new TerminalWinner(LOW, "PROPHETS", "FACTION_OBJECTIVE", List.of("FACTION_OBJECTIVE"));
+        inTransaction(() -> port().addWinners(gameId, List.of(replacement)));
+
+        assertThat(inTransaction(() -> port().findByGameId(gameId)))
+                .contains(new TerminalResult(gameId, null, List.of(replacement), List.of()));
+    }
 }
