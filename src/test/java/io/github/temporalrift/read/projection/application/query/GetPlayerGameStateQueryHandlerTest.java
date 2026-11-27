@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import io.github.temporalrift.read.projection.application.ProjectionRepositories;
@@ -37,13 +38,19 @@ import io.github.temporalrift.read.projection.domain.model.PlayerGameState;
 import io.github.temporalrift.read.projection.domain.model.PlayerNotInGameException;
 import io.github.temporalrift.read.projection.domain.model.PlayerSubmission;
 import io.github.temporalrift.read.projection.domain.model.PublicBand;
+import io.github.temporalrift.read.projection.domain.model.ResolutionCardOffer;
 import io.github.temporalrift.read.projection.domain.model.RevealedHandCard;
 import io.github.temporalrift.read.projection.domain.model.RevealedHandCardIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedInfluenceIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedProbabilityOutcome;
 import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
+import io.github.temporalrift.read.projection.domain.model.SpecialAvailability;
+import io.github.temporalrift.read.projection.domain.model.SpecialAvailabilityReport;
 import io.github.temporalrift.read.projection.domain.model.TerminalResult;
+import io.github.temporalrift.read.projection.domain.port.out.DeclarationOfferRepository;
+import io.github.temporalrift.read.projection.domain.port.out.DeclarationWindowRepository;
+import io.github.temporalrift.read.projection.domain.port.out.DetectedParadoxRepository;
 import io.github.temporalrift.read.projection.domain.port.out.ExposeFactRepository;
 import io.github.temporalrift.read.projection.domain.port.out.ForesightPreviewRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRepository;
@@ -54,9 +61,11 @@ import io.github.temporalrift.read.projection.domain.port.out.PlayerGameStateRep
 import io.github.temporalrift.read.projection.domain.port.out.PlayerSubmissionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PublicBandRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PublicDeclarationRepository;
+import io.github.temporalrift.read.projection.domain.port.out.ResolutionCardOfferRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedHandCardIntelRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedInfluenceIntelRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedProbabilityIntelRepository;
+import io.github.temporalrift.read.projection.domain.port.out.SpecialAvailabilityRepository;
 import io.github.temporalrift.read.projection.domain.port.out.TerminalResultRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -102,22 +111,22 @@ class GetPlayerGameStateQueryHandlerTest {
     PlayerSubmissionRepository playerSubmissions;
 
     @Mock
-    io.github.temporalrift.read.projection.domain.port.out.DeclarationWindowRepository declarationWindows;
+    DeclarationWindowRepository declarationWindows;
 
     @Mock
-    io.github.temporalrift.read.projection.domain.port.out.DeclarationOfferRepository declarationOffers;
+    DeclarationOfferRepository declarationOffers;
 
     @Mock
-    io.github.temporalrift.read.projection.domain.port.out.ResolutionCardOfferRepository resolutionCardOffers;
+    ResolutionCardOfferRepository resolutionCardOffers;
 
     @Mock
-    io.github.temporalrift.read.projection.domain.port.out.DetectedParadoxRepository detectedParadoxes;
+    DetectedParadoxRepository detectedParadoxes;
 
     @Mock
     TerminalResultRepository terminalResults;
 
     @Mock
-    io.github.temporalrift.read.projection.domain.port.out.SpecialAvailabilityRepository specialAvailabilities;
+    SpecialAvailabilityRepository specialAvailabilities;
 
     private GetPlayerGameStateQueryHandler handler;
 
@@ -148,20 +157,16 @@ class GetPlayerGameStateQueryHandlerTest {
                 specialAvailabilities));
     }
 
-    private static io.github.temporalrift.read.projection.domain.model.SpecialAvailabilityReport availability(
-            UUID gameId, UUID playerId, int eraNumber, int roundNumber) {
-        return new io.github.temporalrift.read.projection.domain.model.SpecialAvailabilityReport(
+    private static SpecialAvailabilityReport availability(UUID gameId, UUID playerId, int eraNumber, int roundNumber) {
+        return new SpecialAvailabilityReport(
                 gameId,
                 playerId,
                 eraNumber,
                 roundNumber,
                 List.of(
-                        new io.github.temporalrift.read.projection.domain.model.SpecialAvailability(
-                                "ANNIHILATE", false, "NOT_ELIGIBLE_THIS_ROUND"),
-                        new io.github.temporalrift.read.projection.domain.model.SpecialAvailability(
-                                "CORRUPT", true, null),
-                        new io.github.temporalrift.read.projection.domain.model.SpecialAvailability(
-                                "CASCADE", true, null)));
+                        new SpecialAvailability("ANNIHILATE", false, "NOT_ELIGIBLE_THIS_ROUND"),
+                        new SpecialAvailability("CORRUPT", true, null),
+                        new SpecialAvailability("CASCADE", true, null)));
     }
 
     private void givenParticipantInPhase(Phase phase, int eraNumber, Integer roundNumber) {
@@ -213,8 +218,8 @@ class GetPlayerGameStateQueryHandlerTest {
 
         handler.get(gameId, playerId);
 
-        org.mockito.Mockito.verify(specialAvailabilities).findByGameIdAndPlayerId(gameId, playerId);
-        org.mockito.Mockito.verifyNoMoreInteractions(specialAvailabilities);
+        Mockito.verify(specialAvailabilities).findByGameIdAndPlayerId(gameId, playerId);
+        Mockito.verifyNoMoreInteractions(specialAvailabilities);
     }
 
     @Test
@@ -578,8 +583,7 @@ class GetPlayerGameStateQueryHandlerTest {
     @Test
     void get_paradoxOffer_isCallerScopedAndDisappearsAfterPass() {
         var affected = UUID.randomUUID();
-        var card = new io.github.temporalrift.read.projection.domain.model.ResolutionCardOffer.Card(
-                UUID.randomUUID(), "STABILIZE", "I");
+        var card = new ResolutionCardOffer.Card(UUID.randomUUID(), "STABILIZE", "I");
         given(playerGameStates.findByGameIdAndPlayerId(gameId, playerId))
                 .willReturn(Optional.of(new PlayerGameState(gameId, playerId, null, List.of())));
         given(gameProjections.findByGameId(gameId))
@@ -614,8 +618,7 @@ class GetPlayerGameStateQueryHandlerTest {
                                 null,
                                 null)));
         given(resolutionCardOffers.findByGameIdAndPlayerIdAndEraNumber(gameId, playerId, 1))
-                .willReturn(Optional.of(new io.github.temporalrift.read.projection.domain.model.ResolutionCardOffer(
-                        gameId, playerId, 1, List.of(card))));
+                .willReturn(Optional.of(new ResolutionCardOffer(gameId, playerId, 1, List.of(card))));
 
         var before = handler.get(gameId, playerId);
         var after = handler.get(gameId, playerId);

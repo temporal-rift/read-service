@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.util.List;
 import java.util.UUID;
 
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.persistence.RollbackException;
@@ -138,7 +139,7 @@ class GameHistoryPersistenceIT {
         }
     }
 
-    private GameHistoryProjectionEntity load(jakarta.persistence.EntityManager manager, UUID gameId) {
+    private GameHistoryProjectionEntity load(EntityManager manager, UUID gameId) {
         return manager.createQuery(
                         "select history from GameHistoryProjectionEntity history "
                                 + "where history.gameId = :gameId and history.eraNumber = 1",

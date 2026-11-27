@@ -123,6 +123,7 @@ import io.github.temporalrift.read.projection.domain.model.PlayerGameState;
 import io.github.temporalrift.read.projection.domain.model.PlayerSubmission;
 import io.github.temporalrift.read.projection.domain.model.PublicBand;
 import io.github.temporalrift.read.projection.domain.model.PublicDeclaration;
+import io.github.temporalrift.read.projection.domain.model.ResolutionCardOffer;
 import io.github.temporalrift.read.projection.domain.model.RevealedHandCard;
 import io.github.temporalrift.read.projection.domain.model.RevealedHandCardIntel;
 import io.github.temporalrift.read.projection.domain.model.RevealedInfluenceIntel;
@@ -132,6 +133,9 @@ import io.github.temporalrift.read.projection.domain.model.RoundActionSummary;
 import io.github.temporalrift.read.projection.domain.model.SpecialAvailability;
 import io.github.temporalrift.read.projection.domain.model.SpecialAvailabilityReport;
 import io.github.temporalrift.read.projection.domain.model.TerminalResult;
+import io.github.temporalrift.read.projection.domain.port.out.DeclarationOfferRepository;
+import io.github.temporalrift.read.projection.domain.port.out.DeclarationWindowRepository;
+import io.github.temporalrift.read.projection.domain.port.out.DetectedParadoxRepository;
 import io.github.temporalrift.read.projection.domain.port.out.ExposeFactRepository;
 import io.github.temporalrift.read.projection.domain.port.out.ForesightPreviewRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameActiveEventRepository;
@@ -142,6 +146,7 @@ import io.github.temporalrift.read.projection.domain.port.out.PlayerGameStateRep
 import io.github.temporalrift.read.projection.domain.port.out.PlayerSubmissionRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PublicBandRepository;
 import io.github.temporalrift.read.projection.domain.port.out.PublicDeclarationRepository;
+import io.github.temporalrift.read.projection.domain.port.out.ResolutionCardOfferRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedHandCardIntelRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedInfluenceIntelRepository;
 import io.github.temporalrift.read.projection.domain.port.out.RevealedProbabilityIntelRepository;
@@ -191,16 +196,16 @@ class ProjectionEventApplierTest {
     PlayerSubmissionRepository playerSubmissions;
 
     @Mock
-    io.github.temporalrift.read.projection.domain.port.out.DeclarationWindowRepository declarationWindows;
+    DeclarationWindowRepository declarationWindows;
 
     @Mock
-    io.github.temporalrift.read.projection.domain.port.out.DeclarationOfferRepository declarationOffers;
+    DeclarationOfferRepository declarationOffers;
 
     @Mock
-    io.github.temporalrift.read.projection.domain.port.out.ResolutionCardOfferRepository resolutionCardOffers;
+    ResolutionCardOfferRepository resolutionCardOffers;
 
     @Mock
-    io.github.temporalrift.read.projection.domain.port.out.DetectedParadoxRepository detectedParadoxes;
+    DetectedParadoxRepository detectedParadoxes;
 
     @Mock
     TerminalResultRepository terminalResults;
@@ -2625,12 +2630,8 @@ class ProjectionEventApplierTest {
 
         then(resolutionCardOffers)
                 .should()
-                .upsert(new io.github.temporalrift.read.projection.domain.model.ResolutionCardOffer(
-                        gameId,
-                        playerId,
-                        1,
-                        List.of(new io.github.temporalrift.read.projection.domain.model.ResolutionCardOffer.Card(
-                                cardId, "STABILIZE", "I"))));
+                .upsert(new ResolutionCardOffer(
+                        gameId, playerId, 1, List.of(new ResolutionCardOffer.Card(cardId, "STABILIZE", "I"))));
     }
 
     @Test

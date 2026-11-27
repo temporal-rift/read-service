@@ -15,7 +15,7 @@ class SpecialAvailabilityReportTest {
 
     @Test
     void specialsAreCopiedSoTheReportCannotSeeLaterMutation() {
-        var specials = new ArrayList<>(java.util.List.of(new SpecialAvailability("SCAN", true, null)));
+        var specials = new ArrayList<>(List.of(new SpecialAvailability("SCAN", true, null)));
 
         var report = new SpecialAvailabilityReport(GAME_ID, PLAYER_ID, 1, 2, specials);
         specials.add(new SpecialAvailability("JAM", false, "used"));
