@@ -13,11 +13,13 @@ import java.util.function.Consumer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.Message;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Propagation;
@@ -26,6 +28,8 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.temporalrift.read.shared.ProcessedEventPort;
 import io.github.temporalrift.read.shared.inmemory.InMemoryDatabase;
 import io.github.temporalrift.read.shared.inmemory.InMemoryTransactionManager;
+import io.github.temporalrift.read.shared.inmemory.RowKey;
+import io.github.temporalrift.read.shared.inmemory.Table;
 
 class SimulationEventDeliveryTest {
 
@@ -198,15 +202,14 @@ class SimulationEventDeliveryTest {
         }
 
         @Bean
-        SimulationEventDelivery simulationEventDelivery(
-                org.springframework.beans.factory.config.ConfigurableListableBeanFactory beanFactory) {
+        SimulationEventDelivery simulationEventDelivery(ConfigurableListableBeanFactory beanFactory) {
             return new SimulationEventDelivery(beanFactory);
         }
     }
 
     static class TestClaims implements ProcessedEventPort {
 
-        private final io.github.temporalrift.read.shared.inmemory.Table<UUID, String> claims;
+        private final Table<UUID, String> claims;
 
         TestClaims(InMemoryDatabase database) {
             this.claims = database.table("claims", false);
@@ -215,13 +218,13 @@ class SimulationEventDeliveryTest {
         @Override
         @Transactional
         public boolean claim(UUID eventId, String consumer) {
-            var key = io.github.temporalrift.read.shared.inmemory.RowKey.of(consumer);
+            var key = RowKey.of(consumer);
             claims.lock(eventId, key);
             return claims.putIfAbsent(eventId, key, consumer);
         }
     }
 
-    @org.springframework.stereotype.Component
+    @Component
     static class FirstGameListener {
 
         private final ProcessedEventPort processedEvents;
@@ -237,7 +240,7 @@ class SimulationEventDeliveryTest {
         }
     }
 
-    @org.springframework.stereotype.Component
+    @Component
     static class SecondGameListener {
 
         private final ProcessedEventPort processedEvents;
@@ -253,7 +256,7 @@ class SimulationEventDeliveryTest {
         }
     }
 
-    @org.springframework.stereotype.Component
+    @Component
     static class BothTopicsListener {
 
         static Map<String, Object> lastHeaders = Map.of();

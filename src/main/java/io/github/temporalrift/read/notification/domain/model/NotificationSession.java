@@ -1,5 +1,8 @@
 package io.github.temporalrift.read.notification.domain.model;
 
+import java.util.ArrayDeque;
+import java.util.Queue;
+
 import io.github.temporalrift.read.notification.domain.port.out.NotificationDeliveryPort;
 
 public final class NotificationSession {
@@ -7,7 +10,7 @@ public final class NotificationSession {
     private final NotificationRecipient recipient;
     private final NotificationDeliveryPort delivery;
     private final int maxPendingMessages;
-    private final java.util.Queue<NotificationMessage> pending = new java.util.ArrayDeque<>();
+    private final Queue<NotificationMessage> pending = new ArrayDeque<>();
     private boolean initializing = true;
 
     public NotificationSession(

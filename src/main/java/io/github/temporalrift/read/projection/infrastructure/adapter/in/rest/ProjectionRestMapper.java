@@ -1,5 +1,6 @@
 package io.github.temporalrift.read.projection.infrastructure.adapter.in.rest;
 
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.LinkedHashSet;
@@ -275,10 +276,7 @@ final class ProjectionRestMapper {
         if (domain.card() != null) {
             var card = domain.card();
             response.setCard(new SubmittedCard(
-                            card.cardInstanceId(),
-                            io.github.temporalrift.read.projection.infrastructure.adapter.in.rest.v1.model.CardType
-                                    .valueOf(card.cardType()),
-                            toCardGrade(card.grade()))
+                            card.cardInstanceId(), CardType.valueOf(card.cardType()), toCardGrade(card.grade()))
                     .disguiseCategory(
                             card.disguiseCategory() == null ? null : CardCategory.valueOf(card.disguiseCategory())));
         }
@@ -371,7 +369,7 @@ final class ProjectionRestMapper {
         return mapped.isEmpty() ? Optional.empty() : Optional.of(mapped);
     }
 
-    private static OffsetDateTime toOffsetDateTime(java.time.Instant instant) {
+    private static OffsetDateTime toOffsetDateTime(Instant instant) {
         return instant == null ? null : OffsetDateTime.ofInstant(instant, ZoneOffset.UTC);
     }
 

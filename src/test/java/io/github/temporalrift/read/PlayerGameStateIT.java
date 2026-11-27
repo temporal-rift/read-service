@@ -14,10 +14,13 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.IntStream;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -606,7 +609,7 @@ class PlayerGameStateIT {
     @Test
     void playersPendingPlayersAndParadoxes_followSeatAndPhaseStartOrder() throws Exception {
         var gameId = UUID.randomUUID();
-        var random = new java.util.Random();
+        var random = new Random();
         // Ids that sort against the roster and phase order in every uuid order, so only the stored order can pass.
         var cy = new UUID(-1L, random.nextLong());
         var ada = new UUID(1L, random.nextLong());
@@ -1809,31 +1812,29 @@ class PlayerGameStateIT {
                         .with(authentication(new PlayerAuthenticationToken(new PlayerPrincipal(tracingPlayerId)))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.myRevealedIntel.length()").value(3))
-                .andExpect(jsonPath("$.myRevealedIntel[*].kind")
-                        .value(org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is("INFLUENCE"))))
+                .andExpect(jsonPath("$.myRevealedIntel[*].kind").value(Matchers.everyItem(Matchers.is("INFLUENCE"))))
                 .andExpect(jsonPath("$.myRevealedIntel[*].eventId")
-                        .value(org.hamcrest.Matchers.containsInAnyOrder(
+                        .value(Matchers.containsInAnyOrder(
                                 tracedEventId.toString(),
                                 emptyTracedEventId.toString(),
                                 cardOnlyTracedEventId.toString())))
                 .andExpect(jsonPath("$.myRevealedIntel[?(@.eventId == '%s')].influencerPlayerIds[*]", tracedEventId)
-                        .value(org.hamcrest.Matchers.containsInAnyOrder(
-                                influencerOne.toString(), mimicInfluencer.toString())))
+                        .value(Matchers.containsInAnyOrder(influencerOne.toString(), mimicInfluencer.toString())))
                 .andExpect(
                         jsonPath("$.myRevealedIntel[?(@.eventId == '%s')].mimicInfluencerPlayerIds[*]", tracedEventId)
-                                .value(org.hamcrest.Matchers.contains(mimicInfluencer.toString())))
+                                .value(Matchers.contains(mimicInfluencer.toString())))
                 .andExpect(jsonPath(
                                 "$.myRevealedIntel[?(@.eventId == '%s')].influencerPlayerIds[*]", cardOnlyTracedEventId)
-                        .value(org.hamcrest.Matchers.contains(influencerOne.toString())))
+                        .value(Matchers.contains(influencerOne.toString())))
                 .andExpect(jsonPath(
                                 "$.myRevealedIntel[?(@.eventId == '%s')].mimicInfluencerPlayerIds",
                                 cardOnlyTracedEventId)
-                        .value(org.hamcrest.Matchers.contains(org.hamcrest.Matchers.empty())))
+                        .value(Matchers.contains(Matchers.empty())))
                 .andExpect(jsonPath("$.myRevealedIntel[?(@.eventId == '%s')].influencerPlayerIds", emptyTracedEventId)
-                        .value(org.hamcrest.Matchers.contains(org.hamcrest.Matchers.empty())))
+                        .value(Matchers.contains(Matchers.empty())))
                 .andExpect(
                         jsonPath("$.myRevealedIntel[?(@.eventId == '%s')].mimicInfluencerPlayerIds", emptyTracedEventId)
-                                .value(org.hamcrest.Matchers.contains(org.hamcrest.Matchers.empty())));
+                                .value(Matchers.contains(Matchers.empty())));
 
         assertThatInfluenceIntelInfluencers(gameId, tracingPlayerId, 1, tracedEventId, 2);
         assertThatInfluenceIntelInfluencers(gameId, tracingPlayerId, 1, emptyTracedEventId, 0);
@@ -2560,7 +2561,7 @@ class PlayerGameStateIT {
     }
 
     private static List<Map<String, Object>> roster(UUID... playerIds) {
-        return java.util.stream.IntStream.range(0, playerIds.length)
+        return IntStream.range(0, playerIds.length)
                 .mapToObj(seat ->
                         Map.<String, Object>of("playerId", playerIds[seat], "playerName", "Player " + (seat + 1)))
                 .toList();

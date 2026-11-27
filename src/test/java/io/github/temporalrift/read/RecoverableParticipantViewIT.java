@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.IntStream;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.Test;
@@ -813,7 +814,7 @@ class RecoverableParticipantViewIT {
     }
 
     private static List<Map<String, Object>> roster(UUID... playerIds) {
-        return java.util.stream.IntStream.range(0, playerIds.length)
+        return IntStream.range(0, playerIds.length)
                 .mapToObj(seat ->
                         Map.<String, Object>of("playerId", playerIds[seat], "playerName", "Player " + (seat + 1)))
                 .toList();

@@ -16,6 +16,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.jayway.jsonpath.JsonPath;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -26,6 +27,7 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import io.github.temporalrift.read.projection.domain.model.GamePlayer;
+import io.github.temporalrift.read.projection.domain.model.GameProjection;
 import io.github.temporalrift.read.projection.domain.model.Phase;
 import io.github.temporalrift.read.projection.domain.port.out.GamePlayerRepository;
 import io.github.temporalrift.read.projection.domain.port.out.GameProjectionRepository;
@@ -91,7 +93,7 @@ public abstract class SimulationExecutionContract {
         checkpoint()
                 .andExpect(jsonPath("$.state").value("ACTIVE"))
                 .andExpect(jsonPath("$.gameId").value(game.gameId.toString()))
-                .andExpect(jsonPath("$.sourceWatermarks").value(not(org.hamcrest.Matchers.empty())));
+                .andExpect(jsonPath("$.sourceWatermarks").value(not(Matchers.empty())));
 
         deliver(game.ended);
         checkpoint()
@@ -354,7 +356,7 @@ public abstract class SimulationExecutionContract {
         bean(TransactionTemplate.class).executeWithoutResult(status -> work.run());
     }
 
-    private io.github.temporalrift.read.projection.domain.model.GameProjection projection(Game game) {
+    private GameProjection projection(Game game) {
         return bean(GameProjectionRepository.class).findByGameId(game.gameId).orElseThrow();
     }
 }

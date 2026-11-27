@@ -1,5 +1,6 @@
 package io.github.temporalrift.read.projection.infrastructure.adapter.out.persistence;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
 
@@ -35,7 +36,7 @@ class JpaPublicBandAdapter implements PublicBandRepository {
         // still queued in the persistence context, so a same-transaction replace would insert
         // duplicates and violate the identity constraint. Managed-entity updates/removes flush
         // in order instead.
-        var remaining = new java.util.LinkedHashMap<UUID, PublicBand>();
+        var remaining = new LinkedHashMap<UUID, PublicBand>();
         for (var band : bands) {
             remaining.put(band.eventId(), band);
         }

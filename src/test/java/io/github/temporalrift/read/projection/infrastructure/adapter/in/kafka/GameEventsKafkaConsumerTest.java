@@ -16,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
 import tools.jackson.databind.ObjectMapper;
 
@@ -175,8 +176,7 @@ class GameEventsKafkaConsumerTest {
                         gameId, 2, playerId, List.of(ActivistDeclarationMode.RALLY, ActivistDeclarationMode.MOMENTUM)));
     }
 
-    private static org.springframework.messaging.Message<Object> jsonMessage(
-            UUID eventId, String eventType, String payload) {
+    private static Message<Object> jsonMessage(UUID eventId, String eventType, String payload) {
         return MessageBuilder.withPayload((Object) payload.getBytes(StandardCharsets.UTF_8))
                 .setHeader("eventId", eventId.toString())
                 .setHeader("eventType", eventType)
@@ -422,11 +422,11 @@ class GameEventsKafkaConsumerTest {
         new GameEventsKafkaConsumer(admission(), applier, new ObjectMapper(), skipMetrics).handle(message);
 
         var payloadCaptor = ArgumentCaptor.forClass(ActionRoundStartedPayload.class);
-        var occurredAtCaptor = ArgumentCaptor.forClass(java.time.Instant.class);
+        var occurredAtCaptor = ArgumentCaptor.forClass(Instant.class);
         then(applier).should().applyActionRoundStarted(payloadCaptor.capture(), occurredAtCaptor.capture());
         assertThat(payloadCaptor.getValue().gameId()).isEqualTo(gameId);
         assertThat(payloadCaptor.getValue().roundNumber()).isEqualTo(2);
-        assertThat(occurredAtCaptor.getValue()).isEqualTo(java.time.Instant.parse("2026-09-16T00:00:00Z"));
+        assertThat(occurredAtCaptor.getValue()).isEqualTo(Instant.parse("2026-09-16T00:00:00Z"));
     }
 
     @Test

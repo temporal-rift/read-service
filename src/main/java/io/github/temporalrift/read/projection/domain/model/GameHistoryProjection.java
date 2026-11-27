@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
@@ -167,7 +168,7 @@ public record GameHistoryProjection(
                 .orElse(null);
     }
 
-    private java.util.Map<UUID, HistoryEventDefinition> definitionsById() {
+    private Map<UUID, HistoryEventDefinition> definitionsById() {
         return eventDefinitions.stream()
                 .collect(Collectors.toUnmodifiableMap(HistoryEventDefinition::eventId, Function.identity()));
     }

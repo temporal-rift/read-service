@@ -10,6 +10,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.CannotAcquireLockException;
@@ -151,8 +152,7 @@ class InMemoryTransactionManagerTest {
 
         var second = CompletableFuture.runAsync(() -> transaction.executeWithoutResult(status -> rows.lock(game, ROW)));
 
-        assertThatThrownBy(() -> second.get(300, TimeUnit.MILLISECONDS))
-                .isInstanceOf(java.util.concurrent.TimeoutException.class);
+        assertThatThrownBy(() -> second.get(300, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
         release.countDown();
         second.get(5, TimeUnit.SECONDS);
         first.get(5, TimeUnit.SECONDS);
